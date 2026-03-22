@@ -1,0 +1,40 @@
+{
+  "header": [],
+  "footer": [
+    {
+      "label": "Contact",
+      "url": "https://www.trottistore.fr/contact",
+      "children": []
+    },
+    {
+      "label": "Garantie et SAV",
+      "url": "https://www.trottistore.fr/garantie-et-sav",
+      "children": []
+    },
+    {
+      "label": "Livraison",
+      "url": "https://www.trottistore.fr/livraison",
+      "children": []
+    },
+    {
+      "label": "Politique de Retours",
+      "url": "https://www.trottistore.fr/politique-de-retours",
+      "children": []
+    },
+    {
+      "label": "C.G.V",
+      "url": "https://www.trottistore.fr/conditions-generales-de-vente",
+      "children": []
+    },
+    {
+      "label": "Mentions légales",
+      "url": "https://www.trottistore.fr/mentions-legales",
+      "children": []
+    },
+    {
+      "label": "Politique de confidentialité",
+      "url": "https://www.trottistore.fr/politique-de-confidentialite",
+      "children": []
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+[
+  {
+    "url": "https://trottistore.fr/",
+    "action": "https://www.trottistore.fr/",
+    "method": "GET",
+    "fields": [
+      {
+        "name": "s",
+        "type": "text",
+        "required": false,
+        "placeholder": "Je cherche à acheter..."
+      },
+      {
+        "name": "post_type",
+        "type": "hidden",
+        "required": false,
+        "placeholder": ""
+      }
+    ]
+  },
+  {
+    "url": "https://trottistore.fr/",
+    "action": "https://www.trottistore.fr/",
+    "method": "GET",
+    "fields": [
+      {
+        "name": "s",
+        "type": "text",
+        "required": false,
+        "placeholder": "Je cherche à acheter..."
+      },
+      {
+        "name": "post_type",
+        "type": "hidden",
+        "required": false,
+        "placeholder": ""
+      }
+    ]
+  }
+]

@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+.next/
+.turbo/
+
+# Prisma
+packages/database/prisma/generated/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Docker volumes
+pgdata/
+redisdata/
+clickhousedata/
+miniodata/
+
+# Crawl data (large files)
+data/crawl/images/
+data/crawl/raw-html/
+
+# Claude Code
+.claude/
+
+# OS
+Thumbs.db

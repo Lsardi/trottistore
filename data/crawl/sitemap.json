@@ -1,0 +1,219 @@
+[
+  {
+    "url": "https://trottistore.fr/",
+    "type": "homepage",
+    "status": 200,
+    "title": "Accueil - Trottistore",
+    "metaDescription": "",
+    "metaTitle": "Accueil - Trottistore",
+    "canonical": "https://www.trottistore.fr/",
+    "ogData": {
+      "og:locale": "fr_FR",
+      "og:type": "website",
+      "og:title": "Accueil - Trottistore",
+      "og:description": "LA MOBILITÉ URBAINE RÉINVENTÉEGLISSEZ EN TOUTE LIBERTÉ AVEC NOS TROTTINETTES Prenez le contrôle de votre mobilité avecnos trottinettes électriques haut de gamme. En savoir plusROULEZ EN TOUTE LÉGÈRETÉADOPTEZ LA MOBILITÉ ÉLECTRIQUE, RAPIDE ET SANS EFFORT. Optez pour la trottinette électrique qui allie style et performance. En savoir plus Garantie Satisfait ou remboursé Paiement sécurisé Paiements…",
+      "og:url": "https://www.trottistore.fr/",
+      "og:site_name": "Trottistore",
+      "og:image": "https://www.trottistore.fr/wp-content/uploads/2025/05/TROTTINETTE_ELECTRIQUE_DUALTRON_TOGO_36V12A-300x300.jpg"
+    },
+    "jsonLd": [
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://www.trottistore.fr/",
+            "url": "https://www.trottistore.fr/",
+            "name": "Accueil - Trottistore",
+            "isPartOf": {
+              "@id": "https://www.trottistore.fr/#website"
+            },
+            "primaryImageOfPage": {
+              "@id": "https://www.trottistore.fr/#primaryimage"
+            },
+            "image": {
+              "@id": "https://www.trottistore.fr/#primaryimage"
+            },
+            "thumbnailUrl": "https://www.trottistore.fr/wp-content/uploads/2025/05/TROTTINETTE_ELECTRIQUE_DUALTRON_TOGO_36V12A-300x300.jpg",
+            "datePublished": "2018-11-16T09:14:54+00:00",
+            "dateModified": "2025-07-21T12:49:20+00:00",
+            "breadcrumb": {
+              "@id": "https://www.trottistore.fr/#breadcrumb"
+            },
+            "inLanguage": "fr-FR",
+            "potentialAction": [
+              {
+                "@type": "ReadAction",
+                "target": [
+                  "https://www.trottistore.fr/"
+                ]
+              }
+            ]
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "fr-FR",
+            "@id": "https://www.trottistore.fr/#primaryimage",
+            "url": "https://www.trottistore.fr/wp-content/uploads/2025/05/TROTTINETTE_ELECTRIQUE_DUALTRON_TOGO_36V12A.jpg",
+            "contentUrl": "https://www.trottistore.fr/wp-content/uploads/2025/05/TROTTINETTE_ELECTRIQUE_DUALTRON_TOGO_36V12A.jpg",
+            "width": 1024,
+            "height": 1024
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://www.trottistore.fr/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Accueil"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.trottistore.fr/#website",
+            "url": "https://www.trottistore.fr/",
+            "name": "Trottistore",
+            "description": "My WordPress Blog",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://www.trottistore.fr/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "fr-FR"
+          }
+        ]
+      }
+    ],
+    "internalLinks": [
+      "https://trottistore.fr/"
+    ],
+    "externalLinks": [
+      "https://www.trottistore.fr/",
+      "https://www.trottistore.fr/liste-de-souhaits",
+      "https://www.trottistore.fr/panier",
+      "https://www.trottistore.fr/mon-compte",
+      "https://www.trottistore.fr/categorie/trottinettes-electriques",
+      "https://www.trottistore.fr/categorie/trottinette",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/casques",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/customisation",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/gants",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/lampes-leds",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/outils-ateliers",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/rangements",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/retroviseurs",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/sonnettes-klaxon",
+      "https://www.trottistore.fr/categorie/trottinette/accessoires-trottinette/stickers-et-catadioptres",
+      "https://www.trottistore.fr/categorie/trottinette/batteries-et-chargeurs",
+      "https://www.trottistore.fr/categorie/trottinette/batteries-et-chargeurs/adapteurs-chargeurs",
+      "https://www.trottistore.fr/categorie/trottinette/batteries-et-chargeurs/batteries",
+      "https://www.trottistore.fr/categorie/trottinette/batteries-et-chargeurs/bms",
+      "https://www.trottistore.fr/categorie/trottinette/batteries-et-chargeurs/chargeurs",
+      "https://www.trottistore.fr/categorie/trottinette/batteries-et-chargeurs/ports-de-charge",
+      "https://www.trottistore.fr/categorie/trottinette/batteries-et-chargeurs/reconditionnement",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/amortisseurs",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/axes",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/bequilles",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/decks-et-cale-pieds",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/fourches-et-bras-fourche",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/guidons",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/locks",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/potences",
+      "https://www.trottistore.fr/categorie/trottinette/chassis-pieces-metal/vis",
+      "https://www.trottistore.fr/categorie/trottinette/electronique",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/accelerateurs",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/cables-connectiques",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/controleur-et-carte-mere",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/controleur-leds",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/convertisseurs-tension",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/displays",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/eclairages",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/eclairages-electronique/clignotants",
+      "https://www.trottistore.fr/categorie/trottinette/electronique/interrupteurs-commodos",
+      "https://www.trottistore.fr/categorie/trottinette/freinage",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/accessoires-freins-hydrauliques",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/cables-et-gaines",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/capteurs-freins",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/disques-de-frein",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/etriers-et-supports",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/gachette-frein-magnetique",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/huile-de-freins",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/kit-freins-hydrauliques",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/leviers-de-freins-mecaniques",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/plaquettes-de-frein",
+      "https://www.trottistore.fr/categorie/trottinette/freinage/tambour-de-freins",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique/caches-axe-roues",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique/caches-display",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique/caches-fourches-potences",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique/caches-leds",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique/gardes-boue",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique/plastiques-decks-et-leds",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique/poignees-guidon",
+      "https://www.trottistore.fr/categorie/trottinette/pieces-plastique/support-et-accessoires-garde-boues",
+      "https://www.trottistore.fr/categorie/trottinette/roues",
+      "https://www.trottistore.fr/categorie/draisienne/chambres-a-air",
+      "https://www.trottistore.fr/categorie/trottinette/roues/chambres-a-air-roues",
+      "https://www.trottistore.fr/categorie/trottinette/roues/jantes",
+      "https://www.trottistore.fr/categorie/trottinette/roues/moteurs",
+      "https://www.trottistore.fr/categorie/trottinette/roues/pneus-gonflables",
+      "https://www.trottistore.fr/categorie/trottinette/roues/pneus-plein",
+      "https://www.trottistore.fr/categorie/trottinette/roues/roues-completes",
+      "https://www.trottistore.fr/categorie/trottinette/roues/roulements",
+      "https://www.trottistore.fr/categorie/trottinette/roues/valves-extension-preventif",
+      "https://www.trottistore.fr/produit/trottinette-electrique-teverun-space-52v-18ah",
+      "https://www.trottistore.fr/produit/trottinette-electrique-teverun-blade-mini-ultra-60v-27a",
+      "https://www.trottistore.fr/produit/trottinette-electrique-dualtron-forever-60v-182a-2025-ey4",
+      "https://www.trottistore.fr/produit/trottinette-kuickwheel-s9-36v-156-ah",
+      "https://www.trottistore.fr/produit/trottinette-electrique-dualtron-x-ltd",
+      "https://www.trottistore.fr/produit/trottinette-electrique-dualtron-achilleus-60v-35ah-rouge-2024",
+      "https://www.trottistore.fr/produit/trottinette-electrique-dualtron-achilleus-60v-35ah-2024",
+      "https://www.trottistore.fr/produit/trottinette-electrique-teverun-fighter-7260r-edition-2024-v3",
+      "https://www.trottistore.fr/produit/trottinette-electrique-teverun-tetra-4-moteurs",
+      "https://www.trottistore.fr/produit/trottinette-electrique-dualtron-aminia-special-52v-175ah-ipx5",
+      "https://www.trottistore.fr/produit/trottinette-electrique-dualtron-togo-plus-48v15a",
+      "https://www.trottistore.fr/produit/trottinette-electrique-dualtron-new-storm-ltd-84v45ah-ey4",
+      "https://maps.google.com/?cid=2815183900936899278",
+      "https://search.google.com/local/writereview?placeid=ChIJoffqW-Rv5kcRzgq-qNeKESc",
+      "https://www.google.com/maps/contrib/111456440555867691070/reviews",
+      "https://www.google.com/maps/contrib/104301617543556467920/reviews",
+      "https://www.google.com/maps/contrib/106482118334361106559/reviews",
+      "https://www.google.com/maps/contrib/105295021828314027665/reviews",
+      "https://www.google.com/maps/contrib/102874152815736396529/reviews",
+      "https://www.google.com/maps/contrib/110099653325025853219/reviews",
+      "https://www.google.com/maps/contrib/111640948824171558667/reviews",
+      "https://www.google.com/maps/contrib/115540641801599348244/reviews",
+      "https://www.google.com/maps/contrib/109104791350219058392/reviews",
+      "https://www.trottistore.fr/comment-choisir-la-meilleure-trottinette-electrique-pour-adulte",
+      "https://www.trottistore.fr/category/guide-dachat",
+      "https://www.trottistore.fr/2024/09/26",
+      "https://www.trottistore.fr/author/admin_qu55e",
+      "https://www.trottistore.fr/pourquoi-opter-pour-une-trottinette-electrique-pliable",
+      "https://www.trottistore.fr/category/conseils-pratiques",
+      "https://www.trottistore.fr/2024/09/25",
+      "https://www.trottistore.fr/become-a-fresher-in-minimalist-food-festival-baroque",
+      "https://www.trottistore.fr/avantages-de-la-trottinette-electrique",
+      "https://www.trottistore.fr/2024/09/24",
+      "https://www.trottistore.fr/contact",
+      "https://www.trottistore.fr/garantie-et-sav",
+      "https://www.trottistore.fr/livraison",
+      "https://www.trottistore.fr/politique-de-retours",
+      "https://www.trottistore.fr/conditions-generales-de-vente",
+      "https://www.trottistore.fr/mentions-legales",
+      "https://www.trottistore.fr/politique-de-confidentialite"
+    ],
+    "crawledAt": "2026-03-22T05:34:48.506Z"
+  }
+]

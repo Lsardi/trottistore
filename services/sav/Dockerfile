@@ -1,0 +1,25 @@
+FROM node:22-alpine AS base
+RUN corepack enable && corepack prepare pnpm@10 --activate
+
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY services/sav/package.json ./services/sav/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+RUN pnpm install --frozen-lockfile --filter @trottistore/service-sav...
+
+FROM base AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN pnpm --filter @trottistore/database db:generate
+RUN pnpm --filter @trottistore/service-sav build
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/services/sav/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+EXPOSE 3004
+CMD ["node", "dist/index.js"]
