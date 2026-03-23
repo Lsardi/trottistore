@@ -2,33 +2,16 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { motion, useScroll, useTransform } from "motion/react";
 import {
-  Zap,
-  Wrench,
-  CreditCard,
+  Shield,
+  Lock,
+  Headphones,
+  Truck,
   Star,
-  ArrowRight,
-  ChevronDown,
-  MapPin,
-  Sparkles,
-  BookOpen,
-  Clock,
-  ShieldCheck,
-  ChevronRight,
+  ShoppingCart,
+  Heart,
+  Eye,
 } from "lucide-react";
-import {
-  FadeIn,
-  StaggerContainer,
-  StaggerItem,
-  AnimatedCounter,
-  TextReveal,
-  HorizontalScroll,
-  RevealImage,
-  ScaleOnScroll,
-  Parallax,
-  MagneticButton,
-} from "@/components/motion";
 import { formatPriceTTC } from "@/lib/utils";
 
 // ─── TYPES ────────────────────────────────────────────────
@@ -59,50 +42,43 @@ interface FeaturedProduct {
 const GOOGLE_REVIEWS = [
   {
     name: "Marc D.",
-    date: "Il y a 2 semaines",
-    rating: 5,
-    text: "Excellent service ! Ma Dualtron Achilleus est arrivee en 48h, parfaitement emballee. Le SAV m'a rappele pour verifier que tout etait ok.",
+    date: "il y a 2 semaines",
+    text: "Excellent service ! Ma Dualtron Achilleus est arrivée en 48h, parfaitement emballée. Le SAV m'a rappelé pour vérifier que tout était ok.",
   },
   {
     name: "Sophie L.",
-    date: "Il y a 1 mois",
-    rating: 5,
-    text: "J'ai fait reparer ma trottinette a l'atelier de l'Ile-Saint-Denis. Travail impeccable, prix honnete et tres bon accueil.",
+    date: "il y a 1 mois",
+    text: "J'ai fait réparer ma trottinette à l'atelier de l'Île-Saint-Denis. Travail impeccable, prix honnête et très bon accueil.",
   },
   {
     name: "Karim B.",
-    date: "Il y a 3 semaines",
-    rating: 5,
-    text: "Paiement en 4x sans frais, c'est top pour une Teverun Fighter. Livraison rapide et produit conforme a la description.",
+    date: "il y a 3 semaines",
+    text: "Paiement en 4x sans frais, c'est top pour une Teverun Fighter. Livraison rapide et produit conforme à la description.",
   },
   {
     name: "Julie M.",
-    date: "Il y a 1 mois",
-    rating: 5,
-    text: "Tres satisfaite de ma Kuickwheel S9 ! Parfaite pour mes trajets quotidiens. Merci TrottiStore pour les conseils.",
+    date: "il y a 1 mois",
+    text: "Très satisfaite de ma Kuickwheel S9 ! Parfaite pour mes trajets quotidiens. Merci TrottiStore pour les conseils.",
   },
   {
     name: "Thomas R.",
-    date: "Il y a 2 mois",
-    rating: 5,
-    text: "Specialistes serieux, ils connaissent vraiment leur sujet. J'ai eu un diagnostic gratuit et des recommandations pertinentes.",
+    date: "il y a 2 mois",
+    text: "Spécialistes sérieux, ils connaissent vraiment leur sujet. J'ai eu un diagnostic gratuit et des recommandations pertinentes.",
   },
 ];
 
 const BLOG_POSTS = [
   {
-    title: "Guide d'achat trottinette electrique 2026",
-    excerpt:
-      "Comment choisir la trottinette adaptee a vos besoins : autonomie, puissance, poids, budget...",
+    title: "Guide d'achat trottinette électrique 2026",
+    category: "Guide d'Achat",
     image:
       "https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNSPACE52V18A-TROTTINETTE-ELECTRIQUE-TEVERUN-SPACE-52V-18AH-300x300.png",
     slug: "guide-achat-trottinette-2026",
     date: "15 mars 2026",
   },
   {
-    title: "Comment entretenir sa trottinette electrique",
-    excerpt:
-      "Les gestes essentiels pour prolonger la duree de vie de votre trottinette : freins, pneus, batterie.",
+    title: "Comment entretenir sa trottinette électrique",
+    category: "Entretien",
     image:
       "https://www.trottistore.fr/wp-content/uploads/2025/07/MMDUALTRONFOREVER60V18A2025-TROTTINETTE-ELECTRIQUE-DUALTRON-FOREVER-60V-182A-2025-EY4-300x300.jpg",
     slug: "entretenir-trottinette-electrique",
@@ -110,79 +86,142 @@ const BLOG_POSTS = [
   },
   {
     title: "Les meilleurs accessoires pour trottinette",
-    excerpt:
-      "Eclairage, antivol, casque, sacoche... Les accessoires indispensables pour rouler en securite.",
+    category: "Conseils Pratiques",
     image:
       "https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg",
     slug: "meilleurs-accessoires-trottinette",
     date: "1 mars 2026",
   },
-];
-
-const USPS = [
   {
-    icon: MapPin,
-    title: "Atelier physique a L'Ile-Saint-Denis",
-    desc: "Boutique et atelier de reparation. Venez voir, toucher, essayer. Nous sommes de vrais passionnes, pas un entrepot anonyme.",
-  },
-  {
-    icon: Sparkles,
-    title: "Expert depuis 2019",
-    desc: "Plus de 5 ans d'experience, des milliers de clients. On connait chaque trottinette sur le bout des doigts.",
-  },
-  {
-    icon: CreditCard,
-    title: "Paiement en 2x 3x 4x sans frais",
-    desc: "Payez en plusieurs fois directement chez nous, sans organisme tiers et sans interet. Simple et transparent.",
-  },
-  {
-    icon: Wrench,
-    title: "SAV reactif sous 48h",
-    desc: "Diagnostic gratuit, devis avant intervention. Reparation toutes marques, pieces d'origine. Prise en charge rapide.",
+    title: "Réglementation trottinette électrique en France",
+    category: "Guide d'Achat",
+    image:
+      "https://www.trottistore.fr/wp-content/uploads/2025/07/MMDUALTRONXLTD-TROTTINETTE-ELECTRIQUE-DUALTRON-X-LTD-300x300.jpg",
+    slug: "reglementation-trottinette-france",
+    date: "22 février 2026",
   },
 ];
 
-const CATEGORIES = [
-  {
-    name: "Trottinettes Electriques",
-    slug: "trottinettes-electriques",
-    desc: "Dualtron, Teverun, Kuickwheel... Les meilleures marques au meilleur prix",
-    icon: Zap,
-    size: "large" as const,
-  },
-  {
-    name: "Pieces detachees",
-    slug: "pieces-detachees",
-    desc: "Tout pour reparer et entretenir votre trottinette",
-    icon: Wrench,
-    size: "large" as const,
-  },
-  { name: "Eclairages", slug: "eclairages", emoji: "💡", size: "small" as const },
-  { name: "Freinage", slug: "freinage", emoji: "🔧", size: "small" as const },
-  { name: "Amortisseurs", slug: "amortisseurs", emoji: "⚙️", size: "small" as const },
-  { name: "Securite", slug: "securite-en-mobilite-electrique", emoji: "🛡️", size: "small" as const },
-];
+// ─── PRODUCT CARD COMPONENT ──────────────────────────────
 
-// ─── SCROLL CHEVRON COMPONENT ─────────────────────────────
+function ProductCard({ product }: { product: FeaturedProduct }) {
+  const primaryImage = product.images?.[0];
+  const price = formatPriceTTC(product.priceHt, product.tvaRate);
 
-function ScrollIndicator() {
   return (
-    <motion.div
-      className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-white/40"
-      animate={{ y: [0, 8, 0] }}
-      transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+    <div className="product-card">
+      <Link href={`/produits/${product.slug}`}>
+        <div className="product-card-image">
+          {primaryImage ? (
+            <img
+              src={primaryImage.url}
+              alt={primaryImage.alt || product.name}
+            />
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                color: "#d1d5db",
+                fontSize: "3rem",
+              }}
+            >
+              🛴
+            </div>
+          )}
+        </div>
+      </Link>
+      <div className="product-card-body">
+        {product.brand && (
+          <div className="product-card-category">{product.brand.name}</div>
+        )}
+        <Link href={`/produits/${product.slug}`}>
+          <h3 className="product-card-title">{product.name}</h3>
+        </Link>
+        <div className="product-card-price">{price}</div>
+        <div className="product-card-actions">
+          <button className="btn-add">
+            <ShoppingCart style={{ width: 14, height: 14 }} />
+            Ajouter au panier
+          </button>
+          <button className="btn-icon">
+            <Heart style={{ width: 16, height: 16 }} />
+          </button>
+          <Link href={`/produits/${product.slug}`} className="btn-icon">
+            <Eye style={{ width: 16, height: 16 }} />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PRODUCT GRID SKELETON ───────────────────────────────
+
+function ProductGridSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+        gap: "16px",
+      }}
     >
-      <span className="text-xs tracking-widest uppercase">Scroll</span>
-      <ChevronDown className="w-5 h-5" />
-    </motion.div>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="product-card" style={{ opacity: 0.5 }}>
+          <div className="product-card-image">
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background: "#f3f4f6",
+              }}
+            />
+          </div>
+          <div className="product-card-body">
+            <div
+              style={{
+                height: 10,
+                background: "#f3f4f6",
+                borderRadius: 4,
+                marginBottom: 8,
+                width: "60%",
+              }}
+            />
+            <div
+              style={{
+                height: 12,
+                background: "#f3f4f6",
+                borderRadius: 4,
+                marginBottom: 8,
+                width: "90%",
+              }}
+            />
+            <div
+              style={{
+                height: 16,
+                background: "#f3f4f6",
+                borderRadius: 4,
+                width: "40%",
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 // ─── HOMEPAGE ─────────────────────────────────────────────
 
 export default function HomePage() {
-  const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("new");
 
   useEffect(() => {
     async function fetchFeatured() {
@@ -193,7 +232,7 @@ export default function HomePage() {
           setFeaturedProducts(data.data || data.products || data || []);
         }
       } catch {
-        // Silently fail
+        // Silently fail — products will show empty state
       } finally {
         setLoading(false);
       }
@@ -204,577 +243,526 @@ export default function HomePage() {
   return (
     <>
       {/* ================================================================
-          SECTION 1 — HERO (full viewport, dark)
+          SECTION 1 — HERO BANNER
           ================================================================ */}
-      <section className="relative min-h-screen bg-gray-950 text-white flex items-center overflow-hidden">
-        {/* Ambient gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-950 via-gray-950 to-black" />
-        <div className="absolute top-1/4 right-0 w-[600px] h-[600px] bg-[#28afb1]/8 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-[#28afb1]/5 rounded-full blur-[100px]" />
-
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full py-24 md:py-0">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-            {/* Left — Text */}
-            <div className="max-w-2xl">
-              <FadeIn delay={0.1} direction="none">
-                <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-white/60 text-sm font-medium px-4 py-1.5 rounded-full mb-8">
-                  <Zap className="w-3.5 h-3.5 text-[#28afb1]" />
-                  Specialiste mobilite electrique depuis 2019
-                </div>
-              </FadeIn>
-
-              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold leading-[0.95] tracking-tight mb-8">
-                <span className="block overflow-hidden">
-                  <TextReveal delay={0.2}>La mobilite</TextReveal>
-                </span>
-                <span className="block overflow-hidden">
-                  <TextReveal delay={0.35}>urbaine</TextReveal>
-                </span>
-                <span className="block overflow-hidden text-[#28afb1]">
-                  <TextReveal delay={0.5}>reinventee</TextReveal>
-                </span>
-              </h1>
-
-              <FadeIn delay={0.8} direction="up">
-                <p className="text-lg md:text-xl text-white/50 mb-10 max-w-lg leading-relaxed">
-                  Plus de 2000 references &bull; Expert depuis 2019 &bull; Paiement 2x 3x 4x
-                </p>
-              </FadeIn>
-
-              <FadeIn delay={1.0} direction="up">
-                <div className="flex gap-4 flex-wrap">
-                  <Link
-                    href="/produits?categorySlug=trottinettes-electriques"
-                    className="inline-flex items-center gap-2 bg-[#28afb1] text-white px-8 py-4 rounded-xl font-semibold hover:bg-[#1f8e90] transition-all text-lg shadow-lg shadow-[#28afb1]/20 hover:shadow-[#28afb1]/30 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    Decouvrir
-                    <ArrowRight className="w-5 h-5" />
-                  </Link>
-                  <Link
-                    href="/reparation"
-                    className="inline-flex items-center gap-2 border border-white/20 text-white px-8 py-4 rounded-xl font-semibold hover:bg-white/5 hover:border-white/30 transition-all text-lg"
-                  >
-                    Reparation SAV
-                  </Link>
-                </div>
-              </FadeIn>
-            </div>
-
-            {/* Right — Hero scooter image */}
-            <FadeIn delay={0.6} direction="none" className="hidden lg:block">
-              <div className="relative flex items-center justify-center">
-                <div className="absolute inset-0 bg-gradient-to-t from-[#28afb1]/10 via-transparent to-transparent rounded-full blur-3xl scale-150" />
-                <motion.div
-                  animate={{ y: [0, -12, 0] }}
-                  transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-                >
-                  <img
-                    src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg"
-                    alt="Trottinette electrique Teverun Tetra"
-                    className="w-[400px] h-[400px] object-contain drop-shadow-[0_20px_60px_rgba(40,175,177,0.3)]"
-                  />
-                </motion.div>
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-
-        <ScrollIndicator />
-      </section>
-
-      {/* ================================================================
-          SECTION 2 — ANIMATED STATS BAR (dark, narrow)
-          ================================================================ */}
-      <section className="bg-gray-950 border-t border-white/5 py-16 md:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4">
-            {[
-              { value: 2000, suffix: "+", label: "Produits en catalogue" },
-              { value: 15, suffix: "", label: "Marques partenaires" },
-              { value: 2019, suffix: "", label: "Depuis", prefix: "" },
-              { value: 4.8, suffix: "/5", label: "Avis Google" },
-            ].map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-2">
-                  {stat.label === "Avis Google" ? (
-                    // Special handling for decimal
-                    <span>
-                      <AnimatedCounter value={48} className="tabular-nums" />
-                      <span className="text-white/30">{""}</span>
-                    </span>
-                  ) : (
-                    <AnimatedCounter
-                      value={stat.value}
-                      suffix={stat.suffix}
-                      prefix={stat.prefix}
-                      className="tabular-nums"
-                    />
-                  )}
-                </div>
-                <p className="text-white/40 text-sm font-medium tracking-wide uppercase">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================
-          SECTION 3 — FEATURED SCOOTERS (dark, horizontal scroll)
-          ================================================================ */}
-      <section className="bg-gray-950 text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-20 pb-8">
-          <FadeIn>
-            <div className="flex items-end justify-between mb-4">
-              <div>
-                <p className="text-[#28afb1] text-sm font-semibold tracking-widest uppercase mb-3">
-                  Selection
-                </p>
-                <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight">
-                  Nos trottinettes
-                </h2>
-              </div>
-              <Link
-                href="/produits?categorySlug=trottinettes-electriques"
-                className="hidden md:inline-flex items-center gap-1 text-white/50 hover:text-[#28afb1] font-medium transition-colors text-sm"
-              >
-                Voir tout
-                <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </FadeIn>
-        </div>
-
-        {loading ? (
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
-            <div className="flex gap-6 overflow-hidden">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-shrink-0 w-[300px] bg-white/5 rounded-2xl p-4 animate-pulse"
-                >
-                  <div className="aspect-square bg-white/10 rounded-xl mb-4" />
-                  <div className="h-4 bg-white/10 rounded mb-2 w-3/4" />
-                  <div className="h-4 bg-white/10 rounded w-1/2" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : featuredProducts.length > 0 ? (
-          <HorizontalScroll>
-            {/* Leading spacer */}
-            <div className="flex-shrink-0 w-8 md:w-16" />
-            {featuredProducts.slice(0, 10).map((product, i) => {
-              const primaryImage = product.images?.[0];
-              const priceTTC = formatPriceTTC(product.priceHt, product.tvaRate);
-              const price4x = formatPriceTTC(
-                (parseFloat(product.priceHt) / 4).toFixed(2),
-                product.tvaRate
-              );
-
-              return (
-                <Link
-                  key={product.id}
-                  href={`/produits/${product.slug}`}
-                  className="group flex-shrink-0 w-[300px] md:w-[340px] bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden hover:bg-white/[0.06] hover:border-[#28afb1]/20 transition-all duration-500"
-                >
-                  <div className="relative aspect-square bg-gradient-to-b from-white/[0.02] to-transparent overflow-hidden">
-                    {primaryImage ? (
-                      <img
-                        src={primaryImage.url}
-                        alt={primaryImage.alt || product.name}
-                        className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-700 ease-out"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-white/20">
-                        <Zap className="w-16 h-16" />
-                      </div>
-                    )}
-                    {product.brand && (
-                      <span className="absolute top-4 left-4 bg-white/10 backdrop-blur-md text-xs font-semibold text-white/70 px-3 py-1 rounded-full border border-white/10">
-                        {product.brand.name}
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <h3 className="text-sm font-medium text-white/80 mb-3 line-clamp-2 group-hover:text-white transition-colors">
-                      {product.name}
-                    </h3>
-                    <p className="text-xl font-bold text-white">
-                      A partir de{" "}
-                      <span className="text-[#28afb1]">{priceTTC}</span>
-                    </p>
-                    <p className="text-xs text-white/30 mt-1">
-                      ou 4x {price4x} sans frais
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
-            {/* Trailing spacer */}
-            <div className="flex-shrink-0 w-8 md:w-16" />
-          </HorizontalScroll>
-        ) : (
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
-            <div className="text-center py-20 bg-white/[0.03] rounded-2xl border border-white/[0.06]">
-              <Zap className="w-12 h-12 text-white/20 mx-auto mb-4" />
-              <p className="text-white/40 text-lg mb-4">
-                Le catalogue est en cours de chargement...
-              </p>
-              <Link
-                href="/produits"
-                className="inline-flex items-center gap-2 text-[#28afb1] font-semibold hover:text-[#1f8e90]"
-              >
-                Voir tous les produits
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Mobile CTA */}
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20 pt-4 md:hidden">
+      <section
+        style={{
+          position: "relative",
+          width: "100%",
+          minHeight: 420,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundImage:
+            "url('https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          color: "white",
+          textAlign: "center",
+        }}
+      >
+        {/* Dark overlay */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0.75))",
+          }}
+        />
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            maxWidth: 800,
+            padding: "60px 20px",
+          }}
+        >
+          <h1
+            style={{
+              fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
+              fontWeight: 800,
+              letterSpacing: "0.02em",
+              lineHeight: 1.2,
+              marginBottom: 16,
+              textTransform: "uppercase",
+            }}
+          >
+            Glissez en toute liberté avec nos trottinettes
+          </h1>
+          <p
+            style={{
+              fontSize: "clamp(0.95rem, 2vw, 1.15rem)",
+              color: "rgba(255,255,255,0.8)",
+              marginBottom: 28,
+              lineHeight: 1.6,
+            }}
+          >
+            Découvrez notre sélection de trottinettes électriques des
+            meilleures marques. Livraison rapide, paiement en plusieurs fois,
+            SAV expert.
+          </p>
           <Link
             href="/produits?categorySlug=trottinettes-electriques"
-            className="inline-flex items-center gap-2 bg-[#28afb1] text-white px-6 py-3 rounded-xl font-semibold hover:bg-[#1f8e90] transition-colors w-full justify-center"
+            className="btn-primary"
+            style={{ fontSize: "1rem", padding: "14px 32px" }}
           >
-            Voir toutes les trottinettes
-            <ArrowRight className="w-4 h-4" />
+            En savoir plus
           </Link>
         </div>
       </section>
 
       {/* ================================================================
-          SECTION 4 — CATEGORIES (light section — contrast break)
+          SECTION 2 — TRUST BADGES
           ================================================================ */}
-      <section className="bg-white py-20 md:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeIn>
-            <div className="text-center mb-14">
-              <p className="text-[#28afb1] text-sm font-semibold tracking-widest uppercase mb-3">
-                Catalogue
+      <div className="trust-badges">
+        <div className="trust-badge">
+          <div className="trust-badge-icon">
+            <Shield style={{ width: 28, height: 28 }} />
+          </div>
+          <div className="trust-badge-text">
+            <h4>Garantie</h4>
+            <p>Satisfait ou remboursé</p>
+          </div>
+        </div>
+        <div className="trust-badge">
+          <div className="trust-badge-icon">
+            <Lock style={{ width: 28, height: 28 }} />
+          </div>
+          <div className="trust-badge-text">
+            <h4>Paiement sécurisé</h4>
+            <p>Paiements 100% sécurisés</p>
+          </div>
+        </div>
+        <div className="trust-badge">
+          <div className="trust-badge-icon">
+            <Headphones style={{ width: 28, height: 28 }} />
+          </div>
+          <div className="trust-badge-text">
+            <h4>Assistance</h4>
+            <p>Support dédié en 24h</p>
+          </div>
+        </div>
+        <div className="trust-badge">
+          <div className="trust-badge-icon">
+            <Truck style={{ width: 28, height: 28 }} />
+          </div>
+          <div className="trust-badge-text">
+            <h4>Livraison rapide</h4>
+            <p>Expédition sous 24-48h</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================
+          SECTION 3 — BONNES AFFAIRES DU JOUR
+          ================================================================ */}
+      <section style={{ background: "white", padding: "48px 0" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 20px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 16,
+              marginBottom: 32,
+              flexWrap: "wrap",
+            }}
+          >
+            <h2 className="section-title" style={{ marginBottom: 0 }}>
+              Bonnes affaires du jour
+            </h2>
+            <div className="countdown">
+              <span className="countdown-digit">05</span>:
+              <span className="countdown-digit">23</span>:
+              <span className="countdown-digit">41</span>:
+              <span className="countdown-digit">09</span>
+            </div>
+          </div>
+
+          {loading ? (
+            <ProductGridSkeleton count={5} />
+          ) : featuredProducts.length > 0 ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fill, minmax(220px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {featuredProducts.slice(0, 10).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px 20px",
+                color: "#9ca3af",
+              }}
+            >
+              <p style={{ marginBottom: 12 }}>
+                Les produits arrivent bientôt...
               </p>
-              <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight">
-                Pieces &amp; Accessoires
-              </h2>
+              <Link
+                href="/produits"
+                className="btn-primary"
+              >
+                Voir tous les produits
+              </Link>
             </div>
-          </FadeIn>
-
-          <ScaleOnScroll>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {CATEGORIES.filter((c) => c.size === "large").map((cat) => (
-                <Link
-                  key={cat.slug}
-                  href={`/produits?categorySlug=${cat.slug}`}
-                  className="group relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-10 text-white overflow-hidden min-h-[260px] flex flex-col justify-end hover:shadow-2xl hover:shadow-gray-900/20 transition-all duration-500"
-                >
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-[#28afb1]/15 rounded-full blur-3xl transition-all group-hover:w-64 group-hover:h-64" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-gray-900/60 to-transparent" />
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-xl bg-[#28afb1]/15 flex items-center justify-center mb-4">
-                      <cat.icon className="w-6 h-6 text-[#28afb1]" />
-                    </div>
-                    <h3 className="text-2xl md:text-3xl font-bold mb-2">
-                      {cat.name}
-                    </h3>
-                    <p className="text-white/50 mb-4 max-w-md text-sm">
-                      {cat.desc}
-                    </p>
-                    <span className="inline-flex items-center gap-1 text-[#28afb1] font-semibold group-hover:gap-2 transition-all text-sm">
-                      Decouvrir
-                      <ArrowRight className="w-4 h-4" />
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {CATEGORIES.filter((c) => c.size === "small").map((cat) => (
-                <Link
-                  key={cat.slug}
-                  href={`/produits?categorySlug=${cat.slug}`}
-                  className="group bg-gray-50 rounded-2xl p-6 hover:bg-[#28afb1]/5 border-2 border-transparent hover:border-[#28afb1]/15 transition-all duration-300 hover:scale-[1.02]"
-                >
-                  <span className="text-3xl mb-4 block">{"emoji" in cat ? cat.emoji : ""}</span>
-                  <h4 className="font-semibold text-gray-900 group-hover:text-[#28afb1] transition-colors">
-                    {cat.name}
-                  </h4>
-                  <span className="text-xs text-gray-400 mt-1 block">
-                    Pieces &amp; Accessoires
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </ScaleOnScroll>
+          )}
         </div>
       </section>
 
       {/* ================================================================
-          SECTION 5 — WHY TROTTISTORE (dark section)
+          SECTION 4 — PRODUITS RECOMMANDÉS (TABS)
           ================================================================ */}
-      <section className="bg-gray-950 text-white py-20 md:py-28 overflow-hidden">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Left — Image reveal */}
-            <RevealImage
-              src="https://www.trottistore.fr/wp-content/uploads/2025/07/MMDUALTRONXLTD-TROTTINETTE-ELECTRIQUE-DUALTRON-X-LTD-300x300.jpg"
-              alt="Atelier TrottiStore"
-              className="aspect-square rounded-3xl"
-            />
+      <section style={{ background: "#f9fafb", padding: "48px 0" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 20px" }}>
+          <h2 className="section-title">Produits recommandés</h2>
 
-            {/* Right — USP list */}
-            <div>
-              <FadeIn>
-                <p className="text-[#28afb1] text-sm font-semibold tracking-widest uppercase mb-3">
-                  Nos engagements
-                </p>
-                <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-12">
-                  Pourquoi choisir
-                  <br />
-                  <span className="text-[#28afb1]">TrottiStore ?</span>
-                </h2>
-              </FadeIn>
+          {/* Tabs */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 0,
+              marginBottom: 32,
+              borderBottom: "2px solid #f3f4f6",
+            }}
+          >
+            {[
+              { key: "new", label: "Nouvelles arrivées" },
+              { key: "best", label: "Meilleure vente" },
+              { key: "promo", label: "En promotion" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  padding: "10px 24px",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  background: "none",
+                  border: "none",
+                  borderBottom:
+                    activeTab === tab.key
+                      ? "2px solid #28afb1"
+                      : "2px solid transparent",
+                  color:
+                    activeTab === tab.key ? "#28afb1" : "#6b7280",
+                  cursor: "pointer",
+                  marginBottom: -2,
+                  transition: "color 150ms ease, border-color 150ms ease",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-              <StaggerContainer className="space-y-8" staggerDelay={0.15}>
-                {USPS.map((usp, i) => (
-                  <StaggerItem key={usp.title}>
-                    <div className="flex gap-5">
-                      <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-[#28afb1]/10 flex items-center justify-center">
-                        <usp.icon className="w-6 h-6 text-[#28afb1]" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold mb-1">{usp.title}</h3>
-                        <p className="text-white/40 text-sm leading-relaxed">
-                          {usp.desc}
-                        </p>
-                      </div>
-                    </div>
-                  </StaggerItem>
-                ))}
-              </StaggerContainer>
+          {loading ? (
+            <ProductGridSkeleton count={5} />
+          ) : featuredProducts.length > 0 ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fill, minmax(220px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {featuredProducts.slice(0, 10).map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
             </div>
+          ) : (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px 20px",
+                color: "#9ca3af",
+              }}
+            >
+              <p>Aucun produit pour le moment.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ================================================================
+          SECTION 5 — GOOGLE REVIEWS
+          ================================================================ */}
+      <section style={{ background: "white", padding: "48px 0" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 20px" }}>
+          <h2 className="section-title">
+            Découvrez ce que nos clients pensent de nous sur Google !
+          </h2>
+
+          {/* Rating summary */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+              marginBottom: 32,
+            }}
+          >
+            <img
+              src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_42x16dp.png"
+              alt="Google"
+              style={{ height: 20 }}
+            />
+            <span
+              style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1a1a1a" }}
+            >
+              5.0
+            </span>
+            <div style={{ display: "flex", gap: 2 }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    fill: "#facc15",
+                    color: "#facc15",
+                  }}
+                />
+              ))}
+            </div>
+            <span style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+              Basé sur 103 avis
+            </span>
+          </div>
+
+          {/* Review cards */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {GOOGLE_REVIEWS.map((review, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "#f9fafb",
+                  border: "1px solid #f3f4f6",
+                  borderRadius: 8,
+                  padding: 20,
+                }}
+              >
+                {/* Header */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    marginBottom: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      background: "#28afb1",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: "0.9rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {review.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: "0.85rem",
+                        color: "#1a1a1a",
+                      }}
+                    >
+                      {review.name}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
+                      {review.date}
+                    </div>
+                  </div>
+                </div>
+                {/* Stars */}
+                <div
+                  style={{ display: "flex", gap: 2, marginBottom: 10 }}
+                >
+                  {Array.from({ length: 5 }).map((_, j) => (
+                    <Star
+                      key={j}
+                      style={{
+                        width: 14,
+                        height: 14,
+                        fill: "#facc15",
+                        color: "#facc15",
+                      }}
+                    />
+                  ))}
+                </div>
+                {/* Text */}
+                <p
+                  style={{
+                    fontSize: "0.85rem",
+                    color: "#4b5563",
+                    lineHeight: 1.5,
+                    margin: 0,
+                  }}
+                >
+                  {review.text}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ================================================================
-          SECTION 6 — GOOGLE REVIEWS (light section)
+          SECTION 6 — BLOG "CONSEILS ET ASTUCES TROTTI"
           ================================================================ */}
-      <section className="bg-white py-20 md:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeIn>
-            <div className="text-center mb-14">
-              <div className="flex items-center justify-center gap-2 mb-6">
-                <span className="text-5xl md:text-6xl font-extrabold text-gray-900 tracking-tight">
-                  4.8
-                </span>
-                <div className="flex flex-col items-start">
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className="w-5 h-5 fill-yellow-400 text-yellow-400"
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm text-gray-400 mt-0.5">
-                    sur Google &mdash; 200+ avis
+      <section style={{ background: "#f9fafb", padding: "48px 0" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 20px" }}>
+          <h2 className="section-title">Conseils et Astuces Trotti</h2>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))",
+              gap: 20,
+            }}
+          >
+            {BLOG_POSTS.map((post) => (
+              <Link
+                key={post.slug}
+                href={`/blog/${post.slug}`}
+                style={{
+                  display: "block",
+                  background: "white",
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  border: "1px solid #f3f4f6",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    aspectRatio: "16/10",
+                    background: "#f3f4f6",
+                    overflow: "hidden",
+                  }}
+                >
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                  {/* Category badge */}
+                  <span
+                    className="badge"
+                    style={{
+                      position: "absolute",
+                      top: 10,
+                      left: 10,
+                      background: "#28afb1",
+                      color: "white",
+                    }}
+                  >
+                    {post.category}
                   </span>
                 </div>
-              </div>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
-                Ce que disent nos clients
-              </h2>
-            </div>
-          </FadeIn>
-
-          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" staggerDelay={0.1}>
-            {GOOGLE_REVIEWS.slice(0, 3).map((review, i) => (
-              <StaggerItem key={i}>
-                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 h-full">
-                  <div className="flex items-center gap-0.5 mb-4">
-                    {Array.from({ length: review.rating }).map((_, j) => (
-                      <Star
-                        key={j}
-                        className="w-4 h-4 fill-yellow-400 text-yellow-400"
-                      />
-                    ))}
-                  </div>
-                  <p className="text-gray-600 mb-5 leading-relaxed text-sm">
-                    &ldquo;{review.text}&rdquo;
-                  </p>
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    <span className="font-semibold text-gray-900 text-sm">
-                      {review.name}
-                    </span>
-                    <span className="text-xs text-gray-400">{review.date}</span>
-                  </div>
+                <div style={{ padding: "14px 16px" }}>
+                  <h3
+                    style={{
+                      fontSize: "0.9rem",
+                      fontWeight: 600,
+                      color: "#1a1a1a",
+                      marginBottom: 6,
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    {post.title}
+                  </h3>
+                  <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
+                    {post.date}
+                  </span>
                 </div>
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
-
-          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6" staggerDelay={0.1}>
-            {GOOGLE_REVIEWS.slice(3).map((review, i) => (
-              <StaggerItem key={i}>
-                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 h-full">
-                  <div className="flex items-center gap-0.5 mb-4">
-                    {Array.from({ length: review.rating }).map((_, j) => (
-                      <Star
-                        key={j}
-                        className="w-4 h-4 fill-yellow-400 text-yellow-400"
-                      />
-                    ))}
-                  </div>
-                  <p className="text-gray-600 mb-5 leading-relaxed text-sm">
-                    &ldquo;{review.text}&rdquo;
-                  </p>
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    <span className="font-semibold text-gray-900 text-sm">
-                      {review.name}
-                    </span>
-                    <span className="text-xs text-gray-400">{review.date}</span>
-                  </div>
-                </div>
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
-        </div>
-      </section>
-
-      {/* ================================================================
-          SECTION 7 — DIAGNOSTIC CTA (dark, dramatic)
-          ================================================================ */}
-      <section className="relative bg-gray-950 text-white py-28 md:py-36 overflow-hidden">
-        <Parallax className="absolute inset-0" speed={0.4}>
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-950/80 via-gray-950/60 to-gray-950/90 z-10" />
-          <img
-            src="https://www.trottistore.fr/wp-content/uploads/2025/07/MMDUALTRONFOREVER60V18A2025-TROTTINETTE-ELECTRIQUE-DUALTRON-FOREVER-60V-182A-2025-EY4-300x300.jpg"
-            alt=""
-            className="w-full h-[130%] object-cover opacity-30"
-          />
-        </Parallax>
-
-        <div className="relative z-20 mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
-          <FadeIn>
-            <div className="w-16 h-16 rounded-2xl bg-[#28afb1]/15 flex items-center justify-center mx-auto mb-8">
-              <Wrench className="w-8 h-8 text-[#28afb1]" />
-            </div>
-            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-6">
-              Votre trottinette
-              <br />
-              <span className="text-[#28afb1]">a un probleme ?</span>
-            </h2>
-            <p className="text-white/50 text-lg md:text-xl mb-10 max-w-xl mx-auto leading-relaxed">
-              Notre diagnostic intelligent identifie la panne en 2 clics.
-              Gratuit, rapide, et sans engagement.
-            </p>
-          </FadeIn>
-
-          <FadeIn delay={0.3}>
-            <MagneticButton
-              href="/diagnostic"
-              className="inline-flex items-center gap-2 bg-[#28afb1] text-white px-10 py-5 rounded-xl font-semibold text-lg shadow-lg shadow-[#28afb1]/25 hover:bg-[#1f8e90] transition-colors"
-            >
-              Lancer le diagnostic
-              <ArrowRight className="w-5 h-5" />
-            </MagneticButton>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* ================================================================
-          SECTION 8 — BLOG / NEWSLETTER (light)
-          ================================================================ */}
-      <section className="bg-gray-50 py-20 md:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeIn>
-            <div className="flex items-end justify-between mb-14">
-              <div>
-                <p className="text-[#28afb1] text-sm font-semibold tracking-widest uppercase mb-3">
-                  Le blog
-                </p>
-                <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
-                  Conseils &amp; Guides
-                </h2>
-              </div>
-              <Link
-                href="/blog"
-                className="hidden md:inline-flex items-center gap-1 text-gray-400 hover:text-[#28afb1] font-medium transition-colors text-sm"
-              >
-                Tous les articles
-                <ChevronRight className="w-4 h-4" />
               </Link>
-            </div>
-          </FadeIn>
-
-          <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-6" staggerDelay={0.15}>
-            {BLOG_POSTS.map((post) => (
-              <StaggerItem key={post.slug}>
-                <Link
-                  href={`/blog/${post.slug}`}
-                  className="group block bg-white rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:border-[#28afb1]/15 transition-all duration-500 h-full"
-                >
-                  <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden">
-                    <img
-                      src={post.image}
-                      alt={post.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
-                      <BookOpen className="w-3.5 h-3.5" />
-                      {post.date}
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-2 group-hover:text-[#28afb1] transition-colors">
-                      {post.title}
-                    </h3>
-                    <p className="text-sm text-gray-500 line-clamp-2">
-                      {post.excerpt}
-                    </p>
-                  </div>
-                </Link>
-              </StaggerItem>
             ))}
-          </StaggerContainer>
+          </div>
         </div>
       </section>
 
       {/* ================================================================
-          SECTION 9 — PAYMENT METHODS (dark, footer-adjacent)
+          SECTION 7 — NEWSLETTER
           ================================================================ */}
-      <section className="bg-gray-950 border-t border-white/5 py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <FadeIn direction="none">
-            <p className="text-center text-white/30 text-sm font-medium tracking-widest uppercase mb-8">
-              Modes de paiement acceptes
-            </p>
-            <div className="flex justify-center gap-8 md:gap-12 flex-wrap text-sm text-white/40">
-              <span className="flex items-center gap-2 hover:text-white/60 transition-colors">
-                <CreditCard className="w-5 h-5" />
-                Carte bancaire
-              </span>
-              <span className="flex items-center gap-2 hover:text-white/60 transition-colors">
-                <span className="text-base"></span>
-                Apple Pay
-              </span>
-              <span className="flex items-center gap-2 hover:text-white/60 transition-colors">
-                <span className="text-base font-bold">G</span>
-                Google Pay
-              </span>
-              <span className="flex items-center gap-2 hover:text-white/60 transition-colors">
-                <ShieldCheck className="w-5 h-5" />
-                Virement
-              </span>
-              <span className="flex items-center gap-2 text-[#28afb1]/70 font-medium">
-                <Clock className="w-5 h-5" />
-                2x 3x 4x sans frais
-              </span>
-            </div>
-          </FadeIn>
+      <section style={{ background: "white", padding: "48px 0" }}>
+        <div
+          style={{
+            maxWidth: 600,
+            margin: "0 auto",
+            padding: "0 20px",
+            textAlign: "center",
+          }}
+        >
+          <h2 className="section-title">
+            Inscrivez-vous à notre newsletter
+          </h2>
+          <p
+            style={{
+              fontSize: "0.9rem",
+              color: "#6b7280",
+              marginBottom: 20,
+            }}
+          >
+            Recevez nos offres exclusives, nouveautés et conseils directement
+            dans votre boîte mail.
+          </p>
+          <form
+            onSubmit={(e) => e.preventDefault()}
+            style={{
+              display: "flex",
+              gap: 8,
+              maxWidth: 460,
+              margin: "0 auto",
+            }}
+          >
+            <input
+              type="email"
+              placeholder="Votre adresse email"
+              style={{
+                flex: 1,
+                padding: "10px 16px",
+                border: "1px solid #e5e7eb",
+                borderRadius: 9999,
+                fontSize: "0.875rem",
+                outline: "none",
+              }}
+            />
+            <button type="submit" className="btn-primary">
+              S&apos;inscrire
+            </button>
+          </form>
         </div>
       </section>
     </>
