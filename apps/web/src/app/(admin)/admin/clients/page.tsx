@@ -14,10 +14,10 @@ interface Customer {
   source: string;
 }
 
-const TIER_CONFIG: Record<string, { label: string; color: string; showStar: boolean }> = {
-  BRONZE: { label: "Bronze", color: "bg-amber-50 text-amber-700 border border-amber-200", showStar: false },
-  SILVER: { label: "Silver", color: "bg-gray-100 text-gray-600 border border-gray-200", showStar: false },
-  GOLD: { label: "Gold", color: "bg-yellow-50 text-yellow-700 border border-yellow-300", showStar: true },
+const TIER_CONFIG: Record<string, { label: string; badgeClass: string; showStar: boolean }> = {
+  BRONZE: { label: "Bronze", badgeClass: "badge badge-muted", showStar: false },
+  SILVER: { label: "Silver", badgeClass: "badge badge-muted", showStar: false },
+  GOLD: { label: "Gold", badgeClass: "badge badge-neon", showStar: true },
 };
 
 function formatCurrency(amount: string): string {
@@ -45,82 +45,82 @@ export default function AdminClientsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="heading-lg">CLIENTS</h1>
+          <p className="font-mono text-sm text-text-muted mt-1">
             {customers.length} client{customers.length !== 1 ? "s" : ""} enregistre{customers.length !== 1 ? "s" : ""}
           </p>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-surface border border-border overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 bg-gray-50/50">
-              <th className="text-left px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Client</th>
-              <th className="text-left px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Email</th>
-              <th className="text-left px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Niveau</th>
-              <th className="text-right px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Points</th>
-              <th className="text-right px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Commandes</th>
-              <th className="text-right px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">CA total</th>
+            <tr className="border-b border-border bg-surface-2">
+              <th className="text-left px-6 py-3.5 spec-label">Client</th>
+              <th className="text-left px-6 py-3.5 spec-label">Email</th>
+              <th className="text-left px-6 py-3.5 spec-label">Niveau</th>
+              <th className="text-right px-6 py-3.5 spec-label">Points</th>
+              <th className="text-right px-6 py-3.5 spec-label">Commandes</th>
+              <th className="text-right px-6 py-3.5 spec-label">CA Total</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   <td colSpan={6} className="px-6 py-4">
-                    <div className="h-4 bg-gray-100 rounded-md animate-pulse" />
+                    <div className="h-4 bg-surface-2 animate-pulse" />
                   </td>
                 </tr>
               ))
             ) : customers.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-16 text-center">
-                  <Users className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-                  <p className="text-gray-400 font-medium">Aucun client enregistre</p>
+                  <Users className="h-10 w-10 text-text-dim mx-auto mb-3" />
+                  <p className="font-mono text-text-muted">Aucun client enregistre</p>
                 </td>
               </tr>
             ) : (
               customers.map((c) => {
-                const tier = TIER_CONFIG[c.loyaltyTier] || { label: c.loyaltyTier, color: "bg-gray-100 text-gray-600", showStar: false };
+                const tier = TIER_CONFIG[c.loyaltyTier] || { label: c.loyaltyTier, badgeClass: "badge badge-muted", showStar: false };
                 const initials = `${c.user.firstName?.[0] || ""}${c.user.lastName?.[0] || ""}`.toUpperCase();
 
                 return (
-                  <tr key={c.id} className="hover:bg-gray-50/50 cursor-pointer transition-colors">
+                  <tr key={c.id} className="hover:bg-surface-2/50 cursor-pointer transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#28afb1]/10 text-[#28afb1] text-xs font-bold flex-shrink-0">
+                        <div className="flex h-9 w-9 items-center justify-center bg-neon-dim text-neon font-mono text-xs font-bold flex-shrink-0">
                           {initials}
                         </div>
-                        <span className="font-medium text-gray-900">
+                        <span className="font-mono text-sm text-text">
                           {c.user.firstName} {c.user.lastName}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-gray-500">
-                        <Mail className="h-3.5 w-3.5 text-gray-300" />
+                      <div className="flex items-center gap-2 font-mono text-xs text-text-muted">
+                        <Mail className="h-3.5 w-3.5 text-text-dim" />
                         <span>{c.user.email}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={cn("inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium", tier.color)}>
+                      <span className={cn("inline-flex items-center gap-1", tier.badgeClass)}>
                         {tier.showStar && <Star className="h-3 w-3 fill-current" />}
                         {tier.label}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className="font-medium text-[#28afb1]">{c.loyaltyPoints}</span>
+                      <span className="font-mono text-sm font-bold text-neon">{c.loyaltyPoints}</span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5 text-gray-600">
-                        <ShoppingBag className="h-3.5 w-3.5 text-gray-300" />
+                      <div className="flex items-center justify-end gap-1.5 font-mono text-sm text-text-muted">
+                        <ShoppingBag className="h-3.5 w-3.5 text-text-dim" />
                         {c.totalOrders}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className="font-semibold text-gray-900">{formatCurrency(c.totalSpent)}</span>
+                      <span className="font-mono text-sm font-bold text-neon">{formatCurrency(c.totalSpent)}</span>
                     </td>
                   </tr>
                 );

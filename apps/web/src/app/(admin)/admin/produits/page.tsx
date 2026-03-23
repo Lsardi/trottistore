@@ -18,7 +18,6 @@ import {
   Pencil,
   Copy,
   Archive,
-  MoreHorizontal,
   Filter,
   X,
   Check,
@@ -169,7 +168,6 @@ export default function AdminProduitsPage() {
     setSavingStock(true);
     try {
       await adminProductsApi.updateStock(productId, { quantity });
-      // Update local state
       setProducts((prev) =>
         prev.map((p) =>
           p.id === productId
@@ -315,10 +313,10 @@ export default function AdminProduitsPage() {
       {toast && (
         <div
           className={cn(
-            "fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all animate-in slide-in-from-top-2",
+            "fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 font-mono text-sm font-bold transition-all",
             toast.type === "success"
-              ? "bg-green-600 text-white"
-              : "bg-red-600 text-white"
+              ? "bg-neon text-void"
+              : "bg-danger text-white"
           )}
         >
           {toast.type === "success" ? (
@@ -336,8 +334,8 @@ export default function AdminProduitsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Produits</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="heading-lg">PRODUITS</h1>
+          <p className="font-mono text-sm text-text-muted mt-0.5">
             {total > 0 && (
               <>
                 {total} produit{total > 1 ? "s" : ""} au total
@@ -347,28 +345,28 @@ export default function AdminProduitsPage() {
         </div>
         <Link
           href="/admin/produits/nouveau"
-          className="inline-flex items-center gap-2 bg-[#28afb1] text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-[#28afb1]/90 transition-colors shadow-sm"
+          className="btn-neon"
         >
           <Plus className="h-4 w-4" />
-          Ajouter un produit
+          AJOUTER UN PRODUIT
         </Link>
       </div>
 
       {/* Search + Filters bar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-dim" />
           <input
             type="text"
             placeholder="Rechercher par nom, SKU..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition-all"
+            className="input-dark w-full pl-10"
           />
           {search && (
             <button
               onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-muted"
             >
               <X className="h-4 w-4" />
             </button>
@@ -377,16 +375,16 @@ export default function AdminProduitsPage() {
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={cn(
-            "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors",
+            "inline-flex items-center gap-2 px-4 py-2.5 font-mono text-xs uppercase tracking-wider font-bold border transition-colors",
             hasActiveFilters
-              ? "border-[#28afb1] text-[#28afb1] bg-[#28afb1]/5"
-              : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              ? "border-neon text-neon bg-neon-dim"
+              : "border-border text-text-muted hover:border-text-dim"
           )}
         >
           <Filter className="h-4 w-4" />
           Filtres
           {hasActiveFilters && (
-            <span className="bg-[#28afb1] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            <span className="bg-neon text-void text-xs font-bold h-5 w-5 flex items-center justify-center">
               {[statusFilter, categoryFilter, stockFilter !== "all" ? "1" : ""].filter(Boolean).length}
             </span>
           )}
@@ -395,67 +393,70 @@ export default function AdminProduitsPage() {
 
       {/* Filter panel */}
       {showFilters && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 flex flex-wrap gap-4 items-end">
+        <div className="bg-surface border border-border p-4 mb-4 flex flex-wrap gap-4 items-end">
           <div className="min-w-[160px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              Statut
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none"
-            >
-              <option value="">Tous</option>
-              <option value="ACTIVE">Actif</option>
-              <option value="DRAFT">Brouillon</option>
-              <option value="ARCHIVED">Archive</option>
-            </select>
+            <label className="spec-label block mb-1.5">Statut</label>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="input-dark w-full appearance-none pr-8"
+              >
+                <option value="">Tous</option>
+                <option value="ACTIVE">Actif</option>
+                <option value="DRAFT">Brouillon</option>
+                <option value="ARCHIVED">Archive</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-text-dim pointer-events-none" />
+            </div>
           </div>
           <div className="min-w-[160px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              Categorie
-            </label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none"
-            >
-              <option value="">Toutes</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.slug}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+            <label className="spec-label block mb-1.5">Categorie</label>
+            <div className="relative">
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="input-dark w-full appearance-none pr-8"
+              >
+                <option value="">Toutes</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.slug}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-text-dim pointer-events-none" />
+            </div>
           </div>
           <div className="min-w-[160px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              Stock
-            </label>
-            <select
-              value={stockFilter}
-              onChange={(e) => {
-                setStockFilter(e.target.value as StockStatus);
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none"
-            >
-              <option value="all">Tous</option>
-              <option value="in_stock">En stock</option>
-              <option value="low_stock">Stock faible (&le;5)</option>
-              <option value="out_of_stock">Rupture</option>
-            </select>
+            <label className="spec-label block mb-1.5">Stock</label>
+            <div className="relative">
+              <select
+                value={stockFilter}
+                onChange={(e) => {
+                  setStockFilter(e.target.value as StockStatus);
+                  setPage(1);
+                }}
+                className="input-dark w-full appearance-none pr-8"
+              >
+                <option value="all">Tous</option>
+                <option value="in_stock">En stock</option>
+                <option value="low_stock">Stock faible (&le;5)</option>
+                <option value="out_of_stock">Rupture</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-text-dim pointer-events-none" />
+            </div>
           </div>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition"
+              className="inline-flex items-center gap-1.5 px-3 py-2 font-mono text-xs text-text-dim hover:text-neon transition"
             >
               <X className="h-3.5 w-3.5" />
               Effacer
@@ -466,8 +467,8 @@ export default function AdminProduitsPage() {
 
       {/* Bulk actions bar */}
       {selectedIds.size > 0 && (
-        <div className="bg-[#28afb1]/5 border border-[#28afb1]/20 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">
+        <div className="bg-neon-dim border border-neon/20 px-4 py-3 mb-4 flex items-center justify-between">
+          <span className="font-mono text-sm text-neon">
             {selectedIds.size} produit{selectedIds.size > 1 ? "s" : ""}{" "}
             selectionne{selectedIds.size > 1 ? "s" : ""}
           </span>
@@ -475,28 +476,28 @@ export default function AdminProduitsPage() {
             <div className="relative">
               <button
                 onClick={() => setShowBulkMenu(!showBulkMenu)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border font-mono text-xs font-bold text-text hover:border-neon transition"
               >
                 Actions groupees
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
               {showBulkMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                <div className="absolute right-0 top-full mt-1 bg-surface border border-border py-1 z-20 min-w-[180px]">
                   <button
                     onClick={() => handleBulkStatus("ACTIVE")}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition"
+                    className="w-full text-left px-4 py-2 font-mono text-sm text-text hover:bg-surface-2 transition"
                   >
                     Activer
                   </button>
                   <button
                     onClick={() => handleBulkStatus("DRAFT")}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition"
+                    className="w-full text-left px-4 py-2 font-mono text-sm text-text hover:bg-surface-2 transition"
                   >
                     Passer en brouillon
                   </button>
                   <button
                     onClick={() => handleBulkStatus("ARCHIVED")}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+                    className="w-full text-left px-4 py-2 font-mono text-sm text-danger hover:bg-danger/10 transition"
                   >
                     Archiver
                   </button>
@@ -508,7 +509,7 @@ export default function AdminProduitsPage() {
                 setSelectedIds(new Set());
                 setShowBulkMenu(false);
               }}
-              className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition"
+              className="px-3 py-1.5 font-mono text-xs text-text-dim hover:text-text transition"
             >
               Annuler
             </button>
@@ -518,12 +519,12 @@ export default function AdminProduitsPage() {
 
       {/* Error state */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center mb-4">
-          <AlertTriangle className="h-8 w-8 text-red-400 mx-auto mb-2" />
-          <p className="text-red-700 font-medium text-sm">{error}</p>
+        <div className="bg-danger/10 border border-danger/30 p-6 text-center mb-4">
+          <AlertTriangle className="h-8 w-8 text-danger mx-auto mb-2" />
+          <p className="font-mono text-sm text-danger">{error}</p>
           <button
             onClick={loadProducts}
-            className="mt-3 text-sm text-red-600 underline hover:no-underline"
+            className="mt-3 font-mono text-sm text-danger underline hover:no-underline"
           >
             Reessayer
           </button>
@@ -531,11 +532,11 @@ export default function AdminProduitsPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-surface border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/50">
+              <tr className="border-b border-border bg-surface-2">
                 <th className="w-10 px-4 py-3.5">
                   <input
                     type="checkbox"
@@ -544,55 +545,39 @@ export default function AdminProduitsPage() {
                       selectedIds.size === products.length
                     }
                     onChange={toggleSelectAll}
-                    className="rounded border-gray-300 text-[#28afb1] focus:ring-[#28afb1]"
+                    className="accent-neon"
                   />
                 </th>
-                <th className="text-left px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Produit
-                </th>
-                <th className="text-left px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  SKU
-                </th>
-                <th className="text-left px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Categorie
-                </th>
-                <th className="text-right px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Prix HT
-                </th>
-                <th className="text-right px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Prix TTC
-                </th>
-                <th className="text-right px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Stock
-                </th>
-                <th className="text-center px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Statut
-                </th>
-                <th className="text-right px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Actions
-                </th>
+                <th className="text-left px-4 py-3.5 spec-label">Produit</th>
+                <th className="text-left px-4 py-3.5 spec-label">SKU</th>
+                <th className="text-left px-4 py-3.5 spec-label">Categorie</th>
+                <th className="text-right px-4 py-3.5 spec-label">Prix HT</th>
+                <th className="text-right px-4 py-3.5 spec-label">Prix TTC</th>
+                <th className="text-right px-4 py-3.5 spec-label">Stock</th>
+                <th className="text-center px-4 py-3.5 spec-label">Statut</th>
+                <th className="text-right px-4 py-3.5 spec-label">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-border">
               {loading ? (
                 Array.from({ length: 10 }).map((_, i) => (
                   <tr key={i}>
                     <td colSpan={9} className="px-4 py-4">
-                      <div className="h-4 bg-gray-100 rounded-md animate-pulse" />
+                      <div className="h-4 bg-surface-2 animate-pulse" />
                     </td>
                   </tr>
                 ))
               ) : products.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-16 text-center">
-                    <Package className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-                    <p className="text-gray-400 font-medium">
+                    <Package className="h-10 w-10 text-text-dim mx-auto mb-3" />
+                    <p className="font-mono text-text-muted">
                       Aucun produit trouve
                     </p>
                     {hasActiveFilters && (
                       <button
                         onClick={clearFilters}
-                        className="mt-2 text-sm text-[#28afb1] hover:underline"
+                        className="mt-2 font-mono text-sm text-neon hover:underline"
                       >
                         Effacer les filtres
                       </button>
@@ -616,8 +601,8 @@ export default function AdminProduitsPage() {
                       className={cn(
                         "group transition-colors",
                         isSelected
-                          ? "bg-[#28afb1]/5"
-                          : "hover:bg-gray-50/50"
+                          ? "bg-neon-dim"
+                          : "hover:bg-surface-2/50"
                       )}
                     >
                       {/* Checkbox */}
@@ -626,7 +611,7 @@ export default function AdminProduitsPage() {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelect(product.id)}
-                          className="rounded border-gray-300 text-[#28afb1] focus:ring-[#28afb1]"
+                          className="accent-neon"
                         />
                       </td>
 
@@ -636,7 +621,7 @@ export default function AdminProduitsPage() {
                           href={`/admin/produits/${product.id}`}
                           className="flex items-center gap-3 group/link"
                         >
-                          <div className="w-10 h-10 bg-gray-50 border border-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                          <div className="w-10 h-10 bg-void border border-border overflow-hidden flex-shrink-0">
                             {image ? (
                               <img
                                 src={image.url}
@@ -645,33 +630,33 @@ export default function AdminProduitsPage() {
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <ImageOff className="h-4 w-4 text-gray-300" />
+                                <ImageOff className="h-4 w-4 text-text-dim" />
                               </div>
                             )}
                           </div>
-                          <span className="font-medium text-gray-900 line-clamp-1 group-hover/link:text-[#28afb1] transition-colors">
+                          <span className="font-mono text-sm text-text line-clamp-1 group-hover/link:text-neon transition-colors">
                             {product.name}
                           </span>
                         </Link>
                       </td>
 
                       {/* SKU */}
-                      <td className="px-4 py-3 font-mono text-xs text-gray-400">
+                      <td className="px-4 py-3 font-mono text-xs text-text-dim">
                         {product.sku}
                       </td>
 
                       {/* Category */}
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 font-mono text-xs text-text-muted">
                         {product.categories?.[0]?.category?.name || "\u2014"}
                       </td>
 
                       {/* Price HT */}
-                      <td className="px-4 py-3 text-right font-medium text-gray-900 tabular-nums">
+                      <td className="px-4 py-3 text-right font-mono text-sm text-text tabular-nums">
                         {formatPrice(parseFloat(product.priceHt))}
                       </td>
 
                       {/* Price TTC */}
-                      <td className="px-4 py-3 text-right text-gray-500 tabular-nums text-xs">
+                      <td className="px-4 py-3 text-right font-mono text-xs text-text-muted tabular-nums">
                         {formatPriceTTC(product.priceHt, product.tvaRate)}
                       </td>
 
@@ -694,10 +679,10 @@ export default function AdminProduitsPage() {
                                 handleStockSave(product.id)
                               }
                               disabled={savingStock}
-                              className="w-16 px-2 py-1 text-right text-sm border border-[#28afb1] rounded-md focus:ring-2 focus:ring-[#28afb1]/20 outline-none tabular-nums"
+                              className="w-16 px-2 py-1 text-right font-mono text-sm border border-neon bg-surface text-text outline-none tabular-nums"
                             />
                             {savingStock && (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-[#28afb1]" />
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-neon" />
                             )}
                           </div>
                         ) : (
@@ -707,12 +692,12 @@ export default function AdminProduitsPage() {
                             }
                             title="Cliquer pour modifier le stock"
                             className={cn(
-                              "inline-flex items-center justify-center min-w-[2.5rem] rounded-full px-2.5 py-0.5 text-xs font-bold cursor-pointer transition-all hover:ring-2 hover:ring-offset-1",
+                              "inline-flex items-center justify-center min-w-[2.5rem] px-2.5 py-0.5 font-mono text-xs font-bold cursor-pointer transition-all",
                               stock === 0
-                                ? "bg-red-50 text-red-600 hover:ring-red-300"
+                                ? "bg-danger/20 text-danger"
                                 : stock <= 5
-                                  ? "bg-orange-50 text-orange-600 hover:ring-orange-300"
-                                  : "bg-green-50 text-green-700 hover:ring-green-300"
+                                  ? "bg-warning/20 text-warning"
+                                  : "bg-neon-dim text-neon"
                             )}
                           >
                             {stock}
@@ -728,18 +713,18 @@ export default function AdminProduitsPage() {
                           }
                           disabled={isActioning}
                           className={cn(
-                            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all cursor-pointer",
+                            "inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border",
                             product.status === "ACTIVE"
-                              ? "bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
+                              ? "bg-neon-dim text-neon border-neon/30 hover:bg-neon/20"
                               : product.status === "DRAFT"
-                                ? "bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100"
-                                : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+                                ? "bg-warning/10 text-warning border-warning/30 hover:bg-warning/20"
+                                : "bg-surface-2 text-text-dim border-border hover:bg-surface-3"
                           )}
                         >
                           {isActioning ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : product.status === "ACTIVE" ? (
-                            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                            <span className="h-1.5 w-1.5 bg-neon" />
                           ) : null}
                           {product.status === "ACTIVE"
                             ? "Actif"
@@ -754,7 +739,7 @@ export default function AdminProduitsPage() {
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Link
                             href={`/admin/produits/${product.id}`}
-                            className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition"
+                            className="p-1.5 text-text-dim hover:text-neon transition"
                             title="Modifier"
                           >
                             <Pencil className="h-4 w-4" />
@@ -762,7 +747,7 @@ export default function AdminProduitsPage() {
                           <button
                             onClick={() => handleDuplicate(product.id)}
                             disabled={isActioning}
-                            className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition"
+                            className="p-1.5 text-text-dim hover:text-neon transition"
                             title="Dupliquer"
                           >
                             <Copy className="h-4 w-4" />
@@ -771,10 +756,10 @@ export default function AdminProduitsPage() {
                             onClick={() => handleArchive(product.id)}
                             disabled={isActioning}
                             className={cn(
-                              "p-1.5 rounded-md transition",
+                              "p-1.5 transition",
                               isConfirmingDelete
-                                ? "bg-red-100 text-red-600 hover:bg-red-200"
-                                : "hover:bg-gray-100 text-gray-500 hover:text-red-600"
+                                ? "bg-danger/20 text-danger"
+                                : "text-text-dim hover:text-danger"
                             )}
                             title={
                               isConfirmingDelete
@@ -802,14 +787,14 @@ export default function AdminProduitsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <p className="text-sm text-gray-500">
+          <p className="font-mono text-sm text-text-muted">
             Page {page} sur {totalPages}
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="btn-outline py-2 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="h-4 w-4" />
               Precedent
@@ -817,7 +802,7 @@ export default function AdminProduitsPage() {
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="btn-outline py-2 px-3 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Suivant
               <ChevronRight className="h-4 w-4" />
