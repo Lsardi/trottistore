@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, PackageSearch } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
@@ -14,7 +14,15 @@ const SORT_OPTIONS = [
   { value: "name", label: "Nom A-Z" },
 ] as const;
 
-export default function ProductsPage() {
+export default function ProductsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-12"><div className="animate-pulse h-96 bg-gray-100 rounded-2xl" /></div>}>
+      <ProductsPage />
+    </Suspense>
+  );
+}
+
+function ProductsPage() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

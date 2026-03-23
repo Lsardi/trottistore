@@ -217,7 +217,7 @@ export function TextReveal({
   );
 }
 
-// ─── HORIZONTAL SCROLL SECTION ───────────────────────────────
+// ─── HORIZONTAL SCROLL (CSS scroll-snap, GPU-friendly) ──────
 export function HorizontalScroll({
   children,
   className,
@@ -225,18 +225,19 @@ export function HorizontalScroll({
   children: ReactNode;
   className?: string;
 }) {
-  const targetRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: targetRef });
-  const x = useTransform(scrollYProgress, [0, 1], ["0%", "-60%"]);
-
   return (
-    <section ref={targetRef} className={cn("relative h-[300vh]", className)}>
-      <div className="sticky top-0 flex h-screen items-center overflow-hidden">
-        <motion.div style={{ x }} className="flex gap-8">
-          {children}
-        </motion.div>
+    <div className={cn("relative", className)}>
+      <div
+        className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-4 px-4 sm:px-6 lg:px-8 -mx-4 sm:-mx-6 lg:-mx-8"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {children}
       </div>
-    </section>
+    </div>
   );
 }
 
