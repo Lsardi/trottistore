@@ -11,6 +11,7 @@ import { cartRoutes } from "./routes/cart/index.js";
 import { orderRoutes } from "./routes/orders/index.js";
 import { categoryRoutes } from "./routes/categories/index.js";
 import { authRoutes } from "./routes/auth/index.js";
+import { adminRoutes } from "./routes/admin/index.js";
 
 const PORT = parseInt(process.env.PORT_ECOMMERCE || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -51,6 +52,7 @@ async function start() {
   await app.register(orderRoutes, { prefix: "/api/v1" });
   await app.register(categoryRoutes, { prefix: "/api/v1" });
   await app.register(authRoutes, { prefix: "/api/v1" });
+  await app.register(adminRoutes, { prefix: "/api/v1" });
 
   // Démarrage
   try {

@@ -131,6 +131,92 @@ export const ordersApi = {
     apiFetch<{ success: boolean; data: Order }>('ecommerce', `/orders/${id}`),
 };
 
+// ─── ADMIN PRODUCTS ──────────────────────────────────────────
+
+export interface AdminProductPayload {
+  name: string;
+  sku: string;
+  description?: string;
+  shortDescription?: string;
+  brandId?: string | null;
+  priceHt: number;
+  tvaRate?: number;
+  weightGrams?: number | null;
+  status?: string;
+  isFeatured?: boolean;
+  metaTitle?: string | null;
+  metaDesc?: string | null;
+  categories?: string[];
+  images?: { url: string; alt?: string; isPrimary?: boolean }[];
+}
+
+export const adminProductsApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    categorySlug?: string;
+    search?: string;
+    sort?: string;
+    status?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    inStock?: string;
+  }) =>
+    apiFetch<{ success: boolean; data: Product[]; pagination: Pagination }>(
+      'ecommerce',
+      '/products',
+      { params: { ...params, status: params?.status || undefined } }
+    ),
+
+  getById: (id: string) =>
+    apiFetch<{ success: boolean; data: Product }>('ecommerce', `/admin/products/${id}`),
+
+  create: (body: AdminProductPayload) =>
+    apiFetch<{ success: boolean; data: Product }>('ecommerce', '/admin/products', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  update: (id: string, body: Partial<AdminProductPayload>) =>
+    apiFetch<{ success: boolean; data: Product }>('ecommerce', `/admin/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: string, hard?: boolean) =>
+    apiFetch<{ success: boolean; message: string }>(
+      'ecommerce',
+      `/admin/products/${id}${hard ? '?hard=true' : ''}`,
+      { method: 'DELETE' }
+    ),
+
+  updateStock: (id: string, body: { variantId?: string; quantity: number }) =>
+    apiFetch<{ success: boolean; data: ProductVariant }>(
+      'ecommerce',
+      `/admin/products/${id}/stock`,
+      { method: 'PATCH', body: JSON.stringify(body) }
+    ),
+
+  bulkPrice: (updates: { productId: string; priceHt: number }[]) =>
+    apiFetch<{ success: boolean; data: { updatedCount: number } }>(
+      'ecommerce',
+      '/admin/products/bulk-price',
+      { method: 'PATCH', body: JSON.stringify({ updates }) }
+    ),
+
+  bulkStatus: (productIds: string[], status: string) =>
+    apiFetch<{ success: boolean; data: { updatedCount: number } }>(
+      'ecommerce',
+      '/admin/products/bulk-status',
+      { method: 'PATCH', body: JSON.stringify({ productIds, status }) }
+    ),
+
+  duplicate: (id: string) =>
+    apiFetch<{ success: boolean; data: Product }>('ecommerce', `/admin/products/${id}/duplicate`, {
+      method: 'POST',
+    }),
+};
+
 // ─── AUTH ──────────────────────────────────────────────────
 
 export const authApi = {

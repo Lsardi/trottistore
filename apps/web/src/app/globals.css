@@ -5,5 +5,47 @@
   --color-brand: #28afb1;
   --color-brand-light: #33c4c6;
   --color-brand-dark: #1f8e90;
+  --color-brand-50: #edfafa;
+  --color-brand-100: #d5f5f6;
+  --color-brand-200: #aeeaec;
+  --color-brand-300: #7ddadd;
+  --color-brand-400: #45c5c7;
+  --color-brand-500: #28afb1;
+  --color-brand-600: #1f8e90;
+  --color-brand-700: #1d7274;
+  --color-brand-800: #1d5b5d;
+  --color-brand-900: #1c4c4e;
   --font-sans: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Override Tailwind teal with our brand color so teal-500 = #28afb1 */
+@theme {
+  --color-teal-50: #edfafa;
+  --color-teal-100: #d5f5f6;
+  --color-teal-200: #aeeaec;
+  --color-teal-300: #7ddadd;
+  --color-teal-400: #45c5c7;
+  --color-teal-500: #28afb1;
+  --color-teal-600: #1f8e90;
+  --color-teal-700: #1d7274;
+  --color-teal-800: #1d5b5d;
+  --color-teal-900: #1c4c4e;
+  --color-teal-950: #0f3334;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better focus styles */
+*:focus-visible {
+  outline: 2px solid #28afb1;
+  outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+  background-color: #28afb1;
+  color: white;
 }

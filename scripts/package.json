@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "crawl": "tsx crawl.ts",
-    "seed": "tsx seed.ts"
+    "seed": "tsx seed.ts",
+    "sync": "tsx sync-woocommerce.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
