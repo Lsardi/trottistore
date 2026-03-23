@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, ChevronRight, Check, Zap, Filter } from "lucide-react";
+import { Search, ChevronRight, Check, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productsApi, type Product } from "@/lib/api";
 
@@ -57,19 +57,13 @@ export default function CompatibilitePage() {
   }
 
   return (
-    <div className="min-h-[80vh] bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-[80vh]">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 text-sm font-medium px-4 py-2 rounded-full mb-4">
-            <Filter className="w-4 h-4" />
-            Outil exclusif TrottiStore
-          </div>
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-3">
-            Trouvez vos pi&egrave;ces compatibles
-          </h1>
-          <p className="text-lg text-gray-500 max-w-xl mx-auto">
-            S&eacute;lectionnez votre trottinette et on vous montre uniquement les pi&egrave;ces qui marchent avec.
+          <h1 className="heading-lg mb-3">COMPATIBILITE PIECES</h1>
+          <p className="font-mono text-sm text-text-muted max-w-xl mx-auto">
+            Selectionnez votre trottinette et on vous montre uniquement les pieces qui marchent avec.
           </p>
         </div>
 
@@ -77,28 +71,28 @@ export default function CompatibilitePage() {
         <div className="flex items-center justify-center gap-3 mb-10">
           {[
             { id: "brand", label: "Marque" },
-            { id: "model", label: "Mod\u00e8le" },
-            { id: "results", label: "Pi\u00e8ces" },
+            { id: "model", label: "Modele" },
+            { id: "results", label: "Pieces" },
           ].map((s, i) => (
             <div key={s.id} className="flex items-center gap-3">
               <div
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition-all",
+                  "flex h-9 w-9 items-center justify-center text-sm font-mono font-bold transition-all border",
                   step === s.id
-                    ? "bg-teal-500 text-white shadow-lg shadow-teal-500/30"
+                    ? "bg-neon text-void border-neon"
                     : (step === "model" && s.id === "brand") || (step === "results" && s.id !== "results")
-                      ? "bg-teal-100 text-teal-700"
-                      : "bg-gray-200 text-gray-500"
+                      ? "bg-neon-dim text-neon border-neon/30"
+                      : "bg-surface border-border text-text-dim"
                 )}
               >
                 {(step === "model" && s.id === "brand") || (step === "results" && s.id !== "results")
                   ? <Check className="w-4 h-4" />
                   : i + 1}
               </div>
-              <span className={cn("text-sm font-medium", step === s.id ? "text-teal-700" : "text-gray-400")}>
+              <span className={cn("font-mono text-xs uppercase tracking-wider", step === s.id ? "text-neon" : "text-text-dim")}>
                 {s.label}
               </span>
-              {i < 2 && <ChevronRight className="w-4 h-4 text-gray-300" />}
+              {i < 2 && <span className="font-mono text-text-dim">&mdash;</span>}
             </div>
           ))}
         </div>
@@ -107,13 +101,13 @@ export default function CompatibilitePage() {
         {step === "brand" && (
           <div>
             <div className="relative max-w-sm mx-auto mb-8">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-dim" />
               <input
                 type="text"
                 placeholder="Rechercher une marque..."
                 value={searchBrand}
                 onChange={(e) => setSearchBrand(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
+                className="input-dark w-full pl-11"
               />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -121,13 +115,13 @@ export default function CompatibilitePage() {
                 <button
                   key={brand.name}
                   onClick={() => { setSelectedBrand(brand.name); setStep("model"); }}
-                  className="bg-white rounded-2xl p-6 text-center border-2 border-transparent hover:border-teal-500 shadow-sm hover:shadow-lg transition-all group"
+                  className="bg-surface-2 p-6 text-center border border-border hover:border-neon transition-all group"
                 >
-                  <div className="w-14 h-14 mx-auto bg-gray-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-teal-50 transition-colors">
-                    <Zap className="w-7 h-7 text-gray-400 group-hover:text-teal-500 transition-colors" />
+                  <div className="w-14 h-14 mx-auto bg-void border border-border flex items-center justify-center mb-3 group-hover:border-neon transition-colors">
+                    <Zap className="w-7 h-7 text-text-dim group-hover:text-neon transition-colors" />
                   </div>
-                  <p className="font-semibold text-gray-900">{brand.name}</p>
-                  <p className="text-xs text-gray-400 mt-1">{brand.models.length} mod&egrave;les</p>
+                  <p className="font-display font-bold text-text">{brand.name}</p>
+                  <p className="font-mono text-xs text-text-dim mt-1">{brand.models.length} modeles</p>
                 </button>
               ))}
             </div>
@@ -137,24 +131,24 @@ export default function CompatibilitePage() {
         {/* Step: Model */}
         {step === "model" && currentBrand && (
           <div>
-            <button onClick={() => setStep("brand")} className="text-sm text-teal-600 hover:underline mb-6 flex items-center gap-1">
+            <button onClick={() => setStep("brand")} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1">
               &larr; Changer de marque
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="heading-md text-text mb-2">
               {selectedBrand}
             </h2>
-            <p className="text-gray-500 mb-6">S&eacute;lectionnez votre mod&egrave;le</p>
+            <p className="font-mono text-sm text-text-muted mb-6">Selectionnez votre modele</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {currentBrand.models.map((model) => (
                 <button
                   key={model}
                   onClick={() => handleSelectModel(model)}
-                  className="bg-white rounded-xl p-4 text-left border-2 border-transparent hover:border-teal-500 shadow-sm hover:shadow-md transition-all group"
+                  className="bg-surface-2 p-4 text-left border border-border hover:border-neon transition-all group"
                 >
-                  <p className="font-medium text-gray-900 group-hover:text-teal-600 transition-colors">
+                  <p className="font-mono text-sm font-bold text-text group-hover:text-neon transition-colors">
                     {model}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">{selectedBrand} {model}</p>
+                  <p className="font-mono text-xs text-text-dim mt-1">{selectedBrand} {model}</p>
                 </button>
               ))}
             </div>
@@ -166,14 +160,14 @@ export default function CompatibilitePage() {
           <div>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <button onClick={reset} className="text-sm text-teal-600 hover:underline mb-2 flex items-center gap-1">
+                <button onClick={reset} className="font-mono text-sm text-neon hover:underline mb-2 flex items-center gap-1">
                   &larr; Nouvelle recherche
                 </button>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Pi&egrave;ces pour {selectedBrand} {selectedModel}
+                <h2 className="heading-md text-text">
+                  Pieces pour {selectedBrand} {selectedModel}
                 </h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  {loading ? "Recherche..." : `${products.length} pi\u00e8ce${products.length !== 1 ? "s" : ""} trouv\u00e9e${products.length !== 1 ? "s" : ""}`}
+                <p className="font-mono text-xs text-text-muted mt-1">
+                  {loading ? "Recherche..." : `${products.length} piece${products.length !== 1 ? "s" : ""} trouvee${products.length !== 1 ? "s" : ""}`}
                 </p>
               </div>
             </div>
@@ -181,23 +175,23 @@ export default function CompatibilitePage() {
             {loading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-xl animate-pulse aspect-[3/4]" />
+                  <div key={i} className="bg-surface border border-border aspect-[3/4]" />
                 ))}
               </div>
             ) : products.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
-                <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-lg font-medium text-gray-600 mb-2">
-                  Pas de r&eacute;sultats sp&eacute;cifiques
+              <div className="text-center py-16 bg-surface border border-border">
+                <Search className="w-12 h-12 text-text-dim mx-auto mb-4" />
+                <p className="heading-md text-text-muted mb-2">
+                  Pas de resultats specifiques
                 </p>
-                <p className="text-gray-400 text-sm mb-6">
-                  Parcourez notre catalogue complet pour trouver vos pi&egrave;ces
+                <p className="font-mono text-xs text-text-dim mb-6">
+                  Parcourez notre catalogue complet pour trouver vos pieces
                 </p>
                 <Link
                   href="/produits"
-                  className="inline-flex items-center gap-2 bg-teal-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-teal-600 transition"
+                  className="btn-neon"
                 >
-                  Voir tout le catalogue
+                  VOIR TOUT LE CATALOGUE
                   <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -211,18 +205,19 @@ export default function CompatibilitePage() {
                     <Link
                       key={product.id}
                       href={`/produits/${product.slug}`}
-                      className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all group"
+                      className="product-card group"
                     >
-                      <div className="aspect-square bg-gray-50 overflow-hidden">
+                      <div className="product-card-image">
                         {image && (
-                          <img src={image.url} alt={product.name} className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform" loading="lazy" />
+                          <img src={image.url} alt={product.name} className="w-full h-full object-contain p-2" loading="lazy" />
                         )}
                       </div>
-                      <div className="p-3">
-                        <p className="text-xs text-teal-600 font-medium mb-1">Compatible {selectedBrand} {selectedModel}</p>
-                        <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">{product.name}</p>
-                        <p className="font-bold text-gray-900">{priceTTC.toFixed(2)} &euro;</p>
+                      <div className="product-card-body">
+                        <p className="font-mono text-xs text-neon mb-1">Compatible {selectedBrand} {selectedModel}</p>
+                        <p className="text-sm font-medium text-text line-clamp-2 mb-2">{product.name}</p>
+                        <p className="font-mono font-bold text-neon">{priceTTC.toFixed(2)} &euro;</p>
                       </div>
+                      <div className="product-card-neon-line" />
                     </Link>
                   );
                 })}

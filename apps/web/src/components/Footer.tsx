@@ -1,118 +1,177 @@
 import Link from "next/link";
-import { MapPin, Phone, Mail, CreditCard, Smartphone, Landmark, CalendarClock } from "lucide-react";
+
+const NAV_LINKS = [
+  { label: "Trottinettes", href: "/produits?categorySlug=trottinettes-electriques" },
+  { label: "Pièces détachées", href: "/produits?categorySlug=pieces-detachees" },
+  { label: "Catalogue", href: "/produits" },
+  { label: "Mon compte", href: "/mon-compte" },
+];
+
+const SERVICE_LINKS = [
+  { label: "Réparation SAV", href: "/reparation" },
+  { label: "Diagnostic", href: "/diagnostic" },
+  { label: "Compatibilité", href: "/compatibilite" },
+  { label: "Suivi commande", href: "/mon-compte" },
+];
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-400">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-          {/* Marque */}
+    <footer style={{ backgroundColor: "#0A0A0A" }}>
+      {/* Neon divider at top */}
+      <div className="divider-neon" />
+
+      <div
+        style={{
+          maxWidth: 1280,
+          margin: "0 auto",
+          padding: "48px 24px",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 32,
+          }}
+          className="footer-grid"
+        >
+          {/* Col 1: Logo */}
           <div>
-            <div className="flex items-center gap-2.5 mb-4">
-              <span className="text-2xl">🛴</span>
-              <span className="text-lg font-bold text-white">TrottiStore</span>
+            <div style={{ marginBottom: 16 }}>
+              <span
+                className="font-display"
+                style={{ fontWeight: 800, fontSize: "1.1rem" }}
+              >
+                <span style={{ color: "#00FFD1" }}>TROTTI</span>
+                <span style={{ color: "#E8E8E8" }}>STORE</span>
+              </span>
             </div>
-            <p className="text-sm leading-relaxed">
-              Specialiste trottinettes electriques depuis 2019.
-              Vente, reparation et pieces detachees.
+            <p
+              className="font-mono"
+              style={{
+                fontSize: "0.7rem",
+                color: "#555",
+                lineHeight: 1.6,
+                fontStyle: "italic",
+                maxWidth: 240,
+              }}
+            >
+              Spécialiste trottinettes électriques depuis 2019
             </p>
-            <div className="mt-4 flex items-center gap-2">
-              <span className="inline-block w-8 h-1 rounded-full bg-teal-500" />
-              <span className="text-xs text-teal-400 font-medium">Expert mobilite</span>
+          </div>
+
+          {/* Col 2: Navigation */}
+          <div>
+            <h4
+              className="spec-label"
+              style={{ marginBottom: 16 }}
+            >
+              NAVIGATION
+            </h4>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {NAV_LINKS.map((link) => (
+                <li key={link.href} style={{ marginBottom: 10 }}>
+                  <Link
+                    href={link.href}
+                    className="font-mono footer-link"
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#888",
+                      textDecoration: "none",
+                      transition: "color 150ms",
+                    }}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Col 3: Services */}
+          <div>
+            <h4
+              className="spec-label"
+              style={{ marginBottom: 16 }}
+            >
+              SERVICES
+            </h4>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {SERVICE_LINKS.map((link) => (
+                <li key={link.href + link.label} style={{ marginBottom: 10 }}>
+                  <Link
+                    href={link.href}
+                    className="font-mono footer-link"
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#888",
+                      textDecoration: "none",
+                      transition: "color 150ms",
+                    }}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Col 4: Atelier */}
+          <div>
+            <h4
+              className="spec-label"
+              style={{ marginBottom: 16 }}
+            >
+              ATELIER
+            </h4>
+            <div className="font-mono" style={{ fontSize: "0.75rem", color: "#888", lineHeight: 1.7 }}>
+              <p style={{ margin: "0 0 8px" }}>
+                18 bis Rue Mechin
+                <br />
+                93450 L&apos;Île-Saint-Denis
+              </p>
+              <p style={{ margin: "0 0 4px" }}>
+                <a href="tel:+33604463055" style={{ color: "#888", textDecoration: "none" }}>
+                  06 04 46 30 55
+                </a>
+              </p>
+              <p style={{ margin: 0 }}>
+                <a href="mailto:contact@trottistore.fr" style={{ color: "#888", textDecoration: "none" }}>
+                  contact@trottistore.fr
+                </a>
+              </p>
             </div>
-          </div>
-
-          {/* Boutique */}
-          <div>
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Boutique</h3>
-            <ul className="space-y-3 text-sm">
-              <li>
-                <Link href="/produits" className="hover:text-teal-400 transition-colors">
-                  Catalogue
-                </Link>
-              </li>
-              <li>
-                <Link href="/produits?sort=newest" className="hover:text-teal-400 transition-colors">
-                  Nouveautes
-                </Link>
-              </li>
-              <li>
-                <Link href="/produits?inStock=true" className="hover:text-teal-400 transition-colors">
-                  En stock
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Services */}
-          <div>
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Services</h3>
-            <ul className="space-y-3 text-sm">
-              <li>
-                <Link href="/reparation" className="hover:text-teal-400 transition-colors">
-                  Reparation SAV
-                </Link>
-              </li>
-              <li>
-                <Link href="/mon-compte" className="hover:text-teal-400 transition-colors">
-                  Mon compte
-                </Link>
-              </li>
-              <li>
-                <Link href="/mon-compte" className="hover:text-teal-400 transition-colors">
-                  Suivi commande
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Contact</h3>
-            <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 mt-0.5 text-teal-500 flex-shrink-0" />
-                <span>18 bis Rue Mechin<br />93450 L&apos;Ile-Saint-Denis</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-teal-500 flex-shrink-0" />
-                <span>Contactez-nous</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-teal-500 flex-shrink-0" />
-                <span>contact@trottistore.fr</span>
-              </li>
-            </ul>
           </div>
         </div>
 
-        {/* Paiement & legal */}
-        <div className="mt-12 pt-8 border-t border-gray-800">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
-              <span className="flex items-center gap-1.5">
-                <CreditCard className="w-4 h-4 text-gray-500" />
-                CB
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Smartphone className="w-4 h-4 text-gray-500" />
-                Apple Pay / Google Pay
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Landmark className="w-4 h-4 text-gray-500" />
-                Virement
-              </span>
-              <span className="flex items-center gap-1.5 text-teal-400 font-medium">
-                <CalendarClock className="w-4 h-4" />
-                2x 3x 4x sans frais
-              </span>
-            </div>
-            <p className="text-xs text-gray-600">
-              &copy; {new Date().getFullYear()} TrottiStore &mdash; Tous droits reserves
-            </p>
-          </div>
+        {/* Bottom bar */}
+        <div
+          style={{
+            marginTop: 40,
+            paddingTop: 20,
+            borderTop: "1px solid #2A2A2A",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <span
+            className="font-mono"
+            style={{ fontSize: "0.65rem", color: "#555", letterSpacing: "0.06em" }}
+          >
+            &copy; 2026 TROTTISTORE
+          </span>
+          <span
+            className="font-mono"
+            style={{ fontSize: "0.65rem", color: "#555" }}
+          >
+            CB &middot; APPLE PAY &middot; GOOGLE PAY &middot; VIREMENT &middot; 2X 3X 4X SANS FRAIS
+          </span>
         </div>
       </div>
+
     </footer>
   );
 }

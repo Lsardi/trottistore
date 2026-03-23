@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Zap, Battery, Disc, Monitor, Settings, AlertTriangle,
-  ChevronRight, Check, RotateCcw, Wrench, ArrowRight
+  ChevronRight, RotateCcw, Wrench, ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -69,11 +69,11 @@ const SYMPTOM_CATEGORIES = [
 
 type Severity = "low" | "medium" | "high" | "critical";
 
-const SEVERITY_CONFIG: Record<Severity, { label: string; color: string; icon: typeof AlertTriangle; estimate: string }> = {
-  low: { label: "Mineur", color: "bg-green-50 text-green-700 border-green-200", icon: Check, estimate: "30min - 1h" },
-  medium: { label: "Moyen", color: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: AlertTriangle, estimate: "1h - 3h" },
-  high: { label: "Important", color: "bg-orange-50 text-orange-700 border-orange-200", icon: AlertTriangle, estimate: "3h - 1 jour" },
-  critical: { label: "Critique", color: "bg-red-50 text-red-700 border-red-200", icon: AlertTriangle, estimate: "Diagnostic approfondi requis" },
+const SEVERITY_CONFIG: Record<Severity, { label: string; badgeClass: string; estimate: string }> = {
+  low: { label: "Mineur", badgeClass: "badge badge-neon", estimate: "30min - 1h" },
+  medium: { label: "Moyen", badgeClass: "badge badge-warning", estimate: "1h - 3h" },
+  high: { label: "Important", badgeClass: "badge badge-danger", estimate: "3h - 1 jour" },
+  critical: { label: "Critique", badgeClass: "badge badge-danger", estimate: "Diagnostic approfondi requis" },
 };
 
 const SOLUTIONS: Record<string, { title: string; description: string; estimatedCost: string; diy: boolean }> = {
@@ -100,10 +100,10 @@ const SOLUTIONS: Record<string, { title: string; description: string; estimatedC
   "suspension": { title: "Remplacement amortisseur", description: "Amortisseur use ou casse. Remplacement par piece compatible.", estimatedCost: "30 - 80 EUR", diy: false },
 };
 
-type Step = "category" | "symptom" | "result";
+type DiagStep = "category" | "symptom" | "result";
 
 export default function DiagnosticPage() {
-  const [step, setStep] = useState<Step>("category");
+  const [step, setStep] = useState<DiagStep>("category");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSymptom, setSelectedSymptom] = useState("");
 
@@ -119,19 +119,13 @@ export default function DiagnosticPage() {
   }
 
   return (
-    <div className="min-h-[80vh] bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-[80vh]">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 text-sm font-medium px-4 py-2 rounded-full mb-4">
-            <Wrench className="w-4 h-4" />
-            Diagnostic intelligent
-          </div>
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-3">
-            Quel est le probl&egrave;me ?
-          </h1>
-          <p className="text-lg text-gray-500">
-            R&eacute;pondez en 2 clics. On vous donne le diagnostic, le co&ucirc;t estim&eacute; et la solution.
+          <h1 className="heading-lg mb-3">DIAGNOSTIC</h1>
+          <p className="font-mono text-sm text-text-muted">
+            Repondez en 2 clics. On vous donne le diagnostic, le cout estime et la solution.
           </p>
         </div>
 
@@ -144,13 +138,13 @@ export default function DiagnosticPage() {
                 <button
                   key={cat.id}
                   onClick={() => { setSelectedCategory(cat.id); setStep("symptom"); }}
-                  className="bg-white rounded-2xl p-6 text-center border-2 border-transparent hover:border-teal-500 shadow-sm hover:shadow-lg transition-all group"
+                  className="bg-surface-2 p-6 text-center border border-border hover:border-neon transition-all group"
                 >
-                  <div className="w-14 h-14 mx-auto bg-gray-50 rounded-xl flex items-center justify-center mb-3 group-hover:bg-teal-50 transition-colors">
-                    <Icon className="w-7 h-7 text-gray-400 group-hover:text-teal-500 transition-colors" />
+                  <div className="w-14 h-14 mx-auto bg-void border border-border flex items-center justify-center mb-3 group-hover:border-neon transition-colors">
+                    <Icon className="w-7 h-7 text-text-dim group-hover:text-neon transition-colors" />
                   </div>
-                  <p className="font-semibold text-gray-900">{cat.label}</p>
-                  <p className="text-xs text-gray-400 mt-1">{cat.symptoms.length} sympt&ocirc;mes</p>
+                  <p className="font-display font-bold text-text">{cat.label}</p>
+                  <p className="font-mono text-xs text-text-dim mt-1">{cat.symptoms.length} symptomes</p>
                 </button>
               );
             })}
@@ -160,14 +154,14 @@ export default function DiagnosticPage() {
         {/* Step 2: Symptom */}
         {step === "symptom" && category && (
           <div>
-            <button onClick={() => setStep("category")} className="text-sm text-teal-600 hover:underline mb-6 flex items-center gap-1">
-              &larr; Autre cat&eacute;gorie
+            <button onClick={() => setStep("category")} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1">
+              &larr; Autre categorie
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-              {(() => { const Icon = category.icon; return <Icon className="w-6 h-6 text-teal-500" />; })()}
+            <h2 className="heading-md text-text mb-2 flex items-center gap-2">
+              {(() => { const Icon = category.icon; return <Icon className="w-6 h-6 text-neon" />; })()}
               {category.label}
             </h2>
-            <p className="text-gray-500 mb-6">D&eacute;crivez le sympt&ocirc;me</p>
+            <p className="font-mono text-sm text-text-muted mb-6">Decrivez le symptome</p>
             <div className="space-y-3">
               {category.symptoms.map((sym) => {
                 const sev = SEVERITY_CONFIG[sym.severity as Severity];
@@ -175,17 +169,17 @@ export default function DiagnosticPage() {
                   <button
                     key={sym.id}
                     onClick={() => { setSelectedSymptom(sym.id); setStep("result"); }}
-                    className="w-full bg-white rounded-xl p-5 text-left border-2 border-transparent hover:border-teal-500 shadow-sm hover:shadow-md transition-all group flex items-center justify-between"
+                    className="w-full bg-surface p-5 text-left border border-border hover:border-neon transition-all group flex items-center justify-between"
                   >
                     <div>
-                      <p className="font-medium text-gray-900 group-hover:text-teal-600 transition-colors">
+                      <p className="font-mono text-sm font-bold text-text group-hover:text-neon transition-colors">
                         {sym.label}
                       </p>
-                      <span className={cn("inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium border", sev.color)}>
-                        Gravit&eacute; : {sev.label}
+                      <span className={cn("mt-1 inline-block", sev.badgeClass)}>
+                        {sev.label}
                       </span>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-teal-500 transition-colors" />
+                    <ChevronRight className="w-5 h-5 text-text-dim group-hover:text-neon transition-colors" />
                   </button>
                 );
               })}
@@ -196,49 +190,49 @@ export default function DiagnosticPage() {
         {/* Step 3: Result */}
         {step === "result" && solution && severityConfig && symptom && (
           <div>
-            <button onClick={reset} className="text-sm text-teal-600 hover:underline mb-6 flex items-center gap-1">
+            <button onClick={reset} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1">
               <RotateCcw className="w-3 h-3" />
               Nouveau diagnostic
             </button>
 
             {/* Severity banner */}
             {symptom.severity === "critical" && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="border border-danger bg-danger/10 p-4 mb-6 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-red-800">Attention — Probl&egrave;me critique</p>
-                  <p className="text-sm text-red-700">Cessez d&rsquo;utiliser votre trottinette et contactez-nous imm&eacute;diatement.</p>
+                  <p className="font-mono text-sm font-bold text-danger">Attention — Probleme critique</p>
+                  <p className="font-mono text-xs text-danger/80">Cessez d&rsquo;utiliser votre trottinette et contactez-nous immediatement.</p>
                 </div>
               </div>
             )}
 
             {/* Diagnosis card */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-teal-500 to-teal-600 px-6 py-4">
-                <p className="text-teal-100 text-sm">Diagnostic pour</p>
-                <p className="text-white text-lg font-bold">{symptom.label}</p>
+            <div className="bg-surface border border-border overflow-hidden">
+              <div className="border-t-2 border-t-neon px-6 py-4 bg-surface-2">
+                <p className="spec-label">Diagnostic pour</p>
+                <p className="font-display font-bold text-text text-lg mt-1">{symptom.label}</p>
               </div>
 
               <div className="p-6 space-y-6">
                 {/* Solution */}
                 <div>
-                  <h3 className="font-bold text-gray-900 text-lg mb-2">{solution.title}</h3>
-                  <p className="text-gray-600">{solution.description}</p>
+                  <h3 className="font-display font-bold text-text text-lg mb-2">{solution.title}</h3>
+                  <p className="font-mono text-sm text-text-muted">{solution.description}</p>
                 </div>
 
                 {/* Details grid */}
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-gray-50 rounded-xl p-4 text-center">
-                    <p className="text-xs text-gray-500 mb-1">Co&ucirc;t estim&eacute;</p>
-                    <p className="font-bold text-gray-900">{solution.estimatedCost}</p>
+                  <div className="bg-surface-2 border border-border p-4 text-center">
+                    <p className="spec-label mb-1">Cout estime</p>
+                    <p className="price-main text-base">{solution.estimatedCost}</p>
                   </div>
-                  <div className="bg-gray-50 rounded-xl p-4 text-center">
-                    <p className="text-xs text-gray-500 mb-1">Dur&eacute;e</p>
-                    <p className="font-bold text-gray-900">{severityConfig.estimate}</p>
+                  <div className="bg-surface-2 border border-border p-4 text-center">
+                    <p className="spec-label mb-1">Duree</p>
+                    <p className="font-mono text-sm font-bold text-text">{severityConfig.estimate}</p>
                   </div>
-                  <div className="bg-gray-50 rounded-xl p-4 text-center">
-                    <p className="text-xs text-gray-500 mb-1">Faisable soi-m&ecirc;me ?</p>
-                    <p className={cn("font-bold", solution.diy ? "text-green-600" : "text-orange-600")}>
+                  <div className="bg-surface-2 border border-border p-4 text-center">
+                    <p className="spec-label mb-1">Faisable soi-meme ?</p>
+                    <p className={cn("font-mono text-sm font-bold", solution.diy ? "text-neon" : "text-warning")}>
                       {solution.diy ? "Oui" : "Atelier"}
                     </p>
                   </div>
@@ -248,17 +242,17 @@ export default function DiagnosticPage() {
                 <div className="flex gap-3">
                   <Link
                     href={`/reparation?issue=${encodeURIComponent(symptom.label)}`}
-                    className="flex-1 inline-flex items-center justify-center gap-2 bg-teal-500 text-white px-6 py-4 rounded-xl font-semibold hover:bg-teal-600 transition shadow-lg shadow-teal-500/25"
+                    className="btn-neon flex-1"
                   >
                     <Wrench className="w-5 h-5" />
-                    D&eacute;poser un ticket SAV
+                    DEPOSER UN TICKET SAV
                   </Link>
                   {solution.diy && (
                     <Link
                       href="/produits"
-                      className="inline-flex items-center gap-2 border-2 border-gray-200 px-6 py-4 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition"
+                      className="btn-outline"
                     >
-                      Pi&egrave;ces
+                      PIECES
                       <ArrowRight className="w-4 h-4" />
                     </Link>
                   )}

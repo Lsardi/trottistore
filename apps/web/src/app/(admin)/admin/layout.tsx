@@ -27,20 +27,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-void">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-gray-900 text-white flex flex-col z-40">
+      <aside className="fixed left-0 top-0 h-full w-64 bg-void border-r border-border flex flex-col z-40">
         {/* Logo */}
         <div className="px-6 py-6">
           <Link href="/admin" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#28afb1]">
-              <Package className="h-5 w-5 text-white" />
+            <div className="flex h-9 w-9 items-center justify-center bg-neon">
+              <Package className="h-5 w-5 text-void" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tracking-tight">TrottiStore</span>
-              <span className="rounded bg-[#28afb1]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#28afb1]">
-                Admin
-              </span>
+              <span className="font-display text-lg font-bold tracking-tight text-text">TrottiStore</span>
+              <span className="badge badge-neon">Admin</span>
             </div>
           </Link>
         </div>
@@ -59,13 +57,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                  "group flex items-center gap-3 px-3 py-2.5 font-mono text-sm transition-all duration-150 border-l-2",
                   isActive
-                    ? "border-l-[3px] border-[#28afb1] bg-[#28afb1]/10 text-[#28afb1]"
-                    : "border-l-[3px] border-transparent text-gray-400 hover:bg-gray-800 hover:text-white"
+                    ? "border-neon bg-neon-dim text-neon"
+                    : "border-transparent text-text-muted hover:bg-surface hover:text-text"
                 )}
               >
-                <Icon className={cn("h-[18px] w-[18px]", isActive ? "text-[#28afb1]" : "text-gray-500 group-hover:text-gray-300")} />
+                <Icon className={cn("h-[18px] w-[18px]", isActive ? "text-neon" : "text-text-dim group-hover:text-text-muted")} />
                 <span>{item.label}</span>
               </Link>
             );
@@ -77,21 +75,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* View shop link */}
           <Link
             href="/"
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-gray-500 transition hover:bg-gray-800 hover:text-gray-300"
+            className="flex items-center gap-2 px-3 py-2.5 font-mono text-sm text-text-dim transition hover:bg-surface hover:text-text-muted"
           >
             <ExternalLink className="h-4 w-4" />
             <span>Voir la boutique</span>
           </Link>
 
           {/* User avatar placeholder */}
-          <div className="border-t border-gray-800 pt-3">
-            <div className="flex items-center gap-3 rounded-lg px-3 py-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700">
-                <User className="h-4 w-4 text-gray-400" />
+          <div className="border-t border-border pt-3">
+            <div className="flex items-center gap-3 px-3 py-2">
+              <div className="flex h-8 w-8 items-center justify-center bg-surface border border-border">
+                <User className="h-4 w-4 text-text-dim" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-300 truncate">Administrateur</p>
-                <p className="text-xs text-gray-500 truncate">admin@trottistore.fr</p>
+                <p className="font-mono text-sm text-text truncate">Administrateur</p>
+                <p className="font-mono text-xs text-text-dim truncate">admin@trottistore.fr</p>
               </div>
             </div>
           </div>

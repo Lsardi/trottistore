@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   Send,
   Loader2,
-  ArrowRight,
 } from "lucide-react";
 import { repairsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -22,10 +21,10 @@ const TICKET_TYPES = [
 ] as const;
 
 const STEPS = [
-  { icon: FileText, title: "Decrivez", desc: "Remplissez le formulaire" },
-  { icon: Search, title: "Diagnostic", desc: "Nous analysons le probleme" },
-  { icon: Receipt, title: "Devis", desc: "Estimation gratuite envoyee" },
-  { icon: Wrench, title: "Reparation", desc: "Intervention et livraison" },
+  { icon: FileText, title: "Decrivez" },
+  { icon: Search, title: "Diagnostic" },
+  { icon: Receipt, title: "Devis" },
+  { icon: Wrench, title: "Reparation" },
 ];
 
 export default function ReparationPage() {
@@ -58,52 +57,54 @@ export default function ReparationPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <div className="text-center mb-10">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Reparation & SAV</h1>
-        <p className="text-gray-500 max-w-lg mx-auto">
+        <h1 className="heading-lg mb-3">REPARATION SAV</h1>
+        <p className="font-mono text-sm text-text-muted max-w-lg mx-auto">
           Deposez votre demande de reparation en ligne. Notre atelier a L&apos;Ile-Saint-Denis
           repare toutes les marques de trottinettes electriques.
         </p>
       </div>
 
       {/* Steps */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-12">
+      <div className="flex items-center justify-center gap-0 mb-12">
         {STEPS.map((s, i) => (
-          <div
-            key={s.title}
-            className="relative text-center p-5 bg-white rounded-2xl border border-gray-100 shadow-sm"
-          >
-            <div className="w-10 h-10 bg-teal-500 text-white rounded-xl flex items-center justify-center mx-auto mb-3">
-              <s.icon className="w-5 h-5" />
+          <div key={s.title} className="flex items-center">
+            <div className="text-center px-4">
+              <span
+                className={cn(
+                  "font-mono text-xs uppercase tracking-widest",
+                  i === 0 ? "text-neon" : "text-text-dim"
+                )}
+              >
+                {s.title}
+              </span>
             </div>
-            <p className="font-semibold text-gray-900 text-sm mb-0.5">{s.title}</p>
-            <p className="text-xs text-gray-400">{s.desc}</p>
             {i < STEPS.length - 1 && (
-              <ArrowRight className="hidden md:block absolute top-1/2 -right-3.5 -translate-y-1/2 w-4 h-4 text-gray-300" />
+              <span className="font-mono text-text-dim">&mdash;</span>
             )}
           </div>
         ))}
       </div>
 
       {success ? (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-10 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
+        <div className="bg-surface border border-border p-10 text-center">
+          <div className="w-16 h-16 mx-auto mb-5 flex items-center justify-center">
+            <CheckCircle2 className="w-12 h-12 text-neon" />
           </div>
-          <h2 className="text-2xl font-bold text-green-800 mb-2">
-            Ticket cree avec succes !
+          <h2 className="heading-md text-neon mb-2">
+            Ticket cree avec succes
           </h2>
-          <p className="text-green-700 mb-4">
+          <p className="font-mono text-sm text-text-muted mb-4">
             Votre numero de ticket :{" "}
-            <span className="font-mono font-bold bg-green-100 px-2 py-0.5 rounded">
+            <span className="font-mono font-bold text-neon bg-neon-dim px-2 py-0.5">
               SAV-{String(success.ticketNumber).padStart(4, "0")}
             </span>
           </p>
-          <p className="text-sm text-green-600 mb-6">
+          <p className="font-mono text-xs text-text-dim mb-6">
             Nous vous contacterons sous 24-48h pour le diagnostic.
           </p>
           <button
             onClick={() => setSuccess(null)}
-            className="text-teal-600 hover:text-teal-700 font-medium text-sm transition-colors"
+            className="font-mono text-sm text-neon hover:underline transition-colors"
           >
             Deposer une autre demande
           </button>
@@ -112,8 +113,8 @@ export default function ReparationPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Product model */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Modele de trottinette <span className="text-red-500">*</span>
+            <label className="spec-label block mb-2">
+              Modele de trottinette <span className="text-danger">*</span>
             </label>
             <input
               type="text"
@@ -121,28 +122,28 @@ export default function ReparationPage() {
               placeholder="Ex: Dualtron Thunder 2, Xiaomi Pro 2, Ninebot Max G30..."
               value={formData.productModel}
               onChange={(e) => setFormData({ ...formData, productModel: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-shadow text-sm"
+              className="input-dark w-full"
             />
           </div>
 
           {/* Serial number */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Numero de serie <span className="text-gray-400 font-normal">(optionnel)</span>
+            <label className="spec-label block mb-2">
+              Numero de serie <span className="text-text-dim font-normal">(optionnel)</span>
             </label>
             <input
               type="text"
               placeholder="Visible sous le deck ou sur la colonne de direction"
               value={formData.serialNumber}
               onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-shadow text-sm"
+              className="input-dark w-full"
             />
           </div>
 
           {/* Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Type de demande <span className="text-red-500">*</span>
+            <label className="spec-label block mb-3">
+              Type de demande <span className="text-danger">*</span>
             </label>
             <div className="grid grid-cols-2 gap-3">
               {TICKET_TYPES.map((t) => (
@@ -151,21 +152,26 @@ export default function ReparationPage() {
                   type="button"
                   onClick={() => setFormData({ ...formData, type: t.value })}
                   className={cn(
-                    "px-4 py-3.5 rounded-xl border-2 text-left transition-all",
+                    "px-4 py-3.5 border text-left transition-all bg-surface-2",
                     formData.type === t.value
-                      ? "border-teal-500 bg-teal-50 ring-2 ring-teal-500/20"
-                      : "border-gray-200 bg-white hover:border-gray-300"
+                      ? "border-neon"
+                      : "border-border hover:border-text-dim"
                   )}
                 >
-                  <p
-                    className={cn(
-                      "text-sm font-semibold",
-                      formData.type === t.value ? "text-teal-700" : "text-gray-900"
+                  <div className="flex items-center gap-2">
+                    <p
+                      className={cn(
+                        "font-mono text-sm font-bold",
+                        formData.type === t.value ? "text-neon" : "text-text"
+                      )}
+                    >
+                      {t.label}
+                    </p>
+                    {formData.type === t.value && (
+                      <span className="badge badge-neon">Selectionne</span>
                     )}
-                  >
-                    {t.label}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">{t.desc}</p>
+                  </div>
+                  <p className="font-mono text-xs text-text-dim mt-0.5">{t.desc}</p>
                 </button>
               ))}
             </div>
@@ -173,8 +179,8 @@ export default function ReparationPage() {
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Description du probleme <span className="text-red-500">*</span>
+            <label className="spec-label block mb-2">
+              Description du probleme <span className="text-danger">*</span>
             </label>
             <textarea
               required
@@ -182,12 +188,12 @@ export default function ReparationPage() {
               placeholder="Decrivez le probleme en detail : quand est-ce apparu ? Quels symptomes ? La trottinette demarre-t-elle encore ?"
               value={formData.issueDescription}
               onChange={(e) => setFormData({ ...formData, issueDescription: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-shadow resize-none text-sm"
+              className="input-dark w-full resize-none"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+            <div className="border border-danger/30 bg-danger/10 text-danger px-4 py-3 font-mono text-sm">
               {error}
             </div>
           )}
@@ -195,22 +201,22 @@ export default function ReparationPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-teal-500 text-white py-4 rounded-xl font-semibold text-lg hover:bg-teal-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20"
+            className="btn-neon w-full py-4 disabled:opacity-50"
           >
             {submitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Envoi en cours...
+                ENVOI EN COURS...
               </>
             ) : (
               <>
                 <Send className="w-5 h-5" />
-                Envoyer ma demande
+                ENVOYER
               </>
             )}
           </button>
 
-          <p className="text-xs text-gray-400 text-center">
+          <p className="font-mono text-xs text-text-dim text-center">
             Diagnostic gratuit. Aucun engagement avant acceptation du devis.
           </p>
         </form>

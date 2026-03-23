@@ -2,13 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  Search,
-  SlidersHorizontal,
-  ChevronLeft,
-  ChevronRight,
-  PackageSearch,
-} from "lucide-react";
+import { Search } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import {
   productsApi,
@@ -16,7 +10,6 @@ import {
   type Product,
   type Category,
 } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Plus récents" },
@@ -27,23 +20,60 @@ const SORT_OPTIONS = [
 
 export default function ProductsPageWrapper() {
   return (
-    <Suspense
-      fallback={
-        <div className="mx-auto max-w-7xl px-4 py-12">
-          <div className="animate-pulse h-96 bg-gray-100 rounded-lg" />
-        </div>
-      }
-    >
+    <Suspense fallback={<CatalogueSkeleton />}>
       <ProductsPage />
     </Suspense>
   );
 }
+
+/* ─── SKELETON ────────────────────────────────────────────── */
+
+function CatalogueSkeleton() {
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: "#0A0A0A" }}>
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-10">
+        {/* Header skeleton */}
+        <div className="mb-2">
+          <div className="h-10 w-64 animate-pulse" style={{ backgroundColor: "#141414" }} />
+        </div>
+        <div className="h-4 w-32 animate-pulse mb-6" style={{ backgroundColor: "#141414" }} />
+        <div className="divider-neon mb-8" />
+
+        {/* Filter bar skeleton */}
+        <div className="flex gap-[1px] mb-8" style={{ backgroundColor: "#2A2A2A" }}>
+          <div className="flex-1 h-11 animate-pulse" style={{ backgroundColor: "#141414" }} />
+          <div className="w-52 h-11 animate-pulse" style={{ backgroundColor: "#141414" }} />
+          <div className="w-44 h-11 animate-pulse" style={{ backgroundColor: "#141414" }} />
+        </div>
+
+        {/* Grid skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} style={{ backgroundColor: "#141414", border: "1px solid #2A2A2A" }}>
+              <div className="aspect-square animate-pulse" style={{ backgroundColor: "#0F0F0F" }} />
+              <div className="p-4 space-y-3" style={{ borderTop: "1px solid #2A2A2A" }}>
+                <div className="h-2 w-20 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+                <div className="h-4 w-full animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+                <div className="h-4 w-2/3 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+                <div className="h-5 w-24 animate-pulse mt-2" style={{ backgroundColor: "#1C1C1C" }} />
+                <div className="h-3 w-16 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── MAIN PAGE ───────────────────────────────────────────── */
 
 function ProductsPage() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [sort, setSort] = useState(searchParams.get("sort") || "newest");
@@ -57,12 +87,13 @@ function ProductsPage() {
     try {
       const res = await productsApi.list({
         page,
-        limit: 25,
+        limit: 24,
         sort,
         search: search || undefined,
         categorySlug: categorySlug || undefined,
       });
       setProducts(res.data);
+      setTotal(res.pagination?.total || 0);
       setTotalPages(res.pagination?.totalPages || 1);
     } catch {
       console.error("Erreur chargement produits");
@@ -88,48 +119,79 @@ function ProductsPage() {
     fetchCategories();
   }, [fetchCategories]);
 
-  return (
-    <div className="bg-white min-h-screen">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
-            Catalogue
-          </h1>
-          <p className="text-sm text-gray-500">
-            Pièces détachées et accessoires pour trottinettes électriques
-          </p>
-        </div>
+  /* ─── Pagination helpers ─── */
+  function buildPageNumbers(): (number | "ellipsis")[] {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages: (number | "ellipsis")[] = [1];
+    if (page > 3) pages.push("ellipsis");
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (page < totalPages - 2) pages.push("ellipsis");
+    pages.push(totalPages);
+    return pages;
+  }
 
-        {/* Filters & sort */}
-        <div className="flex flex-col md:flex-row gap-3 mb-8">
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: "#0A0A0A" }}>
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-10">
+        {/* ── Header ── */}
+        <div className="mb-1">
+          <h1 className="heading-lg">CATALOGUE</h1>
+        </div>
+        <p className="font-mono text-xs uppercase tracking-widest mb-6" style={{ color: "#555555" }}>
+          {total} PRODUITS
+        </p>
+        <div className="divider-neon mb-8" />
+
+        {/* ── Filter bar ── */}
+        <div
+          className="flex flex-col md:flex-row mb-8"
+          style={{ border: "1px solid #2A2A2A" }}
+        >
           {/* Search */}
           <div className="flex-1 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+              style={{ color: "#555555" }}
+            />
             <input
               type="text"
-              placeholder="Rechercher un produit..."
+              placeholder="Rechercher..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-[#28afb1] focus:border-transparent outline-none transition-shadow text-sm"
+              className="w-full h-full pl-10 pr-4 py-3 outline-none font-mono text-sm"
+              style={{
+                backgroundColor: "#141414",
+                color: "#E8E8E8",
+                border: "none",
+                borderRight: "1px solid #2A2A2A",
+              }}
             />
           </div>
 
-          {/* Category */}
+          {/* Category select */}
           <div className="relative">
-            <SlidersHorizontal className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <select
               value={categorySlug}
               onChange={(e) => {
                 setCategorySlug(e.target.value);
                 setPage(1);
               }}
-              className="appearance-none pl-10 pr-8 py-2.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-[#28afb1] focus:border-transparent outline-none cursor-pointer"
+              className="appearance-none w-full md:w-52 px-4 py-3 font-mono text-sm cursor-pointer outline-none"
+              style={{
+                backgroundColor: "#141414",
+                color: "#E8E8E8",
+                border: "none",
+                borderRight: "1px solid #2A2A2A",
+              }}
             >
-              <option value="">Toutes les catégories</option>
+              <option value="">Toutes catégories</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.slug}>
                   {cat.name}
@@ -138,103 +200,104 @@ function ProductsPage() {
             </select>
           </div>
 
-          {/* Sort */}
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className="appearance-none px-4 py-2.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-[#28afb1] focus:border-transparent outline-none cursor-pointer"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          {/* Sort select */}
+          <div className="relative">
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="appearance-none w-full md:w-44 px-4 py-3 font-mono text-sm cursor-pointer outline-none"
+              style={{
+                backgroundColor: "#141414",
+                color: "#E8E8E8",
+                border: "none",
+              }}
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Product grid */}
+        {/* ── Product grid ── */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {Array.from({ length: 15 }).map((_, i) => (
-              <div key={i} className="border border-gray-100 rounded-lg overflow-hidden">
-                <div className="aspect-square bg-gray-50 animate-pulse" />
-                <div className="p-3 space-y-2">
-                  <div className="h-2.5 bg-gray-100 rounded w-16 animate-pulse" />
-                  <div className="h-3.5 bg-gray-100 rounded w-full animate-pulse" />
-                  <div className="h-3.5 bg-gray-100 rounded w-2/3 animate-pulse" />
-                  <div className="h-5 bg-gray-100 rounded w-20 mt-2 animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} style={{ backgroundColor: "#141414", border: "1px solid #2A2A2A" }}>
+                <div className="aspect-square animate-pulse" style={{ backgroundColor: "#0F0F0F" }} />
+                <div className="p-4 space-y-3" style={{ borderTop: "1px solid #2A2A2A" }}>
+                  <div className="h-2 w-20 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+                  <div className="h-4 w-full animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+                  <div className="h-4 w-2/3 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+                  <div className="h-5 w-24 animate-pulse mt-2" style={{ backgroundColor: "#1C1C1C" }} />
+                  <div className="h-3 w-16 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
                 </div>
               </div>
             ))}
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-24">
-            <PackageSearch className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-900 mb-1">
-              Aucun produit trouvé
-            </p>
-            <p className="text-sm text-gray-500">
-              Essayez de modifier vos filtres
+          /* ── Empty state ── */
+          <div className="text-center py-32">
+            <h2 className="heading-lg mb-3" style={{ color: "#E8E8E8" }}>
+              AUCUN RÉSULTAT
+            </h2>
+            <p className="font-mono text-sm" style={{ color: "#555555" }}>
+              Modifiez vos filtres ou effectuez une nouvelle recherche.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-12">
+        {/* ── Pagination ── */}
+        {totalPages > 1 && !loading && (
+          <nav className="flex items-center justify-center gap-1 mt-12 font-mono text-xs uppercase tracking-wider">
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium disabled:opacity-40 hover:bg-gray-50 transition-colors"
+              className="px-3 py-2 transition-colors disabled:opacity-30"
+              style={{ color: "#888888" }}
             >
-              <ChevronLeft className="w-4 h-4" />
-              Précédent
+              &larr; PRÉCÉDENT
             </button>
 
-            <div className="flex items-center gap-1 mx-2">
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 7) {
-                  pageNum = i + 1;
-                } else if (page <= 4) {
-                  pageNum = i + 1;
-                } else if (page >= totalPages - 3) {
-                  pageNum = totalPages - 6 + i;
-                } else {
-                  pageNum = page - 3 + i;
-                }
-                return (
+            <div className="flex items-center gap-1 mx-4">
+              {buildPageNumbers().map((p, i) =>
+                p === "ellipsis" ? (
+                  <span key={`e-${i}`} className="px-2 py-2" style={{ color: "#555555" }}>
+                    ...
+                  </span>
+                ) : (
                   <button
-                    key={pageNum}
-                    onClick={() => setPage(pageNum)}
-                    className={cn(
-                      "w-10 h-10 rounded-lg text-sm font-medium transition-colors",
-                      pageNum === page
-                        ? "bg-[#28afb1] text-white"
-                        : "text-gray-600 hover:bg-gray-100"
-                    )}
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className="w-8 h-8 flex items-center justify-center transition-colors"
+                    style={{
+                      color: p === page ? "#00FFD1" : "#888888",
+                      borderBottom: p === page ? "1px solid #00FFD1" : "1px solid transparent",
+                    }}
                   >
-                    {pageNum}
+                    {p}
                   </button>
-                );
-              })}
+                )
+              )}
             </div>
 
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium disabled:opacity-40 hover:bg-gray-50 transition-colors"
+              className="px-3 py-2 transition-colors disabled:opacity-30"
+              style={{ color: "#888888" }}
             >
-              Suivant
-              <ChevronRight className="w-4 h-4" />
+              SUIVANT &rarr;
             </button>
-          </div>
+          </nav>
         )}
       </div>
     </div>

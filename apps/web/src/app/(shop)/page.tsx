@@ -2,17 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  Shield,
-  Lock,
-  Headphones,
-  Truck,
-  Star,
-  ShoppingCart,
-  Heart,
-  Eye,
-} from "lucide-react";
-import { formatPriceTTC } from "@/lib/utils";
+import { Lightbulb, Disc, Cable, Monitor } from "lucide-react";
+import { formatPriceTTC, formatPrice } from "@/lib/utils";
 
 // ─── TYPES ────────────────────────────────────────────────
 
@@ -39,189 +30,46 @@ interface FeaturedProduct {
 
 // ─── STATIC DATA ──────────────────────────────────────────
 
-const GOOGLE_REVIEWS = [
+const BRANDS_MARQUEE =
+  "DUALTRON \u00b7 TEVERUN \u00b7 XIAOMI \u00b7 KAABO \u00b7 NINEBOT \u00b7 VSETT \u00b7 SEGWAY \u00b7 KUICKWHEEL \u00b7 ";
+
+const STATS = [
+  { value: "2045", label: "PRODUITS" },
+  { value: "15", label: "MARQUES" },
+  { value: "2019", label: "DEPUIS" },
+  { value: "103", label: "AVIS GOOGLE" },
+];
+
+const CATEGORIES_SMALL = [
+  { name: "ÉCLAIRAGES", icon: Lightbulb, count: 48 },
+  { name: "FREINAGE", icon: Disc, count: 92 },
+  { name: "CÂBLES", icon: Cable, count: 67 },
+  { name: "DISPLAYS", icon: Monitor, count: 31 },
+];
+
+const REVIEWS = [
   {
     name: "Marc D.",
     date: "il y a 2 semaines",
-    text: "Excellent service ! Ma Dualtron Achilleus est arrivée en 48h, parfaitement emballée. Le SAV m'a rappelé pour vérifier que tout était ok.",
+    text: "Excellent service ! Ma Dualtron est arrivée en 48h, parfaitement emballée. Le SAV m'a rappelé pour vérifier.",
   },
   {
     name: "Sophie L.",
     date: "il y a 1 mois",
-    text: "J'ai fait réparer ma trottinette à l'atelier de l'Île-Saint-Denis. Travail impeccable, prix honnête et très bon accueil.",
+    text: "J'ai fait réparer ma trottinette à l'atelier. Travail impeccable, prix honnête et très bon accueil.",
   },
   {
     name: "Karim B.",
     date: "il y a 3 semaines",
-    text: "Paiement en 4x sans frais, c'est top pour une Teverun Fighter. Livraison rapide et produit conforme à la description.",
-  },
-  {
-    name: "Julie M.",
-    date: "il y a 1 mois",
-    text: "Très satisfaite de ma Kuickwheel S9 ! Parfaite pour mes trajets quotidiens. Merci TrottiStore pour les conseils.",
-  },
-  {
-    name: "Thomas R.",
-    date: "il y a 2 mois",
-    text: "Spécialistes sérieux, ils connaissent vraiment leur sujet. J'ai eu un diagnostic gratuit et des recommandations pertinentes.",
+    text: "Paiement en 4x sans frais, c'est top. Livraison rapide et produit conforme à la description.",
   },
 ];
-
-const BLOG_POSTS = [
-  {
-    title: "Guide d'achat trottinette électrique 2026",
-    category: "Guide d'Achat",
-    image:
-      "https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNSPACE52V18A-TROTTINETTE-ELECTRIQUE-TEVERUN-SPACE-52V-18AH-300x300.png",
-    slug: "guide-achat-trottinette-2026",
-    date: "15 mars 2026",
-  },
-  {
-    title: "Comment entretenir sa trottinette électrique",
-    category: "Entretien",
-    image:
-      "https://www.trottistore.fr/wp-content/uploads/2025/07/MMDUALTRONFOREVER60V18A2025-TROTTINETTE-ELECTRIQUE-DUALTRON-FOREVER-60V-182A-2025-EY4-300x300.jpg",
-    slug: "entretenir-trottinette-electrique",
-    date: "8 mars 2026",
-  },
-  {
-    title: "Les meilleurs accessoires pour trottinette",
-    category: "Conseils Pratiques",
-    image:
-      "https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg",
-    slug: "meilleurs-accessoires-trottinette",
-    date: "1 mars 2026",
-  },
-  {
-    title: "Réglementation trottinette électrique en France",
-    category: "Guide d'Achat",
-    image:
-      "https://www.trottistore.fr/wp-content/uploads/2025/07/MMDUALTRONXLTD-TROTTINETTE-ELECTRIQUE-DUALTRON-X-LTD-300x300.jpg",
-    slug: "reglementation-trottinette-france",
-    date: "22 février 2026",
-  },
-];
-
-// ─── PRODUCT CARD COMPONENT ──────────────────────────────
-
-function ProductCard({ product }: { product: FeaturedProduct }) {
-  const primaryImage = product.images?.[0];
-  const price = formatPriceTTC(product.priceHt, product.tvaRate);
-
-  return (
-    <div className="product-card">
-      <Link href={`/produits/${product.slug}`}>
-        <div className="product-card-image">
-          {primaryImage ? (
-            <img
-              src={primaryImage.url}
-              alt={primaryImage.alt || product.name}
-            />
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "100%",
-                color: "#d1d5db",
-                fontSize: "3rem",
-              }}
-            >
-              🛴
-            </div>
-          )}
-        </div>
-      </Link>
-      <div className="product-card-body">
-        {product.brand && (
-          <div className="product-card-category">{product.brand.name}</div>
-        )}
-        <Link href={`/produits/${product.slug}`}>
-          <h3 className="product-card-title">{product.name}</h3>
-        </Link>
-        <div className="product-card-price">{price}</div>
-        <div className="product-card-actions">
-          <button className="btn-add">
-            <ShoppingCart style={{ width: 14, height: 14 }} />
-            Ajouter au panier
-          </button>
-          <button className="btn-icon">
-            <Heart style={{ width: 16, height: 16 }} />
-          </button>
-          <Link href={`/produits/${product.slug}`} className="btn-icon">
-            <Eye style={{ width: 16, height: 16 }} />
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── PRODUCT GRID SKELETON ───────────────────────────────
-
-function ProductGridSkeleton({ count = 5 }: { count?: number }) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-        gap: "16px",
-      }}
-    >
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="product-card" style={{ opacity: 0.5 }}>
-          <div className="product-card-image">
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                background: "#f3f4f6",
-              }}
-            />
-          </div>
-          <div className="product-card-body">
-            <div
-              style={{
-                height: 10,
-                background: "#f3f4f6",
-                borderRadius: 4,
-                marginBottom: 8,
-                width: "60%",
-              }}
-            />
-            <div
-              style={{
-                height: 12,
-                background: "#f3f4f6",
-                borderRadius: 4,
-                marginBottom: 8,
-                width: "90%",
-              }}
-            />
-            <div
-              style={{
-                height: 16,
-                background: "#f3f4f6",
-                borderRadius: 4,
-                width: "40%",
-              }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─── HOMEPAGE ─────────────────────────────────────────────
 
 export default function HomePage() {
-  const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>(
-    []
-  );
+  const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>("new");
 
   useEffect(() => {
     async function fetchFeatured() {
@@ -232,7 +80,7 @@ export default function HomePage() {
           setFeaturedProducts(data.data || data.products || data || []);
         }
       } catch {
-        // Silently fail — products will show empty state
+        // Silently fail
       } finally {
         setLoading(false);
       }
@@ -243,174 +91,346 @@ export default function HomePage() {
   return (
     <>
       {/* ================================================================
-          SECTION 1 — HERO BANNER
+          SECTION 1 — HERO
+          ================================================================ */}
+      <section
+        className="grain"
+        style={{
+          minHeight: "100vh",
+          backgroundColor: "#0A0A0A",
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            maxWidth: 1280,
+            margin: "0 auto",
+            padding: "0 24px",
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <div
+            className="hero-inner"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 48,
+              alignItems: "center",
+              width: "100%",
+              paddingTop: 40,
+              paddingBottom: 80,
+            }}
+          >
+            {/* Left: Text */}
+            <div>
+              <p
+                className="font-mono animate-slide-up stagger-1"
+                style={{
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.1em",
+                  color: "#00FFD1",
+                  marginBottom: 24,
+                  textTransform: "uppercase",
+                }}
+              >
+                MOBILITÉ ÉLECTRIQUE ——
+              </p>
+
+              <h1 className="heading-xl animate-slide-up stagger-2">
+                GLISSEZ
+                <br />
+                EN TOUTE
+                <br />
+                LIBERTÉ<span style={{ color: "#00FFD1" }}>.</span>
+              </h1>
+
+              <p
+                className="animate-slide-up stagger-3"
+                style={{
+                  color: "#888",
+                  fontSize: "0.95rem",
+                  lineHeight: 1.6,
+                  maxWidth: 400,
+                  marginTop: 24,
+                  marginBottom: 32,
+                }}
+              >
+                Trottinettes, pièces détachées et réparation. Expert depuis
+                2019.
+              </p>
+
+              <div
+                className="animate-slide-up stagger-4"
+                style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
+              >
+                <Link href="/produits" className="btn-neon">
+                  CATALOGUE
+                </Link>
+                <Link href="/reparation" className="btn-outline">
+                  RÉPARATION SAV
+                </Link>
+              </div>
+            </div>
+
+            {/* Right: Scooter image */}
+            <div
+              className="hero-image-container animate-slide-up stagger-5"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  width: "80%",
+                  height: 40,
+                  background:
+                    "radial-gradient(ellipse at center, rgba(0,255,209,0.15) 0%, transparent 70%)",
+                  filter: "blur(20px)",
+                }}
+              />
+              <img
+                src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg"
+                alt="Trottinette électrique Teverun Tetra"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: 400,
+                  objectFit: "contain",
+                  transform: "rotate(-5deg)",
+                  position: "relative",
+                  zIndex: 2,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Brand marquee */}
+        <div
+          style={{
+            borderTop: "1px solid #1C1C1C",
+            padding: "10px 0",
+            overflow: "hidden",
+            position: "relative",
+            zIndex: 2,
+          }}
+        >
+          <div className="marquee-track font-mono" style={{ fontSize: "0.65rem", color: "#333", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            <span style={{ whiteSpace: "nowrap", paddingRight: 0 }}>{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================
+          SECTION 2 — STATS BAR
           ================================================================ */}
       <section
         style={{
-          position: "relative",
-          width: "100%",
-          minHeight: 420,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundImage:
-            "url('https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          color: "white",
-          textAlign: "center",
+          backgroundColor: "#141414",
+          borderTop: "1px solid #2A2A2A",
+          borderBottom: "1px solid #2A2A2A",
         }}
       >
-        {/* Dark overlay */}
         <div
+          className="stats-grid"
           style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0.75))",
-          }}
-        />
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            maxWidth: 800,
-            padding: "60px 20px",
+            maxWidth: 1280,
+            margin: "0 auto",
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
           }}
         >
-          <h1
-            style={{
-              fontSize: "clamp(1.8rem, 4vw, 2.8rem)",
-              fontWeight: 800,
-              letterSpacing: "0.02em",
-              lineHeight: 1.2,
-              marginBottom: 16,
-              textTransform: "uppercase",
-            }}
-          >
-            Glissez en toute liberté avec nos trottinettes
-          </h1>
-          <p
-            style={{
-              fontSize: "clamp(0.95rem, 2vw, 1.15rem)",
-              color: "rgba(255,255,255,0.8)",
-              marginBottom: 28,
-              lineHeight: 1.6,
-            }}
-          >
-            Découvrez notre sélection de trottinettes électriques des
-            meilleures marques. Livraison rapide, paiement en plusieurs fois,
-            SAV expert.
-          </p>
-          <Link
-            href="/produits?categorySlug=trottinettes-electriques"
-            className="btn-primary"
-            style={{ fontSize: "1rem", padding: "14px 32px" }}
-          >
-            En savoir plus
-          </Link>
+          {STATS.map((stat, i) => (
+            <div
+              key={stat.label}
+              style={{
+                padding: "24px 20px",
+                textAlign: "center",
+                borderRight: i < STATS.length - 1 ? "1px solid #2A2A2A" : "none",
+              }}
+            >
+              <div
+                className="font-display"
+                style={{
+                  fontWeight: 800,
+                  fontSize: "clamp(1.5rem, 3vw, 2.2rem)",
+                  color: "#E8E8E8",
+                  lineHeight: 1,
+                  marginBottom: 6,
+                }}
+              >
+                {stat.value}
+              </div>
+              <div className="spec-label">{stat.label}</div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* ================================================================
-          SECTION 2 — TRUST BADGES
+          SECTION 3 — FEATURED PRODUCTS
           ================================================================ */}
-      <div className="trust-badges">
-        <div className="trust-badge">
-          <div className="trust-badge-icon">
-            <Shield style={{ width: 28, height: 28 }} />
+      <section style={{ backgroundColor: "#0A0A0A", padding: "64px 0" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
+          {/* Title */}
+          <div style={{ marginBottom: 8 }}>
+            <h2 className="heading-lg">NOS TROTTINETTES</h2>
+            <span
+              className="font-mono"
+              style={{ fontSize: "0.75rem", color: "#555" }}
+            >
+              Sélection
+            </span>
           </div>
-          <div className="trust-badge-text">
-            <h4>Garantie</h4>
-            <p>Satisfait ou remboursé</p>
-          </div>
-        </div>
-        <div className="trust-badge">
-          <div className="trust-badge-icon">
-            <Lock style={{ width: 28, height: 28 }} />
-          </div>
-          <div className="trust-badge-text">
-            <h4>Paiement sécurisé</h4>
-            <p>Paiements 100% sécurisés</p>
-          </div>
-        </div>
-        <div className="trust-badge">
-          <div className="trust-badge-icon">
-            <Headphones style={{ width: 28, height: 28 }} />
-          </div>
-          <div className="trust-badge-text">
-            <h4>Assistance</h4>
-            <p>Support dédié en 24h</p>
-          </div>
-        </div>
-        <div className="trust-badge">
-          <div className="trust-badge-icon">
-            <Truck style={{ width: 28, height: 28 }} />
-          </div>
-          <div className="trust-badge-text">
-            <h4>Livraison rapide</h4>
-            <p>Expédition sous 24-48h</p>
-          </div>
-        </div>
-      </div>
+          <div className="divider-neon" style={{ marginBottom: 32 }} />
 
-      {/* ================================================================
-          SECTION 3 — BONNES AFFAIRES DU JOUR
-          ================================================================ */}
-      <section style={{ background: "white", padding: "48px 0" }}>
-        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 20px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 16,
-              marginBottom: 32,
-              flexWrap: "wrap",
-            }}
-          >
-            <h2 className="section-title" style={{ marginBottom: 0 }}>
-              Bonnes affaires du jour
-            </h2>
-            <div className="countdown">
-              <span className="countdown-digit">05</span>:
-              <span className="countdown-digit">23</span>:
-              <span className="countdown-digit">41</span>:
-              <span className="countdown-digit">09</span>
-            </div>
-          </div>
-
+          {/* Product grid */}
           {loading ? (
-            <ProductGridSkeleton count={5} />
-          ) : featuredProducts.length > 0 ? (
             <div
+              className="products-grid"
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fill, minmax(220px, 1fr))",
+                gridTemplateColumns: "repeat(4, 1fr)",
                 gap: 16,
               }}
             >
-              {featuredProducts.slice(0, 10).map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="product-card"
+                  style={{ opacity: 0.4 }}
+                >
+                  <div
+                    className="product-card-image"
+                    style={{ background: "#141414" }}
+                  >
+                    <div style={{ width: "100%", height: "100%" }} />
+                  </div>
+                  <div className="product-card-body">
+                    <div
+                      style={{
+                        height: 8,
+                        background: "#2A2A2A",
+                        width: "50%",
+                        marginBottom: 8,
+                      }}
+                    />
+                    <div
+                      style={{
+                        height: 12,
+                        background: "#2A2A2A",
+                        width: "80%",
+                        marginBottom: 10,
+                      }}
+                    />
+                    <div
+                      style={{
+                        height: 20,
+                        background: "#2A2A2A",
+                        width: "40%",
+                      }}
+                    />
+                  </div>
+                </div>
               ))}
+            </div>
+          ) : featuredProducts.length > 0 ? (
+            <div
+              className="products-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: 16,
+              }}
+            >
+              {featuredProducts.slice(0, 8).map((product) => {
+                const img = product.images?.[0];
+                const priceTTC = formatPriceTTC(product.priceHt, product.tvaRate);
+                const priceHT = formatPrice(parseFloat(product.priceHt));
+                return (
+                  <Link
+                    key={product.id}
+                    href={`/produits/${product.slug}`}
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    <div className="product-card">
+                      <div className="product-card-image">
+                        {img ? (
+                          <img
+                            src={img.url}
+                            alt={img.alt || product.name}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "#333",
+                              fontSize: "2rem",
+                            }}
+                          >
+                            /
+                          </div>
+                        )}
+                      </div>
+                      <div className="product-card-body">
+                        {product.brand && (
+                          <div className="spec-label" style={{ marginBottom: 6 }}>
+                            {product.brand.name}
+                          </div>
+                        )}
+                        <h3
+                          className="heading-md"
+                          style={{
+                            fontSize: "0.9rem",
+                            marginBottom: 8,
+                            color: "#E8E8E8",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {product.name}
+                        </h3>
+                        <div className="price-main" style={{ fontSize: "1.3rem" }}>
+                          {priceTTC}
+                        </div>
+                        <div className="price-sub">
+                          {priceHT} HT
+                        </div>
+                      </div>
+                      <div className="product-card-neon-line" />
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           ) : (
             <div
               style={{
                 textAlign: "center",
-                padding: "40px 20px",
-                color: "#9ca3af",
+                padding: "48px 20px",
+                color: "#555",
               }}
             >
-              <p style={{ marginBottom: 12 }}>
+              <p className="font-mono" style={{ fontSize: "0.8rem", marginBottom: 16 }}>
                 Les produits arrivent bientôt...
               </p>
-              <Link
-                href="/produits"
-                className="btn-primary"
-              >
-                Voir tous les produits
+              <Link href="/produits" className="btn-neon">
+                VOIR LE CATALOGUE
               </Link>
             </div>
           )}
@@ -418,296 +438,266 @@ export default function HomePage() {
       </section>
 
       {/* ================================================================
-          SECTION 4 — PRODUITS RECOMMANDÉS (TABS)
+          SECTION 4 — CATEGORIES
           ================================================================ */}
-      <section style={{ background: "#f9fafb", padding: "48px 0" }}>
-        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 20px" }}>
-          <h2 className="section-title">Produits recommandés</h2>
-
-          {/* Tabs */}
+      <section
+        className="grain"
+        style={{ backgroundColor: "#141414", padding: "64px 0" }}
+      >
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
           <div
+            className="categories-grid"
             style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: 0,
-              marginBottom: 32,
-              borderBottom: "2px solid #f3f4f6",
+              display: "grid",
+              gridTemplateColumns: "2fr 1fr 1fr",
+              gridTemplateRows: "1fr 1fr",
+              gap: 16,
+              minHeight: 360,
             }}
           >
-            {[
-              { key: "new", label: "Nouvelles arrivées" },
-              { key: "best", label: "Meilleure vente" },
-              { key: "promo", label: "En promotion" },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+            {/* Large card */}
+            <div
+              style={{
+                gridRow: "1 / 3",
+                position: "relative",
+                overflow: "hidden",
+                border: "1px solid #2A2A2A",
+                display: "flex",
+                alignItems: "flex-end",
+              }}
+            >
+              <img
+                src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg"
+                alt="Trottinettes électriques"
                 style={{
-                  padding: "10px 24px",
-                  fontSize: "0.875rem",
-                  fontWeight: 600,
-                  background: "none",
-                  border: "none",
-                  borderBottom:
-                    activeTab === tab.key
-                      ? "2px solid #28afb1"
-                      : "2px solid transparent",
-                  color:
-                    activeTab === tab.key ? "#28afb1" : "#6b7280",
-                  cursor: "pointer",
-                  marginBottom: -2,
-                  transition: "color 150ms ease, border-color 150ms ease",
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  opacity: 0.3,
                 }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 100%)",
+                }}
+              />
+              <div style={{ position: "relative", padding: 28, zIndex: 2 }}>
+                <div className="spec-label" style={{ marginBottom: 8, color: "#00FFD1" }}>
+                  CATÉGORIE PRINCIPALE
+                </div>
+                <h3 className="heading-lg" style={{ color: "#E8E8E8", marginBottom: 12 }}>
+                  TROTTINETTES ÉLECTRIQUES
+                </h3>
+                <Link href="/produits?categorySlug=trottinettes-electriques" className="btn-neon" style={{ padding: "0.5rem 1.5rem", fontSize: "0.7rem" }}>
+                  EXPLORER
+                </Link>
+              </div>
+            </div>
 
-          {loading ? (
-            <ProductGridSkeleton count={5} />
-          ) : featuredProducts.length > 0 ? (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fill, minmax(220px, 1fr))",
-                gap: 16,
-              }}
-            >
-              {featuredProducts.slice(0, 10).map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          ) : (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "40px 20px",
-                color: "#9ca3af",
-              }}
-            >
-              <p>Aucun produit pour le moment.</p>
-            </div>
-          )}
+            {/* Small category cards */}
+            {CATEGORIES_SMALL.map((cat) => {
+              const Icon = cat.icon;
+              return (
+                <div
+                  key={cat.name}
+                  className="category-card"
+                  style={{
+                    backgroundColor: "#1C1C1C",
+                    border: "1px solid #2A2A2A",
+                    padding: 20,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    transition: "border-color 200ms",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div>
+                    <Icon style={{ width: 22, height: 22, color: "#555", marginBottom: 12 }} />
+                    <h4
+                      className="font-display"
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                        color: "#E8E8E8",
+                        textTransform: "uppercase",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {cat.name}
+                    </h4>
+                  </div>
+                  <span className="font-mono" style={{ fontSize: "0.65rem", color: "#555" }}>
+                    {cat.count} produits
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
       {/* ================================================================
-          SECTION 5 — GOOGLE REVIEWS
+          SECTION 5 — ATELIER
           ================================================================ */}
-      <section style={{ background: "white", padding: "48px 0" }}>
-        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 20px" }}>
-          <h2 className="section-title">
-            Découvrez ce que nos clients pensent de nous sur Google !
-          </h2>
-
-          {/* Rating summary */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-              marginBottom: 32,
-            }}
-          >
-            <img
-              src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_42x16dp.png"
-              alt="Google"
-              style={{ height: 20 }}
-            />
-            <span
-              style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1a1a1a" }}
+      <section style={{ backgroundColor: "#0A0A0A", padding: "80px 0" }}>
+        <div
+          className="atelier-grid"
+          style={{
+            maxWidth: 1280,
+            margin: "0 auto",
+            padding: "0 24px",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 64,
+            alignItems: "center",
+          }}
+        >
+          {/* Left: Big text */}
+          <div>
+            <h2
+              className="heading-xl text-outline"
+              style={{ marginBottom: 8 }}
             >
-              5.0
-            </span>
-            <div style={{ display: "flex", gap: 2 }}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  style={{
-                    width: 18,
-                    height: 18,
-                    fill: "#facc15",
-                    color: "#facc15",
-                  }}
-                />
-              ))}
+              ATELIER
+            </h2>
+            <h2
+              className="heading-xl"
+              style={{ color: "#00FFD1" }}
+            >
+              RÉPARATION
+            </h2>
+          </div>
+
+          {/* Right: Spec blocks */}
+          <div>
+            <div style={{ marginBottom: 24 }}>
+              <h4
+                className="font-display"
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.9rem",
+                  color: "#E8E8E8",
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
+                DIAGNOSTIC
+              </h4>
+              <p className="font-mono" style={{ fontSize: "0.75rem", color: "#888", lineHeight: 1.5 }}>
+                Identification du problème en 2 clics
+              </p>
             </div>
-            <span style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-              Basé sur 103 avis
+
+            <div className="divider" style={{ marginBottom: 24 }} />
+
+            <div style={{ marginBottom: 24 }}>
+              <h4
+                className="font-display"
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.9rem",
+                  color: "#E8E8E8",
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
+                RÉPARATION
+              </h4>
+              <p className="font-mono" style={{ fontSize: "0.75rem", color: "#888", lineHeight: 1.5 }}>
+                Toutes marques, toutes pannes
+              </p>
+            </div>
+
+            <div className="divider" style={{ marginBottom: 24 }} />
+
+            <div style={{ marginBottom: 32 }}>
+              <h4
+                className="font-display"
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.9rem",
+                  color: "#E8E8E8",
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
+                PIÈCES
+              </h4>
+              <p className="font-mono" style={{ fontSize: "0.75rem", color: "#888", lineHeight: 1.5 }}>
+                700+ références en stock immédiat
+              </p>
+            </div>
+
+            <Link href="/reparation" className="btn-neon">
+              DÉPOSER UN TICKET SAV
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================
+          SECTION 6 — REVIEWS
+          ================================================================ */}
+      <section style={{ backgroundColor: "#141414", padding: "64px 0" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ marginBottom: 32 }}>
+            <h2 className="heading-lg" style={{ marginBottom: 8 }}>
+              AVIS CLIENTS
+            </h2>
+            <span className="font-mono" style={{ fontSize: "0.75rem", color: "#888" }}>
+              Google &middot; 5.0 &middot; 103 avis
             </span>
           </div>
 
-          {/* Review cards */}
           <div
+            className="reviews-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gap: 16,
             }}
           >
-            {GOOGLE_REVIEWS.map((review, i) => (
+            {REVIEWS.map((review, i) => (
               <div
                 key={i}
                 style={{
-                  background: "#f9fafb",
-                  border: "1px solid #f3f4f6",
-                  borderRadius: 8,
-                  padding: 20,
+                  backgroundColor: "#1C1C1C",
+                  border: "1px solid #2A2A2A",
+                  padding: 24,
                 }}
               >
-                {/* Header */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      background: "#28afb1",
-                      color: "white",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 700,
-                      fontSize: "0.9rem",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {review.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: "0.85rem",
-                        color: "#1a1a1a",
-                      }}
-                    >
-                      {review.name}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-                      {review.date}
-                    </div>
-                  </div>
+                <div style={{ marginBottom: 12, color: "#00FFD1", letterSpacing: 2 }}>
+                  ★★★★★
                 </div>
-                {/* Stars */}
-                <div
-                  style={{ display: "flex", gap: 2, marginBottom: 10 }}
-                >
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <Star
-                      key={j}
-                      style={{
-                        width: 14,
-                        height: 14,
-                        fill: "#facc15",
-                        color: "#facc15",
-                      }}
-                    />
-                  ))}
-                </div>
-                {/* Text */}
                 <p
+                  className="font-mono"
                   style={{
-                    fontSize: "0.85rem",
-                    color: "#4b5563",
-                    lineHeight: 1.5,
-                    margin: 0,
+                    fontSize: "0.75rem",
+                    color: "#888",
+                    lineHeight: 1.6,
+                    fontStyle: "italic",
+                    marginBottom: 16,
                   }}
                 >
-                  {review.text}
+                  &ldquo;{review.text}&rdquo;
                 </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================
-          SECTION 6 — BLOG "CONSEILS ET ASTUCES TROTTI"
-          ================================================================ */}
-      <section style={{ background: "#f9fafb", padding: "48px 0" }}>
-        <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 20px" }}>
-          <h2 className="section-title">Conseils et Astuces Trotti</h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))",
-              gap: 20,
-            }}
-          >
-            {BLOG_POSTS.map((post) => (
-              <Link
-                key={post.slug}
-                href={`/blog/${post.slug}`}
-                style={{
-                  display: "block",
-                  background: "white",
-                  borderRadius: 8,
-                  overflow: "hidden",
-                  border: "1px solid #f3f4f6",
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
-              >
-                <div
-                  style={{
-                    position: "relative",
-                    aspectRatio: "16/10",
-                    background: "#f3f4f6",
-                    overflow: "hidden",
-                  }}
-                >
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                  {/* Category badge */}
+                <div>
+                  <span style={{ color: "#E8E8E8", fontSize: "0.85rem", fontWeight: 600 }}>
+                    {review.name}
+                  </span>
                   <span
-                    className="badge"
-                    style={{
-                      position: "absolute",
-                      top: 10,
-                      left: 10,
-                      background: "#28afb1",
-                      color: "white",
-                    }}
+                    className="font-mono"
+                    style={{ fontSize: "0.65rem", color: "#555", marginLeft: 8 }}
                   >
-                    {post.category}
+                    {review.date}
                   </span>
                 </div>
-                <div style={{ padding: "14px 16px" }}>
-                  <h3
-                    style={{
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      color: "#1a1a1a",
-                      marginBottom: 6,
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {post.title}
-                  </h3>
-                  <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-                    {post.date}
-                  </span>
-                </div>
-              </Link>
+              </div>
             ))}
           </div>
         </div>
@@ -716,55 +706,48 @@ export default function HomePage() {
       {/* ================================================================
           SECTION 7 — NEWSLETTER
           ================================================================ */}
-      <section style={{ background: "white", padding: "48px 0" }}>
+      <section style={{ backgroundColor: "#0A0A0A", padding: "64px 0" }}>
+        <div className="divider-neon" style={{ marginBottom: 48 }} />
         <div
+          className="newsletter-inner"
           style={{
-            maxWidth: 600,
+            maxWidth: 1280,
             margin: "0 auto",
-            padding: "0 20px",
-            textAlign: "center",
+            padding: "0 24px",
+            display: "flex",
+            alignItems: "center",
+            gap: 32,
+            flexWrap: "wrap",
           }}
         >
-          <h2 className="section-title">
-            Inscrivez-vous à notre newsletter
+          <h2 className="heading-lg" style={{ flex: "0 0 auto" }}>
+            RESTEZ CONNECTÉ
           </h2>
-          <p
-            style={{
-              fontSize: "0.9rem",
-              color: "#6b7280",
-              marginBottom: 20,
-            }}
-          >
-            Recevez nos offres exclusives, nouveautés et conseils directement
-            dans votre boîte mail.
-          </p>
           <form
             onSubmit={(e) => e.preventDefault()}
             style={{
               display: "flex",
-              gap: 8,
-              maxWidth: 460,
-              margin: "0 auto",
+              flex: 1,
+              minWidth: 280,
+              gap: 0,
             }}
           >
             <input
               type="email"
               placeholder="Votre adresse email"
+              className="input-dark"
               style={{
                 flex: 1,
-                padding: "10px 16px",
-                border: "1px solid #e5e7eb",
-                borderRadius: 9999,
-                fontSize: "0.875rem",
-                outline: "none",
+                borderRight: "none",
               }}
             />
-            <button type="submit" className="btn-primary">
-              S&apos;inscrire
+            <button type="submit" className="btn-neon" style={{ whiteSpace: "nowrap" }}>
+              S&apos;INSCRIRE
             </button>
           </form>
         </div>
       </section>
+
     </>
   );
 }
