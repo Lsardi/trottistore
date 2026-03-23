@@ -285,12 +285,15 @@ export interface Product {
   shortDescription?: string;
   priceHt: string;
   tvaRate: string;
+  salePriceHt?: string;
+  weightGrams?: number;
   status: string;
   isFeatured: boolean;
   images: ProductImage[];
   variants: ProductVariant[];
   categories: { category: Category }[];
   brand?: { id: string; name: string; slug: string };
+  createdAt?: string;
 }
 
 export interface ProductImage {
