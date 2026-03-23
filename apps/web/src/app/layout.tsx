@@ -3,15 +3,15 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "TrottiStore — Trottinettes \u00e9lectriques & Pi\u00e8ces d\u00e9tach\u00e9es",
+    default: "TrottiStore — Trottinettes electriques & Pieces detachees",
     template: "%s | TrottiStore",
   },
   description:
-    "Boutique sp\u00e9cialis\u00e9e trottinettes \u00e9lectriques, pi\u00e8ces d\u00e9tach\u00e9es et r\u00e9paration SAV. Livraison France, paiement en plusieurs fois sans frais.",
+    "Boutique specialisee trottinettes electriques, pieces detachees et reparation SAV. Livraison France, paiement en plusieurs fois sans frais.",
   keywords: [
-    "trottinette \u00e9lectrique",
-    "pi\u00e8ces d\u00e9tach\u00e9es trottinette",
-    "r\u00e9paration trottinette",
+    "trottinette electrique",
+    "pieces detachees trottinette",
+    "reparation trottinette",
     "SAV trottinette",
     "TrottiStore",
   ],
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className="antialiased">
+      <body className="font-sans antialiased bg-white text-gray-900">
         {children}
       </body>
     </html>
