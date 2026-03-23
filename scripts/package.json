@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "crawl": "tsx crawl.ts"
+    "crawl": "tsx crawl.ts",
+    "seed": "tsx seed.ts"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "@prisma/client": "^6.6.0",
     "cheerio": "^1.0.0",
     "tsx": "^4.19.0"
   }

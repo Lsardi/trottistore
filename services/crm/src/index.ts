@@ -6,6 +6,8 @@ import { prismaPlugin } from "./plugins/prisma.js";
 import { redisPlugin } from "./plugins/redis.js";
 import { healthRoutes } from "./routes/health.js";
 import { customerRoutes } from "./routes/customers/index.js";
+import { segmentRoutes } from "./routes/segments/index.js";
+import { campaignRoutes } from "./routes/campaigns/index.js";
 
 const PORT = parseInt(process.env.PORT_CRM || "3002", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -34,18 +36,20 @@ async function start() {
     timeWindow: "1 minute",
   });
 
-  // Plugins métier
+  // Plugins metier
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
 
   // Routes
   await app.register(healthRoutes);
   await app.register(customerRoutes, { prefix: "/api/v1" });
+  await app.register(segmentRoutes, { prefix: "/api/v1" });
+  await app.register(campaignRoutes, { prefix: "/api/v1" });
 
-  // Démarrage
+  // Demarrage
   try {
     await app.listen({ port: PORT, host: HOST });
-    app.log.info(`👥 Service CRM démarré sur http://${HOST}:${PORT}`);
+    app.log.info(`Service CRM demarre sur http://${HOST}:${PORT}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

@@ -1,28 +1,72 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
-const querySchema = z.object({
+const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  category: z.string().optional(),
-  brand: z.string().optional(),
+  categorySlug: z.string().optional(),
+  brandSlug: z.string().optional(),
   search: z.string().optional(),
+  minPrice: z.coerce.number().nonnegative().optional(),
+  maxPrice: z.coerce.number().nonnegative().optional(),
+  inStock: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .optional(),
   status: z.enum(["ACTIVE", "DRAFT", "ARCHIVED"]).optional(),
-  sort: z.enum(["price_asc", "price_desc", "newest", "name"]).default("newest"),
+  sort: z
+    .enum(["price_asc", "price_desc", "newest", "name"])
+    .default("newest"),
 });
 
 export async function productRoutes(app: FastifyInstance) {
-  // GET /api/v1/products — Liste paginée
+  // ─── GET /products — Paginated list with filters ───────────
   app.get("/products", async (request, reply) => {
-    const query = querySchema.parse(request.query);
-    const { page, limit, category, brand, search, status, sort } = query;
+    const query = listQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid query parameters",
+          details: query.error.flatten().fieldErrors,
+        },
+      });
+    }
+
+    const {
+      page,
+      limit,
+      categorySlug,
+      brandSlug,
+      search,
+      minPrice,
+      maxPrice,
+      inStock,
+      status,
+      sort,
+    } = query.data;
     const skip = (page - 1) * limit;
 
+    // Build where clause
     const where: Record<string, unknown> = {};
-    if (status) where.status = status;
-    else where.status = "ACTIVE";
-    if (brand) where.brand = { slug: brand };
-    if (category) where.categories = { some: { category: { slug: category } } };
+
+    // Status filter (defaults to ACTIVE for public)
+    where.status = status ?? "ACTIVE";
+
+    // Brand filter
+    if (brandSlug) {
+      where.brand = { slug: brandSlug };
+    }
+
+    // Category filter
+    if (categorySlug) {
+      where.categories = {
+        some: { category: { slug: categorySlug } },
+      };
+    }
+
+    // Full-text search on name, sku, description
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -31,12 +75,41 @@ export async function productRoutes(app: FastifyInstance) {
       ];
     }
 
-    const orderBy: Record<string, string> = {};
+    // Price range filters
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.priceHt = {};
+      if (minPrice !== undefined) {
+        (where.priceHt as Record<string, unknown>).gte = minPrice;
+      }
+      if (maxPrice !== undefined) {
+        (where.priceHt as Record<string, unknown>).lte = maxPrice;
+      }
+    }
+
+    // In-stock filter: at least one variant with available stock
+    if (inStock === true) {
+      where.variants = {
+        some: {
+          isActive: true,
+          stockQuantity: { gt: 0 },
+        },
+      };
+    }
+
+    // Sort
+    let orderBy: Record<string, string>;
     switch (sort) {
-      case "price_asc": orderBy.priceHt = "asc"; break;
-      case "price_desc": orderBy.priceHt = "desc"; break;
-      case "name": orderBy.name = "asc"; break;
-      default: orderBy.createdAt = "desc";
+      case "price_asc":
+        orderBy = { priceHt: "asc" };
+        break;
+      case "price_desc":
+        orderBy = { priceHt: "desc" };
+        break;
+      case "name":
+        orderBy = { name: "asc" };
+        break;
+      default:
+        orderBy = { createdAt: "desc" };
     }
 
     const [products, total] = await Promise.all([
@@ -44,9 +117,31 @@ export async function productRoutes(app: FastifyInstance) {
         where: where as any,
         include: {
           brand: { select: { id: true, name: true, slug: true } },
-          categories: { include: { category: { select: { id: true, name: true, slug: true } } } },
-          images: { where: { isPrimary: true }, take: 1 },
-          variants: { select: { id: true, sku: true, name: true, stockQuantity: true, priceOverride: true } },
+          categories: {
+            include: {
+              category: {
+                select: { id: true, name: true, slug: true },
+              },
+            },
+          },
+          images: {
+            where: { isPrimary: true },
+            take: 1,
+            select: { id: true, url: true, alt: true },
+          },
+          variants: {
+            where: { isActive: true },
+            take: 1,
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+              stockQuantity: true,
+              stockReserved: true,
+              priceOverride: true,
+            },
+          },
         },
         orderBy: orderBy as any,
         skip,
@@ -71,7 +166,49 @@ export async function productRoutes(app: FastifyInstance) {
     };
   });
 
-  // GET /api/v1/products/:slug — Détail produit
+  // ─── GET /products/featured — Featured products ────────────
+  app.get("/products/featured", async (_request, _reply) => {
+    const products = await app.prisma.product.findMany({
+      where: {
+        isFeatured: true,
+        status: "ACTIVE",
+      },
+      include: {
+        brand: { select: { id: true, name: true, slug: true } },
+        categories: {
+          include: {
+            category: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
+        },
+        images: {
+          where: { isPrimary: true },
+          take: 1,
+          select: { id: true, url: true, alt: true },
+        },
+        variants: {
+          where: { isActive: true },
+          take: 1,
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            stockQuantity: true,
+            stockReserved: true,
+            priceOverride: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    });
+
+    return { success: true, data: products };
+  });
+
+  // ─── GET /products/:slug — Product detail ──────────────────
   app.get("/products/:slug", async (request, reply) => {
     const { slug } = request.params as { slug: string };
 
@@ -79,36 +216,27 @@ export async function productRoutes(app: FastifyInstance) {
       where: { slug },
       include: {
         brand: true,
-        categories: { include: { category: true } },
+        categories: {
+          include: { category: true },
+        },
         images: { orderBy: { position: "asc" } },
-        variants: { where: { isActive: true }, orderBy: { createdAt: "asc" } },
+        variants: {
+          where: { isActive: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
 
     if (!product) {
       return reply.status(404).send({
         success: false,
-        error: { code: "NOT_FOUND", message: `Produit '${slug}' introuvable` },
+        error: {
+          code: "NOT_FOUND",
+          message: `Product '${slug}' not found`,
+        },
       });
     }
 
     return { success: true, data: product };
-  });
-
-  // GET /api/v1/categories — Arbre des catégories
-  app.get("/categories", async () => {
-    const categories = await app.prisma.category.findMany({
-      where: { isActive: true },
-      include: {
-        children: { where: { isActive: true }, orderBy: { position: "asc" } },
-        _count: { select: { products: true } },
-      },
-      orderBy: { position: "asc" },
-    });
-
-    // Filtrer les racines (parentId = null)
-    const roots = categories.filter((c) => c.parentId === null);
-
-    return { success: true, data: roots };
   });
 }

@@ -1,43 +1,70 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import {
+  validateTransition,
+  getNextStatuses,
+  TERMINAL_STATUSES,
+} from "../../utils/status-machine.js";
 
-// --- Schemas Zod ---
+// --- Zod Schemas ---
 
-const repairTypeEnum = z.enum(["WARRANTY", "OUT_OF_WARRANTY", "RECALL", "MAINTENANCE"]);
+const repairTypeEnum = z.enum(["GARANTIE", "REPARATION", "RETOUR", "RECLAMATION"]);
 
 const repairStatusEnum = z.enum([
-  "PENDING",
-  "DIAGNOSED",
-  "WAITING_PARTS",
-  "IN_REPAIR",
-  "QUALITY_CHECK",
-  "READY",
-  "DELIVERED",
-  "CANCELLED",
+  "NOUVEAU",
+  "DIAGNOSTIQUE",
+  "DEVIS_ENVOYE",
+  "DEVIS_ACCEPTE",
+  "EN_REPARATION",
+  "EN_ATTENTE_PIECE",
+  "TERMINE",
+  "LIVRE",
+  "REFUS_CLIENT",
+  "IRREPARABLE",
 ]);
+
+const priorityEnum = z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]);
 
 const createRepairSchema = z.object({
   customerId: z.string().uuid(),
   productModel: z.string().min(1),
-  issueDescription: z.string().min(10),
+  serialNumber: z.string().optional(),
   type: repairTypeEnum,
+  priority: priorityEnum.optional().default("NORMAL"),
+  issueDescription: z.string().min(1),
+  photosUrls: z.array(z.string().url()).optional(),
 });
 
 const updateStatusSchema = z.object({
   status: repairStatusEnum,
   note: z.string().optional(),
+  performedBy: z.string().uuid().optional(),
 });
 
 const diagnosisSchema = z.object({
-  technicianId: z.string().uuid(),
-  findings: z.string().min(10),
+  diagnosis: z.string().min(1),
   estimatedCost: z.number().nonnegative().optional(),
   estimatedDays: z.number().int().positive().optional(),
+  assignedTo: z.string().uuid().optional(),
+});
+
+const quoteSchema = z.object({
+  parts: z.array(
+    z.object({
+      partName: z.string().min(1),
+      partRef: z.string().optional(),
+      variantId: z.string().uuid().optional(),
+      quantity: z.number().int().positive(),
+      unitCost: z.number().nonnegative(),
+    })
+  ),
+  laborCost: z.number().nonnegative().optional(),
 });
 
 const addPartSchema = z.object({
-  partReference: z.string().min(1),
   partName: z.string().min(1),
+  partRef: z.string().optional(),
+  variantId: z.string().uuid().optional(),
   quantity: z.number().int().positive().default(1),
   unitCost: z.number().nonnegative(),
 });
@@ -46,262 +73,508 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   status: repairStatusEnum.optional(),
+  type: repairTypeEnum.optional(),
+  priority: priorityEnum.optional(),
   assignedTo: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
+  search: z.string().optional(),
+  sort: z.enum(["newest", "oldest", "priority"]).optional().default("newest"),
 });
 
-// --- Transitions de statut valides ---
+// --- Priority sort weight ---
 
-const validTransitions: Record<string, string[]> = {
-  PENDING: ["DIAGNOSED", "CANCELLED"],
-  DIAGNOSED: ["WAITING_PARTS", "IN_REPAIR", "CANCELLED"],
-  WAITING_PARTS: ["IN_REPAIR", "CANCELLED"],
-  IN_REPAIR: ["QUALITY_CHECK", "WAITING_PARTS", "CANCELLED"],
-  QUALITY_CHECK: ["READY", "IN_REPAIR"],
-  READY: ["DELIVERED"],
-  DELIVERED: [],
-  CANCELLED: [],
+const PRIORITY_WEIGHT: Record<string, number> = {
+  URGENT: 0,
+  HIGH: 1,
+  NORMAL: 2,
+  LOW: 3,
 };
 
 // --- Routes ---
 
 export async function repairRoutes(app: FastifyInstance) {
-  // POST /api/v1/repairs — Créer un ticket de réparation
+  // POST /repairs — Create a repair ticket
   app.post("/repairs", async (request, reply) => {
     const body = createRepairSchema.parse(request.body);
 
-    // Placeholder: en production, on créerait via Prisma
-    const ticket = {
-      id: crypto.randomUUID(),
-      ...body,
-      status: "PENDING",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      statusLog: [
-        {
-          status: "PENDING",
-          timestamp: new Date().toISOString(),
-          note: "Ticket créé",
+    const ticket = await app.prisma.$transaction(async (tx) => {
+      const created = await tx.repairTicket.create({
+        data: {
+          customerId: body.customerId,
+          productModel: body.productModel,
+          serialNumber: body.serialNumber ?? null,
+          type: body.type,
+          priority: body.priority,
+          status: "NOUVEAU",
+          issueDescription: body.issueDescription,
+          photosUrls: body.photosUrls ?? [],
         },
-      ],
-      diagnosis: null,
-      partsUsed: [],
-      assignedTo: null,
-    };
+      });
 
-    return reply.status(201).send({ success: true, data: ticket });
+      await tx.repairStatusLog.create({
+        data: {
+          ticketId: created.id,
+          fromStatus: "",
+          toStatus: "NOUVEAU",
+          note: "Ticket cree",
+        },
+      });
+
+      return created;
+    });
+
+    return reply.status(201).send({
+      success: true,
+      data: ticket,
+    });
   });
 
-  // GET /api/v1/repairs — Liste des tickets avec filtres
+  // GET /repairs — Paginated list with filters
   app.get("/repairs", async (request) => {
     const query = listQuerySchema.parse(request.query);
-    const { page, limit, status, assignedTo, customerId } = query;
+    const { page, limit, status, type, priority, assignedTo, customerId, search, sort } = query;
 
-    // Placeholder: données fictives
-    const tickets = [
-      {
-        id: "aaaaaaaa-1111-4000-8000-000000000001",
-        customerId: customerId || "cccccccc-1111-4000-8000-000000000001",
-        productModel: "Ninebot Max G2",
-        type: "WARRANTY",
-        status: status || "PENDING",
-        assignedTo: assignedTo || null,
-        createdAt: "2026-03-20T10:00:00.000Z",
-      },
-      {
-        id: "aaaaaaaa-1111-4000-8000-000000000002",
-        customerId: customerId || "cccccccc-1111-4000-8000-000000000002",
-        productModel: "Xiaomi Pro 4",
-        type: "OUT_OF_WARRANTY",
-        status: status || "IN_REPAIR",
-        assignedTo: assignedTo || "tttttttt-1111-4000-8000-000000000001",
-        createdAt: "2026-03-18T14:30:00.000Z",
-      },
-    ];
+    const where: Record<string, unknown> = {};
 
-    return {
-      success: true,
-      data: tickets,
-      pagination: {
-        page,
-        limit,
-        total: tickets.length,
-        totalPages: 1,
-        hasNext: false,
-        hasPrev: false,
-      },
-    };
-  });
+    if (status) where.status = status;
+    if (type) where.type = type;
+    if (priority) where.priority = priority;
+    if (assignedTo) where.assignedTo = assignedTo;
+    if (customerId) where.customerId = customerId;
+    if (search) {
+      where.OR = [
+        { productModel: { contains: search, mode: "insensitive" } },
+        { serialNumber: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-  // GET /api/v1/repairs/:id — Détail d'un ticket
-  app.get("/repairs/:id", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    let orderBy: Record<string, string>[];
+    switch (sort) {
+      case "oldest":
+        orderBy = [{ createdAt: "asc" }];
+        break;
+      case "priority":
+        // Prisma doesn't support custom enum ordering natively,
+        // so we sort by priority field then createdAt
+        orderBy = [{ priority: "asc" }, { createdAt: "desc" }];
+        break;
+      default: // newest
+        orderBy = [{ createdAt: "desc" }];
+    }
 
-    // Placeholder
-    const ticket = {
-      id,
-      customerId: "cccccccc-1111-4000-8000-000000000001",
-      productModel: "Ninebot Max G2",
-      issueDescription: "La trottinette ne s'allume plus après une charge complète.",
-      type: "WARRANTY",
-      status: "DIAGNOSED",
-      assignedTo: "tttttttt-1111-4000-8000-000000000001",
-      createdAt: "2026-03-20T10:00:00.000Z",
-      updatedAt: "2026-03-21T09:00:00.000Z",
-      statusLog: [
-        { status: "PENDING", timestamp: "2026-03-20T10:00:00.000Z", note: "Ticket créé" },
-        { status: "DIAGNOSED", timestamp: "2026-03-21T09:00:00.000Z", note: "Problème de carte contrôleur identifié" },
-      ],
-      diagnosis: {
-        technicianId: "tttttttt-1111-4000-8000-000000000001",
-        findings: "Carte contrôleur défectueuse — court-circuit détecté sur le module de charge.",
-        estimatedCost: 85.0,
-        estimatedDays: 3,
-        diagnosedAt: "2026-03-21T09:00:00.000Z",
-      },
-      partsUsed: [
-        {
-          partReference: "NBM-CTRL-G2",
-          partName: "Carte contrôleur Ninebot G2",
-          quantity: 1,
-          unitCost: 65.0,
+    const [tickets, total] = await Promise.all([
+      app.prisma.repairTicket.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          customer: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          technician: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+          _count: {
+            select: { partsUsed: true },
+          },
         },
-      ],
-    };
+      }),
+      app.prisma.repairTicket.count({ where }),
+    ]);
 
-    return { success: true, data: ticket };
-  });
+    const totalPages = Math.ceil(total / limit);
 
-  // PUT /api/v1/repairs/:id/status — Changer le statut d'un ticket
-  app.put("/repairs/:id/status", async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const body = updateStatusSchema.parse(request.body);
-
-    // Placeholder: statut actuel simulé
-    const currentStatus = "PENDING";
-    const allowed = validTransitions[currentStatus] || [];
-
-    if (!allowed.includes(body.status)) {
-      return reply.status(400).send({
-        success: false,
-        error: {
-          code: "INVALID_TRANSITION",
-          message: `Transition de '${currentStatus}' vers '${body.status}' non autorisée. Transitions valides : ${allowed.join(", ")}`,
-        },
+    // If sorting by priority, do a stable in-memory re-sort using custom weight
+    let result = tickets;
+    if (sort === "priority") {
+      result = [...tickets].sort((a, b) => {
+        const wa = PRIORITY_WEIGHT[a.priority] ?? 2;
+        const wb = PRIORITY_WEIGHT[b.priority] ?? 2;
+        if (wa !== wb) return wa - wb;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
     }
 
     return {
       success: true,
-      data: {
-        id,
-        previousStatus: currentStatus,
-        newStatus: body.status,
-        note: body.note || null,
-        updatedAt: new Date().toISOString(),
+      data: result,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
       },
     };
   });
 
-  // POST /api/v1/repairs/:id/diagnosis — Ajouter un diagnostic
+  // GET /repairs/:id — Full ticket detail
+  app.get("/repairs/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const ticket = await app.prisma.repairTicket.findUnique({
+      where: { id },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+        technician: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+        statusLog: {
+          orderBy: { createdAt: "asc" },
+        },
+        partsUsed: {
+          include: {
+            variant: {
+              select: { id: true, sku: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!ticket) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    return { success: true, data: ticket };
+  });
+
+  // PUT /repairs/:id/status — Change ticket status
+  app.put("/repairs/:id/status", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = updateStatusSchema.parse(request.body);
+
+    const ticket = await app.prisma.repairTicket.findUnique({
+      where: { id },
+      include: { partsUsed: true },
+    });
+
+    if (!ticket) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    if (!validateTransition(ticket.status, body.status)) {
+      const allowed = getNextStatuses(ticket.status);
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_TRANSITION",
+          message: `Transition de '${ticket.status}' vers '${body.status}' non autorisee. Transitions valides : ${allowed.join(", ") || "(aucune — statut terminal)"}`,
+        },
+      });
+    }
+
+    const updateData: Record<string, unknown> = {
+      status: body.status,
+    };
+
+    // If TERMINE: set closedAt and compute actualCost from parts
+    if (body.status === "TERMINE") {
+      updateData.closedAt = new Date();
+      const partsCostResult = await app.prisma.repairPartUsed.aggregate({
+        where: { ticketId: id },
+        _sum: { unitCost: true },
+      });
+      // We need to compute sum(unitCost * quantity) — aggregate doesn't support that directly
+      // So compute from existing partsUsed
+      let actualCost = 0;
+      for (const part of ticket.partsUsed) {
+        actualCost += part.quantity * Number(part.unitCost);
+      }
+      updateData.actualCost = actualCost;
+    }
+
+    // If LIVRE: set closedAt if not already set
+    if (body.status === "LIVRE" && !ticket.closedAt) {
+      updateData.closedAt = new Date();
+    }
+
+    const updated = await app.prisma.$transaction(async (tx) => {
+      const updatedTicket = await tx.repairTicket.update({
+        where: { id },
+        data: updateData,
+      });
+
+      await tx.repairStatusLog.create({
+        data: {
+          ticketId: id,
+          fromStatus: ticket.status,
+          toStatus: body.status,
+          note: body.note ?? null,
+          performedBy: body.performedBy ?? null,
+        },
+      });
+
+      return updatedTicket;
+    });
+
+    return { success: true, data: updated };
+  });
+
+  // POST /repairs/:id/diagnosis — Add diagnosis info
   app.post("/repairs/:id/diagnosis", async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = diagnosisSchema.parse(request.body);
 
-    const diagnosis = {
-      ticketId: id,
-      ...body,
-      diagnosedAt: new Date().toISOString(),
+    const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
+
+    if (!ticket) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    if (!validateTransition(ticket.status, "DIAGNOSTIQUE")) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_TRANSITION",
+          message: `Impossible de passer en DIAGNOSTIQUE depuis le statut '${ticket.status}'`,
+        },
+      });
+    }
+
+    const updateData: Record<string, unknown> = {
+      diagnosis: body.diagnosis,
+      status: "DIAGNOSTIQUE",
     };
 
-    return reply.status(201).send({ success: true, data: diagnosis });
+    if (body.estimatedCost !== undefined) updateData.estimatedCost = body.estimatedCost;
+    if (body.estimatedDays !== undefined) updateData.estimatedDays = body.estimatedDays;
+    if (body.assignedTo) updateData.assignedTo = body.assignedTo;
+
+    const updated = await app.prisma.$transaction(async (tx) => {
+      const updatedTicket = await tx.repairTicket.update({
+        where: { id },
+        data: updateData,
+      });
+
+      await tx.repairStatusLog.create({
+        data: {
+          ticketId: id,
+          fromStatus: ticket.status,
+          toStatus: "DIAGNOSTIQUE",
+          note: `Diagnostic: ${body.diagnosis.substring(0, 200)}`,
+        },
+      });
+
+      return updatedTicket;
+    });
+
+    return { success: true, data: updated };
   });
 
-  // POST /api/v1/repairs/:id/parts — Ajouter une pièce utilisée
+  // POST /repairs/:id/quote — Create and send quote
+  app.post("/repairs/:id/quote", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = quoteSchema.parse(request.body);
+
+    const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
+
+    if (!ticket) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    if (!validateTransition(ticket.status, "DEVIS_ENVOYE")) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_TRANSITION",
+          message: `Impossible de passer en DEVIS_ENVOYE depuis le statut '${ticket.status}'`,
+        },
+      });
+    }
+
+    const partsCost = body.parts.reduce(
+      (sum, p) => sum + p.quantity * p.unitCost,
+      0
+    );
+    const laborCost = body.laborCost ?? 0;
+    const estimatedCost = partsCost + laborCost;
+
+    const updated = await app.prisma.$transaction(async (tx) => {
+      await tx.repairTicket.update({
+        where: { id },
+        data: {
+          estimatedCost,
+          status: "DEVIS_ENVOYE",
+        },
+      });
+
+      await tx.repairStatusLog.create({
+        data: {
+          ticketId: id,
+          fromStatus: ticket.status,
+          toStatus: "DEVIS_ENVOYE",
+          note: `Devis envoye: ${estimatedCost.toFixed(2)} EUR`,
+        },
+      });
+
+      return { estimatedCost, parts: body.parts, laborCost };
+    });
+
+    return { success: true, data: updated };
+  });
+
+  // PUT /repairs/:id/quote/accept — Accept quote
+  app.put("/repairs/:id/quote/accept", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
+
+    if (!ticket) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    if (!validateTransition(ticket.status, "DEVIS_ACCEPTE")) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_TRANSITION",
+          message: `Impossible de passer en DEVIS_ACCEPTE depuis le statut '${ticket.status}'`,
+        },
+      });
+    }
+
+    const updated = await app.prisma.$transaction(async (tx) => {
+      const updatedTicket = await tx.repairTicket.update({
+        where: { id },
+        data: { status: "DEVIS_ACCEPTE" },
+      });
+
+      await tx.repairStatusLog.create({
+        data: {
+          ticketId: id,
+          fromStatus: ticket.status,
+          toStatus: "DEVIS_ACCEPTE",
+          note: "Devis accepte par le client",
+        },
+      });
+
+      return updatedTicket;
+    });
+
+    return { success: true, data: updated };
+  });
+
+  // POST /repairs/:id/parts — Add a part used
   app.post("/repairs/:id/parts", async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = addPartSchema.parse(request.body);
 
-    const part = {
-      ticketId: id,
-      ...body,
-      totalCost: body.quantity * body.unitCost,
-      addedAt: new Date().toISOString(),
-    };
+    const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
+
+    if (!ticket) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    const part = await app.prisma.$transaction(async (tx) => {
+      const created = await tx.repairPartUsed.create({
+        data: {
+          ticketId: id,
+          partName: body.partName,
+          partRef: body.partRef ?? null,
+          variantId: body.variantId ?? null,
+          quantity: body.quantity,
+          unitCost: body.unitCost,
+        },
+      });
+
+      // Decrement stock if variantId provided
+      if (body.variantId) {
+        await tx.productVariant.update({
+          where: { id: body.variantId },
+          data: {
+            stockQuantity: { decrement: body.quantity },
+          },
+        });
+      }
+
+      return created;
+    });
 
     return reply.status(201).send({ success: true, data: part });
   });
 
-  // GET /api/v1/repairs/technician/:id/schedule — Planning d'un technicien
-  app.get("/repairs/technician/:id/schedule", async (request) => {
+  // POST /repairs/:id/complete — Mark ticket as complete
+  app.post("/repairs/:id/complete", async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    // Placeholder
-    const schedule = {
-      technicianId: id,
-      date: new Date().toISOString().split("T")[0],
-      tickets: [
-        {
-          id: "aaaaaaaa-1111-4000-8000-000000000001",
-          productModel: "Ninebot Max G2",
-          status: "IN_REPAIR",
-          priority: "HIGH",
-          estimatedDuration: "2h",
-        },
-        {
-          id: "aaaaaaaa-1111-4000-8000-000000000003",
-          productModel: "Dualtron Thunder 3",
-          status: "DIAGNOSED",
-          priority: "MEDIUM",
-          estimatedDuration: "1h30",
-        },
-        {
-          id: "aaaaaaaa-1111-4000-8000-000000000004",
-          productModel: "Vsett 10+",
-          status: "QUALITY_CHECK",
-          priority: "LOW",
-          estimatedDuration: "30min",
-        },
-      ],
-      totalTickets: 3,
-    };
+    const ticket = await app.prisma.repairTicket.findUnique({
+      where: { id },
+      include: { partsUsed: true },
+    });
 
-    return { success: true, data: schedule };
-  });
+    if (!ticket) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
 
-  // GET /api/v1/repairs/stats — Statistiques SAV
-  app.get("/repairs/stats", async () => {
-    // Placeholder: données fictives
-    const stats = {
-      period: "2026-03",
-      totalTickets: 142,
-      byStatus: {
-        PENDING: 18,
-        DIAGNOSED: 12,
-        WAITING_PARTS: 8,
-        IN_REPAIR: 25,
-        QUALITY_CHECK: 5,
-        READY: 10,
-        DELIVERED: 58,
-        CANCELLED: 6,
-      },
-      byType: {
-        WARRANTY: 65,
-        OUT_OF_WARRANTY: 52,
-        RECALL: 12,
-        MAINTENANCE: 13,
-      },
-      averageRepairDays: 4.2,
-      satisfactionRate: 94.5,
-      topIssues: [
-        { issue: "Batterie défectueuse", count: 32 },
-        { issue: "Contrôleur HS", count: 21 },
-        { issue: "Pneu crevé", count: 18 },
-        { issue: "Frein usé", count: 15 },
-        { issue: "Écran cassé", count: 11 },
-      ],
-    };
+    if (!validateTransition(ticket.status, "TERMINE")) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_TRANSITION",
+          message: `Impossible de passer en TERMINE depuis le statut '${ticket.status}'`,
+        },
+      });
+    }
 
-    return { success: true, data: stats };
+    let actualCost = 0;
+    for (const part of ticket.partsUsed) {
+      actualCost += part.quantity * Number(part.unitCost);
+    }
+
+    const updated = await app.prisma.$transaction(async (tx) => {
+      const updatedTicket = await tx.repairTicket.update({
+        where: { id },
+        data: {
+          status: "TERMINE",
+          closedAt: new Date(),
+          actualCost,
+        },
+      });
+
+      await tx.repairStatusLog.create({
+        data: {
+          ticketId: id,
+          fromStatus: ticket.status,
+          toStatus: "TERMINE",
+          note: `Reparation terminee. Cout reel: ${actualCost.toFixed(2)} EUR`,
+        },
+      });
+
+      return updatedTicket;
+    });
+
+    return { success: true, data: updated };
   });
 }

@@ -6,6 +6,8 @@ import { prismaPlugin } from "./plugins/prisma.js";
 import { redisPlugin } from "./plugins/redis.js";
 import { healthRoutes } from "./routes/health.js";
 import { repairRoutes } from "./routes/tickets/index.js";
+import { technicianRoutes } from "./routes/technicians/index.js";
+import { statsRoutes } from "./routes/stats/index.js";
 
 const PORT = parseInt(process.env.PORT_SAV || "3004", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -34,18 +36,20 @@ async function start() {
     timeWindow: "1 minute",
   });
 
-  // Plugins métier
+  // Plugins metier
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
 
   // Routes
   await app.register(healthRoutes);
   await app.register(repairRoutes, { prefix: "/api/v1" });
+  await app.register(technicianRoutes, { prefix: "/api/v1" });
+  await app.register(statsRoutes, { prefix: "/api/v1" });
 
-  // Démarrage
+  // Demarrage
   try {
     await app.listen({ port: PORT, host: HOST });
-    app.log.info(`🔧 Service SAV démarré sur http://${HOST}:${PORT}`);
+    app.log.info(`Service SAV demarre sur http://${HOST}:${PORT}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

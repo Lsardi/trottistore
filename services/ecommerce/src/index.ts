@@ -4,8 +4,13 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import { prismaPlugin } from "./plugins/prisma.js";
 import { redisPlugin } from "./plugins/redis.js";
+import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { productRoutes } from "./routes/products/index.js";
+import { cartRoutes } from "./routes/cart/index.js";
+import { orderRoutes } from "./routes/orders/index.js";
+import { categoryRoutes } from "./routes/categories/index.js";
+import { authRoutes } from "./routes/auth/index.js";
 
 const PORT = parseInt(process.env.PORT_ECOMMERCE || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -37,10 +42,15 @@ async function start() {
   // Plugins métier
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
+  await app.register(authPlugin);
 
   // Routes
   await app.register(healthRoutes);
   await app.register(productRoutes, { prefix: "/api/v1" });
+  await app.register(cartRoutes, { prefix: "/api/v1" });
+  await app.register(orderRoutes, { prefix: "/api/v1" });
+  await app.register(categoryRoutes, { prefix: "/api/v1" });
+  await app.register(authRoutes, { prefix: "/api/v1" });
 
   // Démarrage
   try {

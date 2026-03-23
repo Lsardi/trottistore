@@ -1,58 +1,138 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { analyticsApi, type RealtimeKpis } from "@/lib/api";
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
+}
+
 export default function AdminDashboard() {
+  const [kpis, setKpis] = useState<RealtimeKpis | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await analyticsApi.realtime();
+        setKpis(res.data);
+      } catch {
+        // Services pas encore connectés
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+    // Refresh toutes les 30 secondes
+    const interval = setInterval(load, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const KPI_CARDS = [
+    {
+      label: "CA Aujourd'hui",
+      value: kpis ? formatCurrency(kpis.revenueToday) : "---",
+      comparison: kpis ? `Hier : ${formatCurrency(kpis.revenueYesterday)}` : "",
+      color: "text-green-600",
+    },
+    {
+      label: "Commandes aujourd'hui",
+      value: kpis ? String(kpis.ordersToday) : "---",
+      comparison: "",
+      color: "text-blue-600",
+    },
+    {
+      label: "Tickets SAV ouverts",
+      value: kpis ? String(kpis.openSavTickets) : "---",
+      comparison: "",
+      color: "text-orange-600",
+    },
+    {
+      label: "Alertes stock",
+      value: kpis ? String(kpis.lowStockAlerts) : "---",
+      comparison: "Produits sous seuil critique",
+      color: "text-red-600",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-gray-900 text-white p-6">
-        <h1 className="text-xl font-bold mb-8">TrottiStore Admin</h1>
-        <nav className="space-y-2">
-          {[
-            { label: "Dashboard", href: "/admin", icon: "\u{1f4ca}" },
-            { label: "Commandes", href: "/admin/commandes", icon: "\u{1f4e6}" },
-            { label: "Produits", href: "/admin/produits", icon: "\u{1f6f4}" },
-            { label: "Clients", href: "/admin/clients", icon: "\u{1f465}" },
-            { label: "SAV", href: "/admin/sav", icon: "\u{1f527}" },
-            { label: "Analytics", href: "/admin/analytics", icon: "\u{1f4c8}" },
-          ].map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition"
-            >
-              <span>{item.icon}</span>
-              <span>{item.label}</span>
-            </a>
-          ))}
-        </nav>
-      </aside>
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-sm text-gray-500">Vue temps réel de votre activité</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full ${kpis ? "bg-green-500" : "bg-gray-400"}`} />
+          <span className="text-xs text-gray-500">{kpis ? "Services connectés" : "En attente..."}</span>
+        </div>
+      </div>
 
-      {/* Main content */}
-      <main className="ml-64 p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">Dashboard</h2>
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {[
-            { label: "CA Aujourd'hui", value: "---.-- \u20ac", trend: "+0%" },
-            { label: "Commandes en cours", value: "--", trend: "" },
-            { label: "Tickets SAV ouverts", value: "--", trend: "" },
-            { label: "Stock critique", value: "--", trend: "" },
-          ].map((kpi) => (
-            <div key={kpi.label} className="bg-white rounded-xl p-6 shadow-sm">
-              <p className="text-sm text-gray-500 mb-1">{kpi.label}</p>
-              <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
-              {kpi.trend && (
-                <p className="text-sm text-green-600 mt-1">{kpi.trend}</p>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {KPI_CARDS.map((card) => (
+          <div key={card.label} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <p className="text-sm text-gray-500 mb-1">{card.label}</p>
+            <p className={`text-3xl font-bold ${card.color}`}>
+              {loading ? (
+                <span className="inline-block w-20 h-8 bg-gray-200 rounded animate-pulse" />
+              ) : (
+                card.value
               )}
-            </div>
-          ))}
-        </div>
+            </p>
+            {card.comparison && (
+              <p className="text-xs text-gray-400 mt-2">{card.comparison}</p>
+            )}
+          </div>
+        ))}
+      </div>
 
-        {/* Placeholder content */}
-        <div className="bg-white rounded-xl p-8 shadow-sm text-center text-gray-400">
-          <p className="text-lg">Les donn&eacute;es s'afficheront ici une fois les services connect&eacute;s.</p>
-          <p className="text-sm mt-2">Services : E-commerce (:3001) | CRM (:3002) | Analytics (:3003) | SAV (:3004)</p>
+      {/* Quick actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <a
+          href="/admin/commandes"
+          className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:border-blue-300 transition group"
+        >
+          <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600">
+            📦 Commandes
+          </h3>
+          <p className="text-sm text-gray-500">Gérer les commandes en cours</p>
+        </a>
+        <a
+          href="/admin/sav"
+          className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:border-blue-300 transition group"
+        >
+          <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600">
+            🔧 Tickets SAV
+          </h3>
+          <p className="text-sm text-gray-500">Suivre les réparations en cours</p>
+        </a>
+        <a
+          href="/admin/produits"
+          className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:border-blue-300 transition group"
+        >
+          <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600">
+            🛴 Catalogue
+          </h3>
+          <p className="text-sm text-gray-500">Gérer les produits et le stock</p>
+        </a>
+      </div>
+
+      {/* Placeholder charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <h3 className="font-semibold text-gray-900 mb-4">Ventes cette semaine</h3>
+          <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
+            Graphique disponible après connexion aux services
+          </div>
         </div>
-      </main>
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <h3 className="font-semibold text-gray-900 mb-4">Dernières commandes</h3>
+          <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
+            Liste des commandes récentes
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
