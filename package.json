@@ -16,5 +16,8 @@
     "db:studio": "pnpm --filter @trottistore/database studio",
     "db:seed": "pnpm --filter @trottistore/scripts seed",
     "crawl": "pnpm --filter @trottistore/scripts crawl"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.1.3"
   }
 }
