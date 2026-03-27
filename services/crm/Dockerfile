@@ -1,9 +1,9 @@
 FROM node:22-alpine AS base
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/database/package.json ./packages/database/
 COPY packages/shared/package.json ./packages/shared/
@@ -26,8 +26,7 @@ RUN pnpm --filter @trottistore/service-crm build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/services/crm/dist ./dist
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 EXPOSE 3002
 CMD ["node", "dist/index.js"]
