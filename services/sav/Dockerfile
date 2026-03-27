@@ -17,6 +17,7 @@ RUN pnpm install --no-frozen-lockfile
 
 FROM base AS build
 COPY --from=deps /app .
+COPY tsconfig.base.json ./
 COPY packages/ ./packages/
 COPY services/sav/ ./services/sav/
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
