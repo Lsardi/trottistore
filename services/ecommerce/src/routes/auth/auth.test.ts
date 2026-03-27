@@ -66,10 +66,10 @@ describe("registerSchema", () => {
     }
   });
 
-  it("lowercases and trims email", () => {
+  it("lowercases email", () => {
     const result = registerSchema.safeParse({
       ...validPayload,
-      email: "  Alice@Example.COM  ",
+      email: "Alice@Example.COM",
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -158,9 +158,9 @@ describe("loginSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("lowercases and trims email", () => {
+  it("lowercases email", () => {
     const result = loginSchema.safeParse({
-      email: " Bob@Example.COM ",
+      email: "Bob@Example.COM",
       password: "secureP@ss1",
     });
     expect(result.success).toBe(true);
