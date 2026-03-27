@@ -12,7 +12,7 @@
     "lint": "turbo lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "vitest run --testPathPattern integration",
+    "test:integration": "vitest run integration",
     "test:load": "tsx tests/load/load-test.ts",
     "db:push": "pnpm --filter @trottistore/database db:push",
     "db:migrate": "pnpm --filter @trottistore/database db:migrate",

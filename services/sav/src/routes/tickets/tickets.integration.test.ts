@@ -9,6 +9,18 @@ import { repairRoutes } from "./index.js";
 function buildTestApp(): FastifyInstance {
   const app = Fastify({ logger: false });
 
+  // Error handler matching the real SAV service
+  app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    const statusCode = error.statusCode || 500;
+    reply.status(statusCode).send({
+      success: false,
+      error: {
+        code: statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
+        message: statusCode >= 500 ? "Une erreur interne est survenue" : error.message,
+      },
+    });
+  });
+
   // Mock prisma
   app.decorate("prisma", {
     repairTicket: {
