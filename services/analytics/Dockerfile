@@ -13,7 +13,7 @@ COPY services/ecommerce/package.json ./services/ecommerce/
 COPY services/crm/package.json ./services/crm/
 COPY services/analytics/package.json ./services/analytics/
 COPY services/sav/package.json ./services/sav/
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 FROM base AS build
 COPY --from=deps /app .
