@@ -14,13 +14,14 @@
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "studio": "prisma studio",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0"
   },
   "devDependencies": {
+    "@types/node": "25.5.0",
     "prisma": "^6.6.0",
     "typescript": "^5.7.0"
   }

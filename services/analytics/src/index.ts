@@ -39,7 +39,7 @@ async function start() {
   await app.register(redisPlugin);
 
   // Global error handler
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
     const statusCode = error.statusCode || 500;
 
     app.log.error({
