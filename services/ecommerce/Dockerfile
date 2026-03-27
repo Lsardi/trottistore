@@ -7,11 +7,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY services/ecommerce/package.json ./services/ecommerce/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
+COPY packages/ui/package.json ./packages/ui/
 RUN pnpm install --frozen-lockfile --filter @trottistore/service-ecommerce...
 
 FROM base AS build
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+COPY --from=deps /app .
 COPY . .
 RUN pnpm --filter @trottistore/database db:generate
 RUN pnpm --filter @trottistore/service-ecommerce build
