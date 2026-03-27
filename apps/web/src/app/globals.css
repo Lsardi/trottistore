@@ -41,18 +41,18 @@ html {
 }
 
 body {
-  background-color: #0A0A0A;
-  color: #E8E8E8;
+  background-color: var(--color-void);
+  color: var(--color-text);
   font-family: "Syne", sans-serif;
 }
 
 ::selection {
-  background-color: #00FFD1;
-  color: #0A0A0A;
+  background-color: var(--color-neon);
+  color: var(--color-void);
 }
 
 *:focus-visible {
-  outline: 1px solid #00FFD1;
+  outline: 1px solid var(--color-neon);
   outline-offset: 2px;
 }
 
@@ -114,13 +114,13 @@ body {
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #555555;
+  color: var(--color-text-dim);
 }
 
 .spec-value {
   font-family: "Space Mono", monospace;
   font-size: 0.85rem;
-  color: #E8E8E8;
+  color: var(--color-text);
 }
 
 /* Prix */
@@ -128,14 +128,14 @@ body {
   font-family: "Syne", sans-serif;
   font-weight: 800;
   font-size: 1.75rem;
-  color: #00FFD1;
+  color: var(--color-neon);
   letter-spacing: -0.02em;
 }
 
 .price-sub {
   font-family: "Space Mono", monospace;
   font-size: 0.7rem;
-  color: #555555;
+  color: var(--color-text-dim);
 }
 
 /* ─── BOUTONS ──────────────────────────────────────────────── */
@@ -146,8 +146,8 @@ body {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 2rem;
-  background-color: #00FFD1;
-  color: #0A0A0A;
+  background-color: var(--color-neon);
+  color: var(--color-void);
   font-family: "Syne", sans-serif;
   font-weight: 700;
   font-size: 0.8rem;
@@ -160,7 +160,7 @@ body {
   overflow: hidden;
 }
 .btn-neon:hover {
-  background-color: #00E6BD;
+  background-color: var(--color-neon-muted);
   box-shadow: 0 0 30px rgba(0, 255, 209, 0.3);
 }
 .btn-neon:active {
@@ -174,32 +174,32 @@ body {
   gap: 0.5rem;
   padding: 0.75rem 2rem;
   background-color: transparent;
-  color: #E8E8E8;
+  color: var(--color-text);
   font-family: "Syne", sans-serif;
   font-weight: 700;
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border: 1px solid #2A2A2A;
+  border: 1px solid var(--color-border);
   cursor: pointer;
   transition: all 150ms ease;
 }
 .btn-outline:hover {
-  border-color: #00FFD1;
-  color: #00FFD1;
+  border-color: var(--color-neon);
+  color: var(--color-neon);
 }
 
 /* ─── PRODUCT CARD (fiche technique) ──────────────────────── */
 
 .product-card {
-  background: #141414;
-  border: 1px solid #2A2A2A;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   overflow: hidden;
   transition: border-color 200ms ease;
   position: relative;
 }
 .product-card:hover {
-  border-color: #00FFD1;
+  border-color: var(--color-neon);
 }
 .product-card:hover .product-card-neon-line {
   opacity: 1;
@@ -211,7 +211,7 @@ body {
   left: 0;
   right: 0;
   height: 2px;
-  background: #00FFD1;
+  background: var(--color-neon);
   opacity: 0;
   transition: opacity 200ms ease;
   z-index: 2;
@@ -220,7 +220,7 @@ body {
 .product-card-image {
   position: relative;
   aspect-ratio: 1;
-  background: #0F0F0F;
+  background: #0F0F0F; /* slightly darker than surface for image bg */
   overflow: hidden;
 }
 .product-card-image img {
@@ -236,7 +236,7 @@ body {
 
 .product-card-body {
   padding: 14px 16px 18px;
-  border-top: 1px solid #2A2A2A;
+  border-top: 1px solid var(--color-border);
 }
 
 /* ─── BADGES ───────────────────────────────────────────────── */
@@ -251,31 +251,31 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
-.badge-neon { background: #00FFD1; color: #0A0A0A; }
-.badge-danger { background: #FF3B30; color: white; }
-.badge-warning { background: #FF9500; color: #0A0A0A; }
-.badge-muted { background: #333333; color: #888888; }
+.badge-neon { background: var(--color-neon); color: var(--color-void); }
+.badge-danger { background: var(--color-danger); color: white; }
+.badge-warning { background: var(--color-warning); color: var(--color-void); }
+.badge-muted { background: var(--color-border-light); color: var(--color-text-muted); }
 
 /* ─── DIVIDERS ─────────────────────────────────────────────── */
 
 .divider {
   height: 1px;
-  background: #2A2A2A;
+  background: var(--color-border);
   width: 100%;
 }
 
 .divider-neon {
   height: 1px;
-  background: linear-gradient(90deg, transparent, #00FFD1, transparent);
+  background: linear-gradient(90deg, transparent, var(--color-neon), transparent);
   width: 100%;
 }
 
 /* ─── INPUTS ───────────────────────────────────────────────── */
 
 .input-dark {
-  background: #141414;
-  border: 1px solid #2A2A2A;
-  color: #E8E8E8;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   font-family: "Space Mono", monospace;
   font-size: 0.85rem;
   padding: 0.625rem 1rem;
@@ -283,11 +283,11 @@ body {
   outline: none;
 }
 .input-dark::placeholder {
-  color: #555555;
+  color: var(--color-text-dim);
 }
 .input-dark:focus {
-  border-color: #00FFD1;
-  box-shadow: 0 0 0 1px rgba(0, 255, 209, 0.15);
+  border-color: var(--color-neon);
+  box-shadow: 0 0 0 1px var(--color-neon-dim);
 }
 
 /* ─── NEON GLOW EFFECTS ───────────────────────────────────── */
@@ -306,13 +306,13 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0A0A;
+  background: var(--color-void);
 }
 ::-webkit-scrollbar-thumb {
-  background: #2A2A2A;
+  background: var(--color-border);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #00FFD1;
+  background: var(--color-neon);
 }
 
 /* ─── ANIMATIONS (CSS only, mémorables) ────────────────────── */
@@ -373,14 +373,14 @@ body {
 /* ─── TEXT STROKE (outline heading) ──────────────────────── */
 
 .text-outline {
-  -webkit-text-stroke: 2px #E8E8E8;
+  -webkit-text-stroke: 2px var(--color-text);
   -webkit-text-fill-color: transparent;
 }
 
 /* ─── FOOTER RESPONSIVE ──────────────────────────────────── */
 
 .footer-link:hover {
-  color: #00FFD1 !important;
+  color: var(--color-neon) !important;
 }
 
 @media (max-width: 768px) {
@@ -398,17 +398,17 @@ body {
 /* ─── HEADER ─────────────────────────────────────────────── */
 
 .header-icon:hover {
-  color: #00FFD1 !important;
+  color: var(--color-neon) !important;
 }
 
 .nav-link:hover {
-  color: #00FFD1 !important;
+  color: var(--color-neon) !important;
 }
 
 /* ─── HOMEPAGE RESPONSIVE ────────────────────────────────── */
 
 .category-card:hover {
-  border-color: #00FFD1 !important;
+  border-color: var(--color-neon) !important;
 }
 
 @media (max-width: 1024px) {

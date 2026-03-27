@@ -46,7 +46,7 @@ export default function ProductCard({ product }: { product: Product }) {
             loading="lazy"
           />
         ) : (
-          <span className="flex items-center justify-center w-full h-full" style={{ color: "#2A2A2A" }}>
+          <span className="flex items-center justify-center w-full h-full" style={{ color: "var(--color-border)" }}>
             <ImageOff className="w-10 h-10" />
           </span>
         )}
@@ -70,7 +70,7 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
 
         {/* Product name */}
-        <h3 className="heading-md text-[#E8E8E8] leading-tight mb-3" style={{ fontSize: "0.95rem" }}>
+        <h3 className="heading-md text-text leading-tight mb-3" style={{ fontSize: "0.95rem" }}>
           {product.name}
         </h3>
 
@@ -79,7 +79,7 @@ export default function ProductCard({ product }: { product: Product }) {
           <div className="flex items-baseline gap-2">
             <span className="price-main" style={{ fontSize: "1.25rem" }}>{ttcFormatted}</span>
             {hasSalePrice && (
-              <span className="font-mono text-xs line-through" style={{ color: "#555555" }}>
+              <span className="font-mono text-xs line-through" style={{ color: "var(--color-text-dim)" }}>
                 {formatPriceTTC(product.priceHt, product.tvaRate)}
               </span>
             )}

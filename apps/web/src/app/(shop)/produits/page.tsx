@@ -30,33 +30,33 @@ export default function ProductsPageWrapper() {
 
 function CatalogueSkeleton() {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#0A0A0A" }}>
+    <div className="min-h-screen bg-void">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-10">
         {/* Header skeleton */}
         <div className="mb-2">
-          <div className="h-10 w-64 animate-pulse" style={{ backgroundColor: "#141414" }} />
+          <div className="h-10 w-64 animate-pulse bg-surface" />
         </div>
-        <div className="h-4 w-32 animate-pulse mb-6" style={{ backgroundColor: "#141414" }} />
+        <div className="h-4 w-32 animate-pulse mb-6 bg-surface" />
         <div className="divider-neon mb-8" />
 
         {/* Filter bar skeleton */}
-        <div className="flex gap-[1px] mb-8" style={{ backgroundColor: "#2A2A2A" }}>
-          <div className="flex-1 h-11 animate-pulse" style={{ backgroundColor: "#141414" }} />
-          <div className="w-52 h-11 animate-pulse" style={{ backgroundColor: "#141414" }} />
-          <div className="w-44 h-11 animate-pulse" style={{ backgroundColor: "#141414" }} />
+        <div className="flex gap-[1px] mb-8 bg-border">
+          <div className="flex-1 h-11 animate-pulse bg-surface" />
+          <div className="w-52 h-11 animate-pulse bg-surface" />
+          <div className="w-44 h-11 animate-pulse bg-surface" />
         </div>
 
         {/* Grid skeleton */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} style={{ backgroundColor: "#141414", border: "1px solid #2A2A2A" }}>
+            <div key={i} className="bg-surface border border-border">
               <div className="aspect-square animate-pulse" style={{ backgroundColor: "#0F0F0F" }} />
-              <div className="p-4 space-y-3" style={{ borderTop: "1px solid #2A2A2A" }}>
-                <div className="h-2 w-20 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
-                <div className="h-4 w-full animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
-                <div className="h-4 w-2/3 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
-                <div className="h-5 w-24 animate-pulse mt-2" style={{ backgroundColor: "#1C1C1C" }} />
-                <div className="h-3 w-16 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+              <div className="p-4 space-y-3 border-t border-border">
+                <div className="h-2 w-20 animate-pulse bg-surface-2" />
+                <div className="h-4 w-full animate-pulse bg-surface-2" />
+                <div className="h-4 w-2/3 animate-pulse bg-surface-2" />
+                <div className="h-5 w-24 animate-pulse mt-2 bg-surface-2" />
+                <div className="h-3 w-16 animate-pulse bg-surface-2" />
               </div>
             </div>
           ))}
@@ -135,27 +135,25 @@ function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#0A0A0A" }}>
+    <div className="min-h-screen bg-void">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-10">
         {/* ── Header ── */}
         <div className="mb-1">
           <h1 className="heading-lg">CATALOGUE</h1>
         </div>
-        <p className="font-mono text-xs uppercase tracking-widest mb-6" style={{ color: "#555555" }}>
+        <p className="font-mono text-xs uppercase tracking-widest mb-6 text-text-dim">
           {total} PRODUITS
         </p>
         <div className="divider-neon mb-8" />
 
         {/* ── Filter bar ── */}
         <div
-          className="flex flex-col md:flex-row mb-8"
-          style={{ border: "1px solid #2A2A2A" }}
+          className="flex flex-col md:flex-row mb-8 border border-border"
         >
           {/* Search */}
           <div className="flex-1 relative">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-              style={{ color: "#555555" }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim"
             />
             <input
               type="text"
@@ -165,13 +163,7 @@ function ProductsPage() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full h-full pl-10 pr-4 py-3 outline-none font-mono text-sm"
-              style={{
-                backgroundColor: "#141414",
-                color: "#E8E8E8",
-                border: "none",
-                borderRight: "1px solid #2A2A2A",
-              }}
+              className="w-full h-full pl-10 pr-4 py-3 outline-none font-mono text-sm bg-surface text-text border-none border-r border-border"
             />
           </div>
 
@@ -183,13 +175,7 @@ function ProductsPage() {
                 setCategorySlug(e.target.value);
                 setPage(1);
               }}
-              className="appearance-none w-full md:w-52 px-4 py-3 font-mono text-sm cursor-pointer outline-none"
-              style={{
-                backgroundColor: "#141414",
-                color: "#E8E8E8",
-                border: "none",
-                borderRight: "1px solid #2A2A2A",
-              }}
+              className="appearance-none w-full md:w-52 px-4 py-3 font-mono text-sm cursor-pointer outline-none bg-surface text-text border-none border-r border-border"
             >
               <option value="">Toutes catégories</option>
               {categories.map((cat) => (
@@ -205,12 +191,7 @@ function ProductsPage() {
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
-              className="appearance-none w-full md:w-44 px-4 py-3 font-mono text-sm cursor-pointer outline-none"
-              style={{
-                backgroundColor: "#141414",
-                color: "#E8E8E8",
-                border: "none",
-              }}
+              className="appearance-none w-full md:w-44 px-4 py-3 font-mono text-sm cursor-pointer outline-none bg-surface text-text border-none"
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -225,14 +206,14 @@ function ProductsPage() {
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} style={{ backgroundColor: "#141414", border: "1px solid #2A2A2A" }}>
+              <div key={i} className="bg-surface border border-border">
                 <div className="aspect-square animate-pulse" style={{ backgroundColor: "#0F0F0F" }} />
-                <div className="p-4 space-y-3" style={{ borderTop: "1px solid #2A2A2A" }}>
-                  <div className="h-2 w-20 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
-                  <div className="h-4 w-full animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
-                  <div className="h-4 w-2/3 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
-                  <div className="h-5 w-24 animate-pulse mt-2" style={{ backgroundColor: "#1C1C1C" }} />
-                  <div className="h-3 w-16 animate-pulse" style={{ backgroundColor: "#1C1C1C" }} />
+                <div className="p-4 space-y-3 border-t border-border">
+                  <div className="h-2 w-20 animate-pulse bg-surface-2" />
+                  <div className="h-4 w-full animate-pulse bg-surface-2" />
+                  <div className="h-4 w-2/3 animate-pulse bg-surface-2" />
+                  <div className="h-5 w-24 animate-pulse mt-2 bg-surface-2" />
+                  <div className="h-3 w-16 animate-pulse bg-surface-2" />
                 </div>
               </div>
             ))}
@@ -240,10 +221,10 @@ function ProductsPage() {
         ) : products.length === 0 ? (
           /* ── Empty state ── */
           <div className="text-center py-32">
-            <h2 className="heading-lg mb-3" style={{ color: "#E8E8E8" }}>
+            <h2 className="heading-lg mb-3 text-text">
               AUCUN RÉSULTAT
             </h2>
-            <p className="font-mono text-sm" style={{ color: "#555555" }}>
+            <p className="font-mono text-sm text-text-dim">
               Modifiez vos filtres ou effectuez une nouvelle recherche.
             </p>
           </div>
@@ -261,8 +242,7 @@ function ProductsPage() {
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="px-3 py-2 transition-colors disabled:opacity-30"
-              style={{ color: "#888888" }}
+              className="px-3 py-2 transition-colors disabled:opacity-30 text-text-muted"
             >
               &larr; PRÉCÉDENT
             </button>
@@ -270,7 +250,7 @@ function ProductsPage() {
             <div className="flex items-center gap-1 mx-4">
               {buildPageNumbers().map((p, i) =>
                 p === "ellipsis" ? (
-                  <span key={`e-${i}`} className="px-2 py-2" style={{ color: "#555555" }}>
+                  <span key={`e-${i}`} className="px-2 py-2 text-text-dim">
                     ...
                   </span>
                 ) : (
@@ -279,8 +259,8 @@ function ProductsPage() {
                     onClick={() => setPage(p)}
                     className="w-8 h-8 flex items-center justify-center transition-colors"
                     style={{
-                      color: p === page ? "#00FFD1" : "#888888",
-                      borderBottom: p === page ? "1px solid #00FFD1" : "1px solid transparent",
+                      color: p === page ? "var(--color-neon)" : "var(--color-text-muted)",
+                      borderBottom: p === page ? "1px solid var(--color-neon)" : "1px solid transparent",
                     }}
                   >
                     {p}
@@ -292,8 +272,7 @@ function ProductsPage() {
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="px-3 py-2 transition-colors disabled:opacity-30"
-              style={{ color: "#888888" }}
+              className="px-3 py-2 transition-colors disabled:opacity-30 text-text-muted"
             >
               SUIVANT &rarr;
             </button>
