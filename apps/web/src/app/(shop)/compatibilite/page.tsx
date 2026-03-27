@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Search, ChevronRight, Check, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productsApi, type Product } from "@/lib/api";
@@ -209,7 +210,7 @@ export default function CompatibilitePage() {
                     >
                       <div className="product-card-image">
                         {image && (
-                          <img src={image.url} alt={product.name} className="w-full h-full object-contain p-2" loading="lazy" />
+                          <Image src={image.url} alt={product.name} fill sizes="(max-width: 768px) 50vw, 33vw" style={{ objectFit: "contain", padding: "8px" }} />
                         )}
                       </div>
                       <div className="product-card-body">

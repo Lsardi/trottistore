@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   adminProductsApi,
   categoriesApi,
@@ -488,10 +489,12 @@ export default function AdminProductEditPage() {
                         : "border-gray-200"
                     )}
                   >
-                    <img
+                    <Image
                       src={img.url}
-                      alt={img.alt}
-                      className="w-full h-full object-contain"
+                      alt={img.alt || "Image produit"}
+                      fill
+                      sizes="(max-width: 640px) 50vw, 33vw"
+                      style={{ objectFit: "contain" }}
                     />
                     {img.isPrimary && (
                       <span className="absolute top-2 left-2 bg-[#28afb1] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">

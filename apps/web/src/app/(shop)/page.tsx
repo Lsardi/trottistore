@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Lightbulb, Disc, Cable, Monitor } from "lucide-react";
 import { formatPriceTTC, formatPrice } from "@/lib/utils";
 import { brand } from "@/lib/brand";
@@ -200,9 +201,11 @@ export default function HomePage() {
                   filter: "blur(20px)",
                 }}
               />
-              <img
+              <Image
                 src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg"
                 alt="Trottinette électrique Teverun Tetra"
+                width={300}
+                height={300}
                 style={{
                   maxWidth: "100%",
                   maxHeight: 400,
@@ -210,6 +213,8 @@ export default function HomePage() {
                   transform: "rotate(-5deg)",
                   position: "relative",
                   zIndex: 2,
+                  width: "auto",
+                  height: "auto",
                 }}
               />
             </div>
@@ -367,9 +372,12 @@ export default function HomePage() {
                     <div className="product-card">
                       <div className="product-card-image">
                         {img ? (
-                          <img
+                          <Image
                             src={img.url}
                             alt={img.alt || product.name}
+                            fill
+                            sizes="(max-width: 768px) 50vw, 25vw"
+                            style={{ objectFit: "contain" }}
                           />
                         ) : (
                           <div
@@ -465,14 +473,12 @@ export default function HomePage() {
                 alignItems: "flex-end",
               }}
             >
-              <img
+              <Image
                 src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg"
                 alt={`${brand.nav.mainCategory}`}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
                   objectFit: "cover",
                   opacity: 0.3,
                 }}

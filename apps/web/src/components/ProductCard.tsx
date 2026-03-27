@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ImageOff } from "lucide-react";
 import type { Product } from "@/lib/api";
 import { formatPriceTTC } from "@/lib/utils";
@@ -40,10 +41,11 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* Image */}
       <div className="product-card-image">
         {primaryImage ? (
-          <img
+          <Image
             src={primaryImage.url}
             alt={primaryImage.alt || product.name}
-            loading="lazy"
+            fill
+            style={{ objectFit: "contain" }}
           />
         ) : (
           <span className="flex items-center justify-center w-full h-full" style={{ color: "var(--color-border)" }}>

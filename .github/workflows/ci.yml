@@ -105,6 +105,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Validate Prisma schema
+        # NOTE: For production CD pipeline, use `pnpm db:deploy` (prisma migrate deploy)
+        # instead of `db:push` to apply migrations safely and reproducibly.
         run: pnpm --filter @trottistore/database exec prisma validate
 
       - name: Generate Prisma Client (verify generation works)

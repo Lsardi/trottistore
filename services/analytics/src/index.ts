@@ -38,6 +38,38 @@ async function start() {
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
 
+  // Global error handler
+  app.setErrorHandler((error, request, reply) => {
+    const statusCode = error.statusCode || 500;
+
+    app.log.error({
+      err: error,
+      method: request.method,
+      url: request.url,
+      statusCode,
+    });
+
+    reply.status(statusCode).send({
+      success: false,
+      error: {
+        code: statusCode === 429 ? "RATE_LIMITED" : statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
+        message: statusCode >= 500 ? "Une erreur interne est survenue" : error.message,
+        ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
+      },
+    });
+  });
+
+  // 404 handler
+  app.setNotFoundHandler((request, reply) => {
+    reply.status(404).send({
+      success: false,
+      error: {
+        code: "NOT_FOUND",
+        message: `Route ${request.method} ${request.url} introuvable`,
+      },
+    });
+  });
+
   // Routes
   await app.register(healthRoutes);
   await app.register(analyticsRoutes, { prefix: "/api/v1" });

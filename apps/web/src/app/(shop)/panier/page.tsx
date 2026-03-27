@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ShoppingCart,
   Minus,
@@ -117,9 +118,9 @@ export default function CartPage() {
                   className="flex gap-4 bg-surface border border-border p-4 sm:p-5"
                 >
                   {/* Image */}
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-void border border-border overflow-hidden flex-shrink-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-void border border-border overflow-hidden flex-shrink-0 relative">
                     {image ? (
-                      <img src={image.url} alt="" className="w-full h-full object-contain p-1" />
+                      <Image src={image.url} alt={image.alt || item.product?.name || "Produit"} fill sizes="96px" style={{ objectFit: "contain", padding: "4px" }} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <ImageOff className="w-8 h-8 text-text-dim" />

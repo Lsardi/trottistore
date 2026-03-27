@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn, formatPrice, formatPriceTTC } from "@/lib/utils";
 import Link from "next/link";
+import Image from "next/image";
 
 type StockStatus = "all" | "in_stock" | "low_stock" | "out_of_stock";
 
@@ -621,12 +622,14 @@ export default function AdminProduitsPage() {
                           href={`/admin/produits/${product.id}`}
                           className="flex items-center gap-3 group/link"
                         >
-                          <div className="w-10 h-10 bg-void border border-border overflow-hidden flex-shrink-0">
+                          <div className="w-10 h-10 bg-void border border-border overflow-hidden flex-shrink-0 relative">
                             {image ? (
-                              <img
+                              <Image
                                 src={image.url}
-                                alt=""
-                                className="w-full h-full object-contain"
+                                alt={product.name}
+                                fill
+                                sizes="40px"
+                                style={{ objectFit: "contain" }}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">

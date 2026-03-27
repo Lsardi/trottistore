@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Minus, Plus, ImageOff, ArrowLeft } from "lucide-react";
 import { productsApi, cartApi, type Product } from "@/lib/api";
 import { formatPriceTTC, priceTTC } from "@/lib/utils";
@@ -190,14 +191,16 @@ export default function ProductPage() {
           <div>
             {/* Main image */}
             <div
-              className="aspect-square flex items-center justify-center overflow-hidden"
+              className="aspect-square flex items-center justify-center overflow-hidden relative"
               style={{ backgroundColor: "#0F0F0F" /* image bg */, border: "1px solid var(--color-border)" }}
             >
               {images[selectedImage] ? (
-                <img
+                <Image
                   src={images[selectedImage].url}
                   alt={images[selectedImage].alt || product.name}
-                  className="max-w-full max-h-full object-contain p-6"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 55vw"
+                  style={{ objectFit: "contain", padding: "24px" }}
                 />
               ) : (
                 <ImageOff className="w-20 h-20" style={{ color: "var(--color-border)" }} />
@@ -211,16 +214,18 @@ export default function ProductPage() {
                   <button
                     key={img.id}
                     onClick={() => setSelectedImage(i)}
-                    className="w-16 h-16 md:w-20 md:h-20 flex-shrink-0 overflow-hidden transition-colors"
+                    className="w-16 h-16 md:w-20 md:h-20 flex-shrink-0 overflow-hidden transition-colors relative"
                     style={{
                       backgroundColor: "var(--color-surface)",
                       border: i === selectedImage ? "1px solid var(--color-neon)" : "1px solid var(--color-border)",
                     }}
                   >
-                    <img
+                    <Image
                       src={img.url}
                       alt=""
-                      className="w-full h-full object-contain p-1"
+                      fill
+                      sizes="80px"
+                      style={{ objectFit: "contain", padding: "4px" }}
                     />
                   </button>
                 ))}
