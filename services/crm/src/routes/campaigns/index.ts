@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+
 
 const createCampaignSchema = z.object({
   name: z.string().min(1).max(200),
@@ -72,7 +72,7 @@ export async function campaignRoutes(app: FastifyInstance) {
           clicked: 0,
           bounced: 0,
           unsubscribed: 0,
-        } as Prisma.JsonObject,
+        } as any,
       },
     });
 

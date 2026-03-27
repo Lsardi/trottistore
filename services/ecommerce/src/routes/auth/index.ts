@@ -46,7 +46,7 @@ function signAccessToken(
       sub: user.id,
       email: user.email,
       role: user.role,
-    } satisfies Omit<JwtAccessPayload, "iat" | "exp">,
+    } as any,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
 }
@@ -68,7 +68,7 @@ async function createRefreshToken(
       userId,
       tokenHash,
       expiresAt,
-      deviceInfo: deviceInfo ?? undefined,
+      deviceInfo: (deviceInfo ?? undefined) as any,
     },
   });
 

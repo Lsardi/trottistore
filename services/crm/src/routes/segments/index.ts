@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+
 
 const createSegmentSchema = z.object({
   name: z.string().min(1).max(200),
@@ -18,8 +18,8 @@ const createSegmentSchema = z.object({
 /**
  * Build a Prisma where clause for CustomerProfile from segment criteria JSON.
  */
-function buildProfileWhere(criteria: Record<string, unknown>): Prisma.CustomerProfileWhereInput {
-  const where: Prisma.CustomerProfileWhereInput = {};
+function buildProfileWhere(criteria: any): any {
+  const where: any = {};
 
   if (criteria.loyaltyTier) {
     where.loyaltyTier = criteria.loyaltyTier as string;
@@ -67,14 +67,14 @@ export async function segmentRoutes(app: FastifyInstance) {
     const body = createSegmentSchema.parse(request.body);
 
     // Initial count evaluation
-    const where = buildProfileWhere(body.criteria as Record<string, unknown>);
+    const where = buildProfileWhere(body.criteria as any);
     const count = await app.prisma.customerProfile.count({ where });
 
     const segment = await app.prisma.customerSegment.create({
       data: {
         name: body.name,
         description: body.description ?? null,
-        criteria: body.criteria as Prisma.JsonObject,
+        criteria: body.criteria as any,
         count,
         isAutomatic: true,
       },
@@ -100,7 +100,7 @@ export async function segmentRoutes(app: FastifyInstance) {
       });
     }
 
-    const criteria = segment.criteria as Record<string, unknown>;
+    const criteria = segment.criteria as any;
     const where = buildProfileWhere(criteria);
     const count = await app.prisma.customerProfile.count({ where });
 
