@@ -1,25 +1,19 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "TrottiStore — Trottinettes electriques & Pieces detachees",
-    template: "%s | TrottiStore",
+    default: brand.seo.title,
+    template: brand.seo.titleTemplate,
   },
-  description:
-    "Boutique specialisee trottinettes electriques, pieces detachees et reparation SAV. Livraison France, paiement en plusieurs fois sans frais.",
-  keywords: [
-    "trottinette electrique",
-    "pieces detachees trottinette",
-    "reparation trottinette",
-    "SAV trottinette",
-    "TrottiStore",
-  ],
+  description: brand.seo.description,
+  keywords: brand.seo.keywords,
   openGraph: {
     type: "website",
-    locale: "fr_FR",
-    url: "https://trottistore.fr",
-    siteName: "TrottiStore",
+    locale: brand.seo.locale,
+    url: brand.seo.ogUrl,
+    siteName: brand.name,
   },
 };
 

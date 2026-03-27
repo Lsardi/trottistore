@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Lightbulb, Disc, Cable, Monitor } from "lucide-react";
 import { formatPriceTTC, formatPrice } from "@/lib/utils";
+import { brand } from "@/lib/brand";
 
 // ─── TYPES ────────────────────────────────────────────────
 
@@ -30,14 +31,13 @@ interface FeaturedProduct {
 
 // ─── STATIC DATA ──────────────────────────────────────────
 
-const BRANDS_MARQUEE =
-  "DUALTRON \u00b7 TEVERUN \u00b7 XIAOMI \u00b7 KAABO \u00b7 NINEBOT \u00b7 VSETT \u00b7 SEGWAY \u00b7 KUICKWHEEL \u00b7 ";
+const BRANDS_MARQUEE = brand.brandsMarquee;
 
 const STATS = [
   { value: "2045", label: "PRODUITS" },
   { value: "15", label: "MARQUES" },
-  { value: "2019", label: "DEPUIS" },
-  { value: "103", label: "AVIS GOOGLE" },
+  { value: brand.since, label: "DEPUIS" },
+  { value: brand.googleReviewCount, label: "AVIS GOOGLE" },
 ];
 
 const CATEGORIES_SMALL = [
@@ -97,7 +97,7 @@ export default function HomePage() {
         className="grain"
         style={{
           minHeight: "100vh",
-          backgroundColor: "#0A0A0A",
+          backgroundColor: "var(--color-void)",
           display: "flex",
           flexDirection: "column",
           position: "relative",
@@ -134,7 +134,7 @@ export default function HomePage() {
                 style={{
                   fontSize: "0.7rem",
                   letterSpacing: "0.1em",
-                  color: "#00FFD1",
+                  color: "var(--color-neon)",
                   marginBottom: 24,
                   textTransform: "uppercase",
                 }}
@@ -143,17 +143,17 @@ export default function HomePage() {
               </p>
 
               <h1 className="heading-xl animate-slide-up stagger-2">
-                GLISSEZ
+                {brand.heroTitle[0]}
                 <br />
-                EN TOUTE
+                {brand.heroTitle[1]}
                 <br />
-                LIBERTÉ<span style={{ color: "#00FFD1" }}>.</span>
+                {brand.heroTitle[2]}<span style={{ color: "var(--color-neon)" }}>.</span>
               </h1>
 
               <p
                 className="animate-slide-up stagger-3"
                 style={{
-                  color: "#888",
+                  color: "var(--color-text-muted)",
                   fontSize: "0.95rem",
                   lineHeight: 1.6,
                   maxWidth: 400,
@@ -161,8 +161,7 @@ export default function HomePage() {
                   marginBottom: 32,
                 }}
               >
-                Trottinettes, pièces détachées et réparation. Expert depuis
-                2019.
+                {brand.heroSubtitle}
               </p>
 
               <div
@@ -197,7 +196,7 @@ export default function HomePage() {
                   width: "80%",
                   height: 40,
                   background:
-                    "radial-gradient(ellipse at center, rgba(0,255,209,0.15) 0%, transparent 70%)",
+                    "radial-gradient(ellipse at center, var(--color-neon-dim) 0%, transparent 70%)",
                   filter: "blur(20px)",
                 }}
               />
@@ -220,14 +219,14 @@ export default function HomePage() {
         {/* Brand marquee */}
         <div
           style={{
-            borderTop: "1px solid #1C1C1C",
+            borderTop: "1px solid var(--color-surface-2)",
             padding: "10px 0",
             overflow: "hidden",
             position: "relative",
             zIndex: 2,
           }}
         >
-          <div className="marquee-track font-mono" style={{ fontSize: "0.65rem", color: "#333", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          <div className="marquee-track font-mono" style={{ fontSize: "0.65rem", color: "var(--color-border-light)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
             <span style={{ whiteSpace: "nowrap", paddingRight: 0 }}>{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}</span>
           </div>
         </div>
@@ -238,9 +237,9 @@ export default function HomePage() {
           ================================================================ */}
       <section
         style={{
-          backgroundColor: "#141414",
-          borderTop: "1px solid #2A2A2A",
-          borderBottom: "1px solid #2A2A2A",
+          backgroundColor: "var(--color-surface)",
+          borderTop: "1px solid var(--color-border)",
+          borderBottom: "1px solid var(--color-border)",
         }}
       >
         <div
@@ -258,7 +257,7 @@ export default function HomePage() {
               style={{
                 padding: "24px 20px",
                 textAlign: "center",
-                borderRight: i < STATS.length - 1 ? "1px solid #2A2A2A" : "none",
+                borderRight: i < STATS.length - 1 ? "1px solid var(--color-border)" : "none",
               }}
             >
               <div
@@ -266,7 +265,7 @@ export default function HomePage() {
                 style={{
                   fontWeight: 800,
                   fontSize: "clamp(1.5rem, 3vw, 2.2rem)",
-                  color: "#E8E8E8",
+                  color: "var(--color-text)",
                   lineHeight: 1,
                   marginBottom: 6,
                 }}
@@ -282,14 +281,14 @@ export default function HomePage() {
       {/* ================================================================
           SECTION 3 — FEATURED PRODUCTS
           ================================================================ */}
-      <section style={{ backgroundColor: "#0A0A0A", padding: "64px 0" }}>
+      <section style={{ backgroundColor: "var(--color-void)", padding: "64px 0" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
           {/* Title */}
           <div style={{ marginBottom: 8 }}>
-            <h2 className="heading-lg">NOS TROTTINETTES</h2>
+            <h2 className="heading-lg">NOS {brand.nav.mainCategory}</h2>
             <span
               className="font-mono"
-              style={{ fontSize: "0.75rem", color: "#555" }}
+              style={{ fontSize: "0.75rem", color: "var(--color-text-dim)" }}
             >
               Sélection
             </span>
@@ -314,7 +313,7 @@ export default function HomePage() {
                 >
                   <div
                     className="product-card-image"
-                    style={{ background: "#141414" }}
+                    style={{ background: "var(--color-surface)" }}
                   >
                     <div style={{ width: "100%", height: "100%" }} />
                   </div>
@@ -322,7 +321,7 @@ export default function HomePage() {
                     <div
                       style={{
                         height: 8,
-                        background: "#2A2A2A",
+                        background: "var(--color-border)",
                         width: "50%",
                         marginBottom: 8,
                       }}
@@ -330,7 +329,7 @@ export default function HomePage() {
                     <div
                       style={{
                         height: 12,
-                        background: "#2A2A2A",
+                        background: "var(--color-border)",
                         width: "80%",
                         marginBottom: 10,
                       }}
@@ -338,7 +337,7 @@ export default function HomePage() {
                     <div
                       style={{
                         height: 20,
-                        background: "#2A2A2A",
+                        background: "var(--color-border)",
                         width: "40%",
                       }}
                     />
@@ -380,7 +379,7 @@ export default function HomePage() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              color: "#333",
+                              color: "var(--color-border-light)",
                               fontSize: "2rem",
                             }}
                           >
@@ -399,7 +398,7 @@ export default function HomePage() {
                           style={{
                             fontSize: "0.9rem",
                             marginBottom: 8,
-                            color: "#E8E8E8",
+                            color: "var(--color-text)",
                             lineHeight: 1.2,
                           }}
                         >
@@ -423,7 +422,7 @@ export default function HomePage() {
               style={{
                 textAlign: "center",
                 padding: "48px 20px",
-                color: "#555",
+                color: "var(--color-text-dim)",
               }}
             >
               <p className="font-mono" style={{ fontSize: "0.8rem", marginBottom: 16 }}>
@@ -442,7 +441,7 @@ export default function HomePage() {
           ================================================================ */}
       <section
         className="grain"
-        style={{ backgroundColor: "#141414", padding: "64px 0" }}
+        style={{ backgroundColor: "var(--color-surface)", padding: "64px 0" }}
       >
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
           <div
@@ -461,14 +460,14 @@ export default function HomePage() {
                 gridRow: "1 / 3",
                 position: "relative",
                 overflow: "hidden",
-                border: "1px solid #2A2A2A",
+                border: "1px solid var(--color-border)",
                 display: "flex",
                 alignItems: "flex-end",
               }}
             >
               <img
                 src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg"
-                alt="Trottinettes électriques"
+                alt={`${brand.nav.mainCategory}`}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -486,11 +485,11 @@ export default function HomePage() {
                 }}
               />
               <div style={{ position: "relative", padding: 28, zIndex: 2 }}>
-                <div className="spec-label" style={{ marginBottom: 8, color: "#00FFD1" }}>
+                <div className="spec-label" style={{ marginBottom: 8, color: "var(--color-neon)" }}>
                   CATÉGORIE PRINCIPALE
                 </div>
-                <h3 className="heading-lg" style={{ color: "#E8E8E8", marginBottom: 12 }}>
-                  TROTTINETTES ÉLECTRIQUES
+                <h3 className="heading-lg" style={{ color: "var(--color-text)", marginBottom: 12 }}>
+                  {brand.nav.mainCategory} ÉLECTRIQUES
                 </h3>
                 <Link href="/produits?categorySlug=trottinettes-electriques" className="btn-neon" style={{ padding: "0.5rem 1.5rem", fontSize: "0.7rem" }}>
                   EXPLORER
@@ -506,8 +505,8 @@ export default function HomePage() {
                   key={cat.name}
                   className="category-card"
                   style={{
-                    backgroundColor: "#1C1C1C",
-                    border: "1px solid #2A2A2A",
+                    backgroundColor: "var(--color-surface-2)",
+                    border: "1px solid var(--color-border)",
                     padding: 20,
                     display: "flex",
                     flexDirection: "column",
@@ -517,13 +516,13 @@ export default function HomePage() {
                   }}
                 >
                   <div>
-                    <Icon style={{ width: 22, height: 22, color: "#555", marginBottom: 12 }} />
+                    <Icon style={{ width: 22, height: 22, color: "var(--color-text-dim)", marginBottom: 12 }} />
                     <h4
                       className="font-display"
                       style={{
                         fontWeight: 700,
                         fontSize: "0.85rem",
-                        color: "#E8E8E8",
+                        color: "var(--color-text)",
                         textTransform: "uppercase",
                         letterSpacing: "-0.01em",
                       }}
@@ -531,7 +530,7 @@ export default function HomePage() {
                       {cat.name}
                     </h4>
                   </div>
-                  <span className="font-mono" style={{ fontSize: "0.65rem", color: "#555" }}>
+                  <span className="font-mono" style={{ fontSize: "0.65rem", color: "var(--color-text-dim)" }}>
                     {cat.count} produits
                   </span>
                 </div>
@@ -544,7 +543,7 @@ export default function HomePage() {
       {/* ================================================================
           SECTION 5 — ATELIER
           ================================================================ */}
-      <section style={{ backgroundColor: "#0A0A0A", padding: "80px 0" }}>
+      <section style={{ backgroundColor: "var(--color-void)", padding: "80px 0" }}>
         <div
           className="atelier-grid"
           style={{
@@ -567,7 +566,7 @@ export default function HomePage() {
             </h2>
             <h2
               className="heading-xl"
-              style={{ color: "#00FFD1" }}
+              style={{ color: "var(--color-neon)" }}
             >
               RÉPARATION
             </h2>
@@ -581,14 +580,14 @@ export default function HomePage() {
                 style={{
                   fontWeight: 700,
                   fontSize: "0.9rem",
-                  color: "#E8E8E8",
+                  color: "var(--color-text)",
                   textTransform: "uppercase",
                   marginBottom: 6,
                 }}
               >
                 DIAGNOSTIC
               </h4>
-              <p className="font-mono" style={{ fontSize: "0.75rem", color: "#888", lineHeight: 1.5 }}>
+              <p className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
                 Identification du problème en 2 clics
               </p>
             </div>
@@ -601,14 +600,14 @@ export default function HomePage() {
                 style={{
                   fontWeight: 700,
                   fontSize: "0.9rem",
-                  color: "#E8E8E8",
+                  color: "var(--color-text)",
                   textTransform: "uppercase",
                   marginBottom: 6,
                 }}
               >
                 RÉPARATION
               </h4>
-              <p className="font-mono" style={{ fontSize: "0.75rem", color: "#888", lineHeight: 1.5 }}>
+              <p className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
                 Toutes marques, toutes pannes
               </p>
             </div>
@@ -621,14 +620,14 @@ export default function HomePage() {
                 style={{
                   fontWeight: 700,
                   fontSize: "0.9rem",
-                  color: "#E8E8E8",
+                  color: "var(--color-text)",
                   textTransform: "uppercase",
                   marginBottom: 6,
                 }}
               >
                 PIÈCES
               </h4>
-              <p className="font-mono" style={{ fontSize: "0.75rem", color: "#888", lineHeight: 1.5 }}>
+              <p className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
                 700+ références en stock immédiat
               </p>
             </div>
@@ -643,14 +642,14 @@ export default function HomePage() {
       {/* ================================================================
           SECTION 6 — REVIEWS
           ================================================================ */}
-      <section style={{ backgroundColor: "#141414", padding: "64px 0" }}>
+      <section style={{ backgroundColor: "var(--color-surface)", padding: "64px 0" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
           <div style={{ marginBottom: 32 }}>
             <h2 className="heading-lg" style={{ marginBottom: 8 }}>
               AVIS CLIENTS
             </h2>
-            <span className="font-mono" style={{ fontSize: "0.75rem", color: "#888" }}>
-              Google &middot; 5.0 &middot; 103 avis
+            <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+              Google &middot; 5.0 &middot; {brand.googleReviewCount} avis
             </span>
           </div>
 
@@ -666,19 +665,19 @@ export default function HomePage() {
               <div
                 key={i}
                 style={{
-                  backgroundColor: "#1C1C1C",
-                  border: "1px solid #2A2A2A",
+                  backgroundColor: "var(--color-surface-2)",
+                  border: "1px solid var(--color-border)",
                   padding: 24,
                 }}
               >
-                <div style={{ marginBottom: 12, color: "#00FFD1", letterSpacing: 2 }}>
+                <div style={{ marginBottom: 12, color: "var(--color-neon)", letterSpacing: 2 }}>
                   ★★★★★
                 </div>
                 <p
                   className="font-mono"
                   style={{
                     fontSize: "0.75rem",
-                    color: "#888",
+                    color: "var(--color-text-muted)",
                     lineHeight: 1.6,
                     fontStyle: "italic",
                     marginBottom: 16,
@@ -687,12 +686,12 @@ export default function HomePage() {
                   &ldquo;{review.text}&rdquo;
                 </p>
                 <div>
-                  <span style={{ color: "#E8E8E8", fontSize: "0.85rem", fontWeight: 600 }}>
+                  <span style={{ color: "var(--color-text)", fontSize: "0.85rem", fontWeight: 600 }}>
                     {review.name}
                   </span>
                   <span
                     className="font-mono"
-                    style={{ fontSize: "0.65rem", color: "#555", marginLeft: 8 }}
+                    style={{ fontSize: "0.65rem", color: "var(--color-text-dim)", marginLeft: 8 }}
                   >
                     {review.date}
                   </span>
@@ -706,7 +705,7 @@ export default function HomePage() {
       {/* ================================================================
           SECTION 7 — NEWSLETTER
           ================================================================ */}
-      <section style={{ backgroundColor: "#0A0A0A", padding: "64px 0" }}>
+      <section style={{ backgroundColor: "var(--color-void)", padding: "64px 0" }}>
         <div className="divider-neon" style={{ marginBottom: 48 }} />
         <div
           className="newsletter-inner"

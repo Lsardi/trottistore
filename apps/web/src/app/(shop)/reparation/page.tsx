@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { repairsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { brand } from "@/lib/brand";
 
 const TICKET_TYPES = [
   { value: "REPARATION", label: "Reparation", desc: "Panne ou dysfonctionnement" },
@@ -59,8 +60,8 @@ export default function ReparationPage() {
       <div className="text-center mb-10">
         <h1 className="heading-lg mb-3">REPARATION SAV</h1>
         <p className="font-mono text-sm text-text-muted max-w-lg mx-auto">
-          Deposez votre demande de reparation en ligne. Notre atelier a L&apos;Ile-Saint-Denis
-          repare toutes les marques de trottinettes electriques.
+          Deposez votre demande de reparation en ligne. Notre atelier a {brand.address.city}{" "}
+          repare toutes les marques.
         </p>
       </div>
 
