@@ -46,8 +46,9 @@ async function start() {
   await app.register(authPlugin);
 
   // Global error handler
-  app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
-    const statusCode = error.statusCode || 500;
+  app.setErrorHandler((error: Error & { statusCode?: number; issues?: unknown[] }, request, reply) => {
+    const isZodError = error.name === "ZodError" || Array.isArray((error as any).issues);
+    const statusCode = isZodError ? 400 : (error.statusCode || 500);
 
     app.log.error({
       err: error,
@@ -59,7 +60,7 @@ async function start() {
     reply.status(statusCode).send({
       success: false,
       error: {
-        code: statusCode === 429 ? "RATE_LIMITED" : statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
+        code: statusCode === 429 ? "RATE_LIMITED" : isZodError ? "VALIDATION_ERROR" : statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
         message: statusCode >= 500 ? "Une erreur interne est survenue" : error.message,
         ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
       },

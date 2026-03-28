@@ -86,7 +86,7 @@ interface Cart {
 
 function getCartKey(request: any): string {
   const user = (request as any).user;
-  if (user?.id) return `cart:${user.id}`;
+  if (user?.userId) return `cart:${user.userId}`;
   const sessionId =
     (request.headers["x-session-id"] as string) ??
     (request.cookies?.sessionId as string | undefined);
@@ -98,7 +98,7 @@ function getCartKey(request: any): string {
 
 function requireAuth(request: any, reply: any): boolean {
   const user = (request as any).user;
-  if (!user?.id) {
+  if (!user?.userId) {
     reply.status(401).send({
       success: false,
       error: { code: "UNAUTHORIZED", message: "Authentication required" },
@@ -151,7 +151,7 @@ export async function orderRoutes(app: FastifyInstance) {
       ...(billingAddressId ? [billingAddressId] : []),
     ];
     const addresses = await app.prisma.address.findMany({
-      where: { id: { in: addressIds }, userId: user.id },
+      where: { id: { in: addressIds }, userId: user.userId },
     });
 
     const shippingAddr = addresses.find((a) => a.id === shippingAddressId);
@@ -310,7 +310,7 @@ export async function orderRoutes(app: FastifyInstance) {
       // Create the order
       const newOrder = await tx.order.create({
         data: {
-          customerId: user.id,
+          customerId: user.userId,
           status: "PENDING",
           paymentMethod,
           paymentStatus,
@@ -336,7 +336,7 @@ export async function orderRoutes(app: FastifyInstance) {
               fromStatus: "NEW",
               toStatus: "PENDING",
               note: "Order created",
-              changedBy: user.id,
+              changedBy: user.userId,
             },
           },
         },
@@ -454,7 +454,7 @@ export async function orderRoutes(app: FastifyInstance) {
     const { page, limit } = parsed.data;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = { customerId: user.id };
+    const where: Record<string, unknown> = { customerId: user.userId };
 
     const [orders, total] = await Promise.all([
       app.prisma.order.findMany({
@@ -542,7 +542,7 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     // Must belong to the requesting user or user is admin
-    if (order.customerId !== user.id && user.role !== "ADMIN") {
+    if (order.customerId !== user.userId && user.role !== "ADMIN") {
       return reply.status(403).send({
         success: false,
         error: { code: "FORBIDDEN", message: "Access denied" },
@@ -624,7 +624,7 @@ export async function orderRoutes(app: FastifyInstance) {
           fromStatus: order.status,
           toStatus: newStatus,
           note: note ?? null,
-          changedBy: user.id,
+          changedBy: user.userId,
         },
       });
 

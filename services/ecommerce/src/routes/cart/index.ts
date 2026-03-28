@@ -30,7 +30,7 @@ const updateItemSchema = z.object({
 
 function getCartKey(request: any): string {
   const user = (request as any).user;
-  if (user?.id) return `cart:${user.id}`;
+  if (user?.userId) return `cart:${user.userId}`;
   // Fallback to session-based cart for unauthenticated users
   const sessionId =
     (request.headers["x-session-id"] as string) ??
