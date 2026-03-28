@@ -14,9 +14,11 @@ Branch: `techlead/fond-comble-audit`
 - [x] Nettoyage `any` sur checkout/cart (`services/ecommerce/routes/orders`, `services/ecommerce/routes/cart`).
 - [x] Nettoyage `any` sur handlers d'erreur globaux (4 services).
 - [x] Nettoyage `any` CRM (`routes/customers`, `routes/segments`, `routes/campaigns`).
-- [ ] Nettoyage `any` `services/ecommerce/routes/products`.
-- [ ] Nettoyage `any` `services/ecommerce/routes/categories`.
-- [ ] Nettoyage `any` `services/ecommerce/routes/admin`.
+- [x] Nettoyage `any` `services/ecommerce/routes/products`.
+- [x] Nettoyage `any` `services/ecommerce/routes/categories`.
+- [x] Nettoyage `any` `services/ecommerce/routes/admin`.
+- [x] Nettoyage `any` `services/ecommerce/routes/auth`.
+- [x] Nettoyage `any` `services/sav/routes/tickets`.
 
 ## P1 Qualité CI/E2E
 
@@ -32,6 +34,6 @@ Branch: `techlead/fond-comble-audit`
 
 ## Next Batch immédiat
 
-1. `ecommerce/products` + `categories` — suppression `any`.
-2. `ecommerce/admin` — suppression `any` + gestion erreurs typée.
-3. Tests d'autorisation négatifs CRM/SAV/Analytics.
+1. Tests d'autorisation négatifs CRM/SAV/Analytics.
+2. Passe E2E complète GitHub Actions + traitement flakiness.
+3. Lint web non-interactif + checklists Ops (postmortem, go/no-go PR).

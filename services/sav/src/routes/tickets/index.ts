@@ -90,6 +90,19 @@ const PRIORITY_WEIGHT: Record<string, number> = {
   LOW: 3,
 };
 
+type RequestUser = { userId: string; role: string };
+
+function getRequestUser(
+  request: { user?: unknown },
+): RequestUser | undefined {
+  const user = request.user as Partial<RequestUser> | undefined;
+  if (!user) return undefined;
+  if (typeof user.userId !== "string" || typeof user.role !== "string") {
+    return undefined;
+  }
+  return { userId: user.userId, role: user.role };
+}
+
 // --- Routes ---
 
 export async function repairRoutes(app: FastifyInstance) {
@@ -133,9 +146,7 @@ export async function repairRoutes(app: FastifyInstance) {
   app.get("/repairs", async (request) => {
     const query = listQuerySchema.parse(request.query);
     const { page, limit, status, type, priority, assignedTo, customerId, search, sort } = query;
-    const user = (request as any).user as
-      | { userId: string; role: string }
-      | undefined;
+    const user = getRequestUser(request);
 
     const where: Record<string, unknown> = {};
 
@@ -220,9 +231,7 @@ export async function repairRoutes(app: FastifyInstance) {
   // GET /repairs/:id — Full ticket detail
   app.get("/repairs/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const user = (request as any).user as
-      | { userId: string; role: string }
-      | undefined;
+    const user = getRequestUser(request);
 
     const ticket = await app.prisma.repairTicket.findUnique({
       where: { id },
@@ -271,9 +280,7 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // PUT /repairs/:id/status — Change ticket status
   app.put("/repairs/:id/status", async (request, reply) => {
-    const user = (request as any).user as
-      | { userId: string; role: string }
-      | undefined;
+    const user = getRequestUser(request);
     if (user?.role === "CLIENT") {
       return reply.status(403).send({
         success: false,
@@ -359,9 +366,7 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // POST /repairs/:id/diagnosis — Add diagnosis info
   app.post("/repairs/:id/diagnosis", async (request, reply) => {
-    const user = (request as any).user as
-      | { userId: string; role: string }
-      | undefined;
+    const user = getRequestUser(request);
     if (user?.role === "CLIENT") {
       return reply.status(403).send({
         success: false,
@@ -426,9 +431,7 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // POST /repairs/:id/quote — Create and send quote
   app.post("/repairs/:id/quote", async (request, reply) => {
-    const user = (request as any).user as
-      | { userId: string; role: string }
-      | undefined;
+    const user = getRequestUser(request);
     if (user?.role === "CLIENT") {
       return reply.status(403).send({
         success: false,
@@ -494,9 +497,7 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // PUT /repairs/:id/quote/accept — Accept quote
   app.put("/repairs/:id/quote/accept", async (request, reply) => {
-    const user = (request as any).user as
-      | { userId: string; role: string }
-      | undefined;
+    const user = getRequestUser(request);
     if (user?.role === "CLIENT") {
       return reply.status(403).send({
         success: false,
@@ -551,9 +552,7 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // POST /repairs/:id/parts — Add a part used
   app.post("/repairs/:id/parts", async (request, reply) => {
-    const user = (request as any).user as
-      | { userId: string; role: string }
-      | undefined;
+    const user = getRequestUser(request);
     if (user?.role === "CLIENT") {
       return reply.status(403).send({
         success: false,
@@ -606,9 +605,7 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // POST /repairs/:id/complete — Mark ticket as complete
   app.post("/repairs/:id/complete", async (request, reply) => {
-    const user = (request as any).user as
-      | { userId: string; role: string }
-      | undefined;
+    const user = getRequestUser(request);
     if (user?.role === "CLIENT") {
       return reply.status(403).send({
         success: false,
