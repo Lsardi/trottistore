@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { hashSync } from "bcryptjs";
+import bcryptjs from "bcryptjs";
+const { hashSync } = bcryptjs;
 
 const prisma = new PrismaClient({ log: ["warn", "error"] });
 

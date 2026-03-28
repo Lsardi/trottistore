@@ -114,7 +114,7 @@ describe("Orders integration tests", () => {
 
     // Simulate authentication by injecting user on every request
     authApp.addHook("onRequest", async (request) => {
-      (request as any).user = { id: "user-123", role: "CUSTOMER" };
+      (request as any).user = { userId: "user-123", email: "test@test.com", role: "CLIENT" };
     });
 
     await authApp.register(orderRoutes, { prefix: "/api/v1" });
@@ -139,7 +139,7 @@ describe("Orders integration tests", () => {
     const authApp = buildTestApp();
 
     authApp.addHook("onRequest", async (request) => {
-      (request as any).user = { id: "user-123", role: "CUSTOMER" };
+      (request as any).user = { userId: "user-123", email: "test@test.com", role: "CLIENT" };
     });
 
     await authApp.register(orderRoutes, { prefix: "/api/v1" });
