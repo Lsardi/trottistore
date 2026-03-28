@@ -2,8 +2,8 @@ import Link from "next/link";
 import { brand } from "@/lib/brand";
 
 const NAV_LINKS = [
-  { label: brand.nav.mainCategory, href: "/produits?categorySlug=trottinettes-electriques" },
-  { label: "Pièces détachées", href: "/produits?categorySlug=pieces-detachees" },
+  { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
+  { label: brand.nav.parts, href: `/produits?categorySlug=${brand.nav.partsSlug}` },
   { label: "Catalogue", href: "/produits" },
   { label: "Mon compte", href: "/mon-compte" },
 ];

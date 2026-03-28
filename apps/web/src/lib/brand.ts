@@ -48,7 +48,9 @@ export interface BrandConfig {
   // ── Navigation labels (product-type agnostic) ──
   nav: {
     mainCategory: string; // "TROTTINETTES" → customizable
+    mainCategorySlug: string; // "trottinettes-electriques"
     parts: string;
+    partsSlug: string; // "pieces-detachees"
     repair: string;
     diagnostic: string;
     compatibility: string;
@@ -112,7 +114,9 @@ export const brand: BrandConfig = {
   // Navigation
   nav: {
     mainCategory: process.env.NEXT_PUBLIC_BRAND_NAV_MAIN || "TROTTINETTES",
+    mainCategorySlug: process.env.NEXT_PUBLIC_BRAND_NAV_MAIN_SLUG || "trottinettes-electriques",
     parts: process.env.NEXT_PUBLIC_BRAND_NAV_PARTS || "PIÈCES",
+    partsSlug: process.env.NEXT_PUBLIC_BRAND_NAV_PARTS_SLUG || "pieces-detachees",
     repair: process.env.NEXT_PUBLIC_BRAND_NAV_REPAIR || "SAV",
     diagnostic: process.env.NEXT_PUBLIC_BRAND_NAV_DIAGNOSTIC || "DIAGNOSTIC",
     compatibility: process.env.NEXT_PUBLIC_BRAND_NAV_COMPAT || "COMPATIBILITÉ",

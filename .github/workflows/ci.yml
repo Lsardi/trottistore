@@ -163,6 +163,6 @@ jobs:
       - run: pnpm --filter @trottistore/database db:generate
       - run: pnpm build
       - name: Install Playwright browsers
-        run: pnpm --filter web exec playwright install --with-deps chromium
+        run: pnpm --filter @trottistore/web exec playwright install --with-deps chromium
       - name: Run E2E tests
-        run: pnpm --filter web test:e2e
+        run: pnpm --filter @trottistore/web test:e2e

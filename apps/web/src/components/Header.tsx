@@ -6,8 +6,8 @@ import { Search, ShoppingCart, User, Menu, X } from "lucide-react";
 import { brand } from "@/lib/brand";
 
 const NAV_ITEMS = [
-  { label: brand.nav.mainCategory, href: "/produits?categorySlug=trottinettes-electriques" },
-  { label: brand.nav.parts, href: "/produits?categorySlug=pieces-detachees" },
+  { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
+  { label: brand.nav.parts, href: `/produits?categorySlug=${brand.nav.partsSlug}` },
   { label: brand.nav.repair, href: "/reparation" },
   { label: brand.nav.diagnostic, href: "/diagnostic" },
   { label: brand.nav.compatibility, href: "/compatibilite" },
