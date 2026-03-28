@@ -11,7 +11,7 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "vitest run",
-    "test:smoke": "vitest run services/ecommerce/src/routes/smoke/smoke.test.ts",
+    "test:smoke": "vitest run services/ecommerce/src/routes/smoke/smoke.test.ts services/crm/src/routes/smoke/authz.smoke.test.ts services/sav/src/routes/smoke/authz.smoke.test.ts services/analytics/src/routes/smoke/authz.smoke.test.ts",
     "test:watch": "vitest",
     "test:integration": "vitest run integration",
     "test:load": "tsx tests/load/load-test.ts",

@@ -6,7 +6,8 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "tsc --noEmit",
+    "lint:next": "next lint",
     "test:e2e": "playwright test"
   },
   "dependencies": {

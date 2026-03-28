@@ -7,7 +7,7 @@ Branch: `techlead/fond-comble-audit`
 
 - [x] Périmètre auth de service appliqué (`crm`, `sav`, `analytics`).
 - [x] CI security gate bloquant (`pnpm audit --audit-level=high`).
-- [ ] Ajouter tests d'autorisation négatifs sur endpoints sensibles.
+- [x] Ajouter tests d'autorisation négatifs sur endpoints sensibles.
 
 ## P1 Contrats TypeScript
 
@@ -24,7 +24,7 @@ Branch: `techlead/fond-comble-audit`
 
 - [x] Reporter Playwright HTML en CI + artifacts upload.
 - [ ] Exécuter passe E2E complète sur GitHub Actions et traiter les flaky tests.
-- [ ] Rendre lint web non-interactif (éviter prompt Next lint).
+- [x] Rendre lint web non-interactif (éviter prompt Next lint).
 
 ## P2 Ops
 
@@ -34,6 +34,6 @@ Branch: `techlead/fond-comble-audit`
 
 ## Next Batch immédiat
 
-1. Tests d'autorisation négatifs CRM/SAV/Analytics.
-2. Passe E2E complète GitHub Actions + traitement flakiness.
-3. Lint web non-interactif + checklists Ops (postmortem, go/no-go PR).
+1. Passe E2E complète GitHub Actions + traitement flakiness.
+2. Ajouter template postmortem incident.
+3. Ajouter checklist go/no-go release dans PR template.

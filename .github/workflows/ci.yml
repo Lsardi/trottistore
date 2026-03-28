@@ -34,6 +34,7 @@ jobs:
 
       - name: Type check all packages
         run: |
+          pnpm --filter @trottistore/web lint
           pnpm --filter @trottistore/database lint
           pnpm --filter @trottistore/shared lint
           pnpm --filter @trottistore/ui lint
