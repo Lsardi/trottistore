@@ -190,6 +190,9 @@ importers:
       bullmq:
         specifier: ^5.30.0
         version: 5.71.0
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.4.7
       fastify:
         specifier: ^5.2.0
         version: 5.8.2
@@ -233,6 +236,9 @@ importers:
       bullmq:
         specifier: ^5.30.0
         version: 5.71.0
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.4.7
       fastify:
         specifier: ^5.2.0
         version: 5.8.2
@@ -285,6 +291,9 @@ importers:
       bullmq:
         specifier: ^5.30.0
         version: 5.71.0
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.4.7
       fastify:
         specifier: ^5.2.0
         version: 5.8.2
@@ -331,6 +340,9 @@ importers:
       bullmq:
         specifier: ^5.30.0
         version: 5.71.0
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.4.7
       fastify:
         specifier: ^5.2.0
         version: 5.8.2
@@ -2036,6 +2048,10 @@ packages:
 
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
+
+  dotenv@16.4.7:
+    resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
+    engines: {node: '>=12'}
 
   dotenv@16.6.1:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
@@ -4677,6 +4693,8 @@ snapshots:
       dom-serializer: 2.0.0
       domelementtype: 2.3.0
       domhandler: 5.0.3
+
+  dotenv@16.4.7: {}
 
   dotenv@16.6.1: {}
 
