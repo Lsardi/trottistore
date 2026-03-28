@@ -8,6 +8,7 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import { prismaPlugin } from "./plugins/prisma.js";
 import { redisPlugin } from "./plugins/redis.js";
+import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { repairRoutes } from "./routes/tickets/index.js";
 import { technicianRoutes } from "./routes/technicians/index.js";
@@ -44,6 +45,24 @@ async function start() {
   // Plugins metier
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
+  await app.register(authPlugin);
+
+  app.addHook("onRequest", async (request, reply) => {
+    const path = request.url.split("?")[0];
+    const isHealth =
+      path === "/health" ||
+      path === "/ready" ||
+      path.startsWith("/api/v1/health") ||
+      path.startsWith("/api/v1/ready");
+    const isPublicSavIntake =
+      request.method === "POST" &&
+      (path === "/api/v1/repairs" || path === "/repairs");
+
+    if (isHealth || isPublicSavIntake) {
+      return;
+    }
+    await app.authenticate(request, reply);
+  });
 
   // Global error handler
   app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
