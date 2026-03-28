@@ -49,6 +49,24 @@ Branch: `techlead/fond-comble-audit`
 - File: [playwright.config.ts](/Users/lyes/Desktop/trottistore.fr/apps/web/playwright.config.ts)
 - Change: `webServer.command` switched to `pnpm --filter @trottistore/web dev`.
 
+3. Storefront now supports multi-style theme modes (not only color swaps).
+- Files:
+  - [themes.ts](/Users/lyes/Desktop/trottistore.fr/apps/web/src/lib/themes.ts)
+  - [ThemeSwitcher.tsx](/Users/lyes/Desktop/trottistore.fr/apps/web/src/components/ThemeSwitcher.tsx)
+  - [layout.tsx](/Users/lyes/Desktop/trottistore.fr/apps/web/src/app/layout.tsx)
+  - [globals.css](/Users/lyes/Desktop/trottistore.fr/apps/web/src/app/globals.css)
+- Change: centralized theme profiles + robust bootstrapping + style-level overrides (typography, cards, buttons, texture).
+
+4. E2E diagnostics hardened in CI.
+- Files:
+  - [playwright.config.ts](/Users/lyes/Desktop/trottistore.fr/apps/web/playwright.config.ts)
+  - [ci.yml](/Users/lyes/Desktop/trottistore.fr/.github/workflows/ci.yml)
+- Change: CI reporter now emits HTML artifacts, screenshots/videos kept on failures, artifacts uploaded from CI, and E2E job timeout explicitly bounded.
+
+5. Release and rollback runbook added.
+- File: [RELEASE_RUNBOOK.md](/Users/lyes/Desktop/trottistore.fr/RELEASE_RUNBOOK.md)
+- Change: concrete release gate, post-release verification, rollback execution, and incident communication template.
+
 ## 5) Execution Plan (30/60/90)
 
 ### 30 days (Stabilize)
@@ -80,3 +98,6 @@ Branch: `techlead/fond-comble-audit`
 
 4. `audit-p1-e2e-hardening`
 - Wire critical E2E suite in CI with deterministic fixtures and artifacts.
+
+5. `audit-p2-release-runbook`
+- Keep release/rollback checklist current and require a release note per tagged version.
