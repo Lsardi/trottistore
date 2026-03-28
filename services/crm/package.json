@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --import tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit"
@@ -18,6 +18,7 @@
     "@trottistore/database": "workspace:*",
     "@trottistore/shared": "workspace:*",
     "bullmq": "^5.30.0",
+    "dotenv": "^16.4.7",
     "fastify": "^5.2.0",
     "fastify-plugin": "^5.1.0",
     "ioredis": "^5.4.0",
