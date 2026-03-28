@@ -172,6 +172,9 @@ importers:
       '@fastify/helmet':
         specifier: ^13.0.0
         version: 13.0.2
+      '@fastify/jwt':
+        specifier: ^9.0.0
+        version: 9.1.0
       '@fastify/rate-limit':
         specifier: ^10.2.0
         version: 10.3.0
@@ -215,6 +218,9 @@ importers:
       '@fastify/helmet':
         specifier: ^13.0.0
         version: 13.0.2
+      '@fastify/jwt':
+        specifier: ^9.0.0
+        version: 9.1.0
       '@fastify/rate-limit':
         specifier: ^10.2.0
         version: 10.3.0
@@ -313,6 +319,9 @@ importers:
       '@fastify/helmet':
         specifier: ^13.0.0
         version: 13.0.2
+      '@fastify/jwt':
+        specifier: ^9.0.0
+        version: 9.1.0
       '@fastify/rate-limit':
         specifier: ^10.2.0
         version: 10.3.0
