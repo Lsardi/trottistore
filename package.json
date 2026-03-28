@@ -7,7 +7,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "NODE_OPTIONS='--env-file=.env' turbo dev",
+    "dev": "sh -c 'export $(grep -v ^# .env | grep = | xargs -0) 2>/dev/null; turbo dev'",
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "vitest run",
