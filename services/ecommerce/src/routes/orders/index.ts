@@ -121,7 +121,6 @@ function getCartKey(request: FastifyRequest): string {
   const user = getRequestUser(request);
   const userId = user?.id ?? user?.userId;
   if (userId) return `cart:${userId}`;
-
   const sessionHeader = request.headers["x-session-id"];
   const sessionId =
     typeof sessionHeader === "string"
@@ -129,7 +128,6 @@ function getCartKey(request: FastifyRequest): string {
       : Array.isArray(sessionHeader) && typeof sessionHeader[0] === "string"
         ? sessionHeader[0]
         : request.cookies?.sessionId;
-
   if (!sessionId) {
     throw {
       statusCode: 400,
@@ -140,7 +138,11 @@ function getCartKey(request: FastifyRequest): string {
   return `cart:session:${sessionId}`;
 }
 
-function requireAuth(request: FastifyRequest, reply: FastifyReply): request is AuthenticatedRequest {
+<<<<<<< HEAD
+function requireAuth(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): request is AuthenticatedRequest {
   const user = getRequestUser(request);
   const userId = user?.id ?? user?.userId;
   if (!userId) {
