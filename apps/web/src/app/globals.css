@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Serif:wght@500;600;700&family=Manrope:wght@500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700;800&display=swap");
 
 /*
  * DESIGN SYSTEM — TrottiStore "Electric Workshop"
@@ -31,6 +31,85 @@
   --font-display: "Syne", sans-serif;
   --font-mono: "Space Mono", monospace;
   --font-sans: "Syne", sans-serif;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --card-shadow: none;
+  --bg-gradient: radial-gradient(circle at 15% -10%, rgba(0, 255, 209, 0.18), transparent 35%),
+    radial-gradient(circle at 85% -5%, rgba(0, 153, 255, 0.08), transparent 28%);
+}
+
+:root,
+[data-theme="atelier"] {
+  --color-void: #0A0A0A;
+  --color-surface: #141414;
+  --color-surface-2: #1C1C1C;
+  --color-surface-3: #252525;
+  --color-border: #2A2A2A;
+  --color-border-light: #333333;
+  --color-text: #E8E8E8;
+  --color-text-muted: #888888;
+  --color-text-dim: #555555;
+  --color-neon: #00FFD1;
+  --color-neon-muted: #00CCa8;
+  --color-neon-dim: rgba(0, 255, 209, 0.15);
+  --font-display: "Syne", sans-serif;
+  --font-mono: "Space Mono", monospace;
+  --font-sans: "Syne", sans-serif;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --card-shadow: none;
+  --bg-gradient: radial-gradient(circle at 15% -10%, rgba(0, 255, 209, 0.18), transparent 35%),
+    radial-gradient(circle at 85% -5%, rgba(0, 153, 255, 0.08), transparent 28%);
+}
+
+[data-theme="editorial"] {
+  --color-void: #f5f2eb;
+  --color-surface: #fffdf8;
+  --color-surface-2: #efe9dd;
+  --color-surface-3: #e6ddcf;
+  --color-border: #d5cab8;
+  --color-border-light: #c7baa5;
+  --color-text: #2a241a;
+  --color-text-muted: #655b4d;
+  --color-text-dim: #8b7e6b;
+  --color-neon: #0f7b6c;
+  --color-neon-muted: #0c6659;
+  --color-neon-dim: rgba(15, 123, 108, 0.12);
+  --font-display: "IBM Plex Serif", serif;
+  --font-mono: "IBM Plex Mono", monospace;
+  --font-sans: "Manrope", sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --card-shadow: 0 12px 35px rgba(58, 49, 37, 0.08);
+  --bg-gradient: radial-gradient(circle at 15% 0%, rgba(212, 182, 120, 0.2), transparent 30%),
+    radial-gradient(circle at 80% -5%, rgba(15, 123, 108, 0.08), transparent 30%);
+}
+
+[data-theme="brutalist"] {
+  --color-void: #efefef;
+  --color-surface: #ffffff;
+  --color-surface-2: #ececec;
+  --color-surface-3: #dadada;
+  --color-border: #111111;
+  --color-border-light: #3c3c3c;
+  --color-text: #111111;
+  --color-text-muted: #333333;
+  --color-text-dim: #5a5a5a;
+  --color-neon: #ffde00;
+  --color-neon-muted: #f3c500;
+  --color-neon-dim: rgba(255, 222, 0, 0.2);
+  --font-display: "IBM Plex Sans", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+  --font-sans: "IBM Plex Sans", sans-serif;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --card-shadow: 6px 6px 0 #111111;
+  --bg-gradient: linear-gradient(135deg, rgba(255, 222, 0, 0.12), transparent 45%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.05), transparent 40%);
 }
 
 /* ─── BASE ─────────────────────────────────────────────────── */
@@ -42,8 +121,9 @@ html {
 
 body {
   background-color: var(--color-void);
+  background-image: var(--bg-gradient);
   color: var(--color-text);
-  font-family: "Syne", sans-serif;
+  font-family: var(--font-sans);
 }
 
 ::selection {
@@ -74,16 +154,16 @@ body {
 /* ─── TYPO ─────────────────────────────────────────────────── */
 
 .font-display {
-  font-family: "Syne", sans-serif;
+  font-family: var(--font-display);
 }
 
 .font-mono {
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 /* Titres massifs */
 .heading-xl {
-  font-family: "Syne", sans-serif;
+  font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(2.5rem, 6vw, 5rem);
   line-height: 0.95;
@@ -92,7 +172,7 @@ body {
 }
 
 .heading-lg {
-  font-family: "Syne", sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: clamp(1.5rem, 3vw, 2.5rem);
   line-height: 1.05;
@@ -101,7 +181,7 @@ body {
 }
 
 .heading-md {
-  font-family: "Syne", sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.25rem;
   line-height: 1.15;
@@ -110,7 +190,7 @@ body {
 
 /* Texte technique / specs */
 .spec-label {
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -118,14 +198,14 @@ body {
 }
 
 .spec-value {
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--color-text);
 }
 
 /* Prix */
 .price-main {
-  font-family: "Syne", sans-serif;
+  font-family: var(--font-display);
   font-weight: 800;
   font-size: 1.75rem;
   color: var(--color-neon);
@@ -133,7 +213,7 @@ body {
 }
 
 .price-sub {
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   color: var(--color-text-dim);
 }
@@ -148,7 +228,7 @@ body {
   padding: 0.75rem 2rem;
   background-color: var(--color-neon);
   color: var(--color-void);
-  font-family: "Syne", sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -158,6 +238,8 @@ body {
   transition: all 150ms ease;
   position: relative;
   overflow: hidden;
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
 }
 .btn-neon:hover {
   background-color: var(--color-neon-muted);
@@ -175,7 +257,7 @@ body {
   padding: 0.75rem 2rem;
   background-color: transparent;
   color: var(--color-text);
-  font-family: "Syne", sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -183,6 +265,7 @@ body {
   border: 1px solid var(--color-border);
   cursor: pointer;
   transition: all 150ms ease;
+  border-radius: var(--radius-md);
 }
 .btn-outline:hover {
   border-color: var(--color-neon);
@@ -197,6 +280,8 @@ body {
   overflow: hidden;
   transition: border-color 200ms ease;
   position: relative;
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
 }
 .product-card:hover {
   border-color: var(--color-neon);
@@ -245,7 +330,7 @@ body {
   display: inline-flex;
   align-items: center;
   padding: 3px 8px;
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -276,11 +361,12 @@ body {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  font-family: "Space Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   padding: 0.625rem 1rem;
   transition: border-color 150ms ease;
   outline: none;
+  border-radius: var(--radius-sm);
 }
 .input-dark::placeholder {
   color: var(--color-text-dim);

@@ -19,6 +19,7 @@ declare module "@fastify/jwt" {
   interface FastifyJWT {
     payload: JwtAccessPayload;
     user: {
+      id: string;
       userId: string;
       email: string;
       role: Role;
@@ -60,6 +61,7 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
       try {
         const payload = await request.jwtVerify<JwtAccessPayload>();
         request.user = {
+          id: payload.sub,
           userId: payload.sub,
           email: payload.email,
           role: payload.role,

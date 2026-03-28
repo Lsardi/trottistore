@@ -33,7 +33,14 @@ jobs:
         run: pnpm --filter @trottistore/database db:generate
 
       - name: Type check all packages
-        run: pnpm -r exec tsc --noEmit || true
+        run: |
+          pnpm --filter @trottistore/database lint
+          pnpm --filter @trottistore/shared lint
+          pnpm --filter @trottistore/ui lint
+          pnpm --filter @trottistore/service-ecommerce lint
+          pnpm --filter @trottistore/service-crm lint
+          pnpm --filter @trottistore/service-sav lint
+          pnpm --filter @trottistore/service-analytics lint
 
   # ─────────────────────────────────────────────
   # Build
@@ -125,6 +132,24 @@ jobs:
       - run: pnpm test -- --coverage
 
   # ─────────────────────────────────────────────
+  # Smoke Tests (critical release flows)
+  # ─────────────────────────────────────────────
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @trottistore/database db:generate
+      - run: pnpm test:smoke
+
+  # ─────────────────────────────────────────────
   # Security Scan
   # ─────────────────────────────────────────────
   security-scan:
@@ -139,7 +164,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Audit dependencies
-        run: pnpm audit --audit-level=high || true
+        run: pnpm audit --audit-level=high
       - name: Check for secrets
         uses: trufflesecurity/trufflehog@main
         with:

@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { authApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export default function MonComptePage() {
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") || "/mon-compte";
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -25,7 +28,7 @@ export default function MonComptePage() {
     try {
       const res = await authApi.login(loginForm);
       localStorage.setItem("accessToken", res.accessToken);
-      window.location.href = "/mon-compte";
+      window.location.href = nextPath;
     } catch {
       setError("Email ou mot de passe incorrect");
     } finally {
@@ -45,7 +48,7 @@ export default function MonComptePage() {
         password: registerForm.password,
       });
       localStorage.setItem("accessToken", res.accessToken);
-      window.location.href = "/mon-compte";
+      window.location.href = nextPath;
     } catch {
       setError("Erreur lors de l'inscription. Cet email est peut-etre deja utilise.");
     } finally {

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { requireRole } from "../../plugins/auth";
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -103,8 +104,12 @@ const fullProductInclude = {
 // ─── Admin Routes ────────────────────────────────────────────
 
 export async function adminRoutes(app: FastifyInstance) {
+  const adminOnly = {
+    preHandler: [app.authenticate, requireRole("ADMIN")],
+  };
+
   // ─── POST /admin/products — Create product ─────────────────
-  app.post("/admin/products", async (request, reply) => {
+  app.post("/admin/products", adminOnly, async (request, reply) => {
     const parsed = createProductSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -196,7 +201,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ─── PUT /admin/products/:id — Update product ─────────────
-  app.put("/admin/products/:id", async (request, reply) => {
+  app.put("/admin/products/:id", adminOnly, async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = updateProductSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -299,7 +304,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ─── DELETE /admin/products/:id — Delete / Archive product ─
-  app.delete("/admin/products/:id", async (request, reply) => {
+  app.delete("/admin/products/:id", adminOnly, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { hard } = (request.query as { hard?: string }) || {};
 
@@ -334,7 +339,10 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ─── PATCH /admin/products/:id/stock — Quick stock update ──
-  app.patch("/admin/products/:id/stock", async (request, reply) => {
+  app.patch(
+    "/admin/products/:id/stock",
+    adminOnly,
+    async (request, reply) => {
     const { id } = request.params as { id: string };
     const parsed = stockUpdateSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -393,7 +401,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ─── PATCH /admin/products/bulk-price — Bulk price update ──
-  app.patch("/admin/products/bulk-price", async (request, reply) => {
+  app.patch("/admin/products/bulk-price", adminOnly, async (request, reply) => {
     const parsed = bulkPriceSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -430,7 +438,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ─── PATCH /admin/products/bulk-status — Bulk status update ─
-  app.patch("/admin/products/bulk-status", async (request, reply) => {
+  app.patch("/admin/products/bulk-status", adminOnly, async (request, reply) => {
     const parsed = bulkStatusSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -463,7 +471,7 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ─── GET /admin/products/:id — Get single product for editing
-  app.get("/admin/products/:id", async (request, reply) => {
+  app.get("/admin/products/:id", adminOnly, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const product = await app.prisma.product.findUnique({
@@ -491,7 +499,10 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ─── POST /admin/products/:id/duplicate — Duplicate product ─
-  app.post("/admin/products/:id/duplicate", async (request, reply) => {
+  app.post(
+    "/admin/products/:id/duplicate",
+    adminOnly,
+    async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const source = await app.prisma.product.findUnique({

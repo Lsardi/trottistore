@@ -30,13 +30,18 @@ const updateItemSchema = z.object({
 
 function getCartKey(request: any): string {
   const user = (request as any).user;
-  if (user?.id) return `cart:${user.id}`;
+  const userId = user?.id ?? user?.userId;
+  if (userId) return `cart:${userId}`;
   // Fallback to session-based cart for unauthenticated users
   const sessionId =
     (request.headers["x-session-id"] as string) ??
     (request.cookies?.sessionId as string | undefined);
   if (!sessionId) {
-    throw { statusCode: 400, message: "Missing session identifier" };
+    throw {
+      statusCode: 400,
+      code: "MISSING_SESSION_ID",
+      message: "Missing session identifier",
+    };
   }
   return `cart:session:${sessionId}`;
 }

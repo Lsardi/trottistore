@@ -15,7 +15,7 @@ interface FetchOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     public status: number,
     public statusText: string,
@@ -57,6 +57,17 @@ async function apiFetch<T>(
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
+
+    const sessionStorageKey = "trottistore-session-id";
+    let sessionId = localStorage.getItem(sessionStorageKey);
+    if (!sessionId) {
+      sessionId =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(sessionStorageKey, sessionId);
+    }
+    headers["x-session-id"] = sessionId;
   }
 
   const response = await fetch(url, {
@@ -96,29 +107,31 @@ export const categoriesApi = {
 
 export const cartApi = {
   get: () =>
-    apiFetch<{ success: boolean; data: CartItem[] }>('ecommerce', '/cart'),
+    apiFetch<{ success: boolean; data: CartSummary }>('ecommerce', '/cart'),
 
   addItem: (body: { productId: string; variantId?: string; quantity: number }) =>
-    apiFetch<{ success: boolean; data: CartItem[] }>('ecommerce', '/cart/items', {
+    apiFetch<{ success: boolean; data: CartSummary }>('ecommerce', '/cart/items', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
 
   updateItem: (productId: string, body: { quantity: number }) =>
-    apiFetch<{ success: boolean; data: CartItem[] }>('ecommerce', `/cart/items/${productId}`, {
+    apiFetch<{ success: boolean; data: CartSummary }>('ecommerce', `/cart/items/${productId}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
 
   removeItem: (productId: string) =>
-    apiFetch<{ success: boolean }>('ecommerce', `/cart/items/${productId}`, { method: 'DELETE' }),
+    apiFetch<{ success: boolean; data: CartSummary }>('ecommerce', `/cart/items/${productId}`, {
+      method: 'DELETE',
+    }),
 
   clear: () =>
-    apiFetch<{ success: boolean }>('ecommerce', '/cart', { method: 'DELETE' }),
+    apiFetch<{ success: boolean; data: CartSummary }>('ecommerce', '/cart', { method: 'DELETE' }),
 };
 
 export const ordersApi = {
-  create: (body: { shippingAddressId: string; paymentMethod: string; notes?: string }) =>
+  create: (body: { shippingAddressId: string; billingAddressId?: string; paymentMethod: string; notes?: string }) =>
     apiFetch<{ success: boolean; data: Order }>('ecommerce', '/orders', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -221,25 +234,34 @@ export const adminProductsApi = {
 
 export const authApi = {
   login: (body: { email: string; password: string }) =>
-    apiFetch<{ success: boolean; accessToken: string; user: User }>('ecommerce', '/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+    apiFetch<{ success: boolean; data: { accessToken: string; user: User } }>(
+      'ecommerce',
+      '/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    ).then((res) => ({ success: res.success, ...res.data })),
 
   register: (body: { email: string; password: string; firstName: string; lastName: string; phone?: string }) =>
-    apiFetch<{ success: boolean; user: User }>('ecommerce', '/auth/register', {
+    apiFetch<{ success: boolean; data: { user: User } }>('ecommerce', '/auth/register', {
       method: 'POST',
       body: JSON.stringify(body),
-    }),
+    }).then((res) => ({ success: res.success, ...res.data })),
 
   refresh: () =>
-    apiFetch<{ success: boolean; accessToken: string }>('ecommerce', '/auth/refresh', { method: 'POST' }),
+    apiFetch<{ success: boolean; data: { accessToken: string } }>('ecommerce', '/auth/refresh', {
+      method: 'POST',
+    }).then((res) => ({ success: res.success, ...res.data })),
 
   logout: () =>
     apiFetch<{ success: boolean }>('ecommerce', '/auth/logout', { method: 'POST' }),
 
   me: () =>
-    apiFetch<{ success: boolean; data: User }>('ecommerce', '/auth/me'),
+    apiFetch<{ success: boolean; data: { user: User } }>('ecommerce', '/auth/me').then((res) => ({
+      success: res.success,
+      data: res.data.user,
+    })),
 };
 
 // ─── SAV ──────────────────────────────────────────────────
@@ -327,7 +349,27 @@ export interface CartItem {
   productId: string;
   variantId?: string;
   quantity: number;
-  product: Product;
+  product: {
+    name: string;
+    slug: string;
+    sku: string;
+    image?: ProductImage | null;
+  };
+  variant?: {
+    name: string;
+    sku: string;
+    attributes?: Record<string, string>;
+  } | null;
+  unitPriceHt: number;
+  lineTotalHt: number;
+  availableStock?: number | null;
+}
+
+export interface CartSummary {
+  items: CartItem[];
+  itemCount: number;
+  totalHt: number;
+  updatedAt: string;
 }
 
 export interface Order {
@@ -353,9 +395,38 @@ export interface OrderItem {
 export interface User {
   id: string;
   email: string;
+  emailVerified?: boolean;
+  phone?: string | null;
   firstName: string;
   lastName: string;
+  avatarUrl?: string | null;
   role: string;
+  status?: string;
+  lastLoginAt?: string | null;
+  loginCount?: number;
+  createdAt?: string;
+  addresses?: Array<{
+    id: string;
+    type: string;
+    label?: string | null;
+    firstName: string;
+    lastName: string;
+    company?: string | null;
+    street: string;
+    street2?: string | null;
+    city: string;
+    postalCode: string;
+    country: string;
+    phone?: string | null;
+    isDefault: boolean;
+  }>;
+  customerProfile?: {
+    loyaltyTier: string;
+    loyaltyPoints: number;
+    totalOrders: number;
+    totalSpent: string;
+    lastOrderAt?: string | null;
+  } | null;
 }
 
 export interface RepairTicket {

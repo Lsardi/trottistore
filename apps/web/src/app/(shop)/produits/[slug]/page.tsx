@@ -66,6 +66,7 @@ export default function ProductPage() {
         variantId: product.variants?.[0]?.id,
         quantity,
       });
+      window.dispatchEvent(new Event("trottistore:cart-updated"));
       setCartSuccess(true);
       setCartMessage("Produit ajouté au panier");
       setTimeout(() => {

@@ -6,6 +6,7 @@ import { prismaPlugin } from "./plugins/prisma.js";
 import { redisPlugin } from "./plugins/redis.js";
 import { healthRoutes } from "./routes/health.js";
 import { analyticsRoutes } from "./routes/index.js";
+import { ZodError } from "zod";
 
 const PORT = parseInt(process.env.PORT_ANALYTICS || "3003", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -40,7 +41,32 @@ async function start() {
 
   // Global error handler
   app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
-    const statusCode = error.statusCode || 500;
+    const isZodError = error instanceof ZodError;
+    const statusCode = isZodError ? 400 : error.statusCode || 500;
+    const customCode =
+      statusCode < 500 && typeof (error as any).code === "string"
+        ? (error as any).code
+        : undefined;
+    const code =
+      customCode ??
+      isZodError
+        ? "VALIDATION_ERROR"
+        : statusCode === 401
+          ? "UNAUTHORIZED"
+          : statusCode === 403
+            ? "FORBIDDEN"
+            : statusCode === 404
+              ? "NOT_FOUND"
+              : statusCode === 429
+                ? "RATE_LIMITED"
+                : statusCode >= 500
+                  ? "INTERNAL_ERROR"
+                  : "REQUEST_ERROR";
+    const message = isZodError
+      ? "Invalid request data"
+      : statusCode >= 500
+        ? "Une erreur interne est survenue"
+        : error.message;
 
     app.log.error({
       err: error,
@@ -52,8 +78,9 @@ async function start() {
     reply.status(statusCode).send({
       success: false,
       error: {
-        code: statusCode === 429 ? "RATE_LIMITED" : statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
-        message: statusCode >= 500 ? "Une erreur interne est survenue" : error.message,
+        code,
+        message,
+        ...(isZodError ? { details: error.flatten().fieldErrors } : {}),
         ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
       },
     });

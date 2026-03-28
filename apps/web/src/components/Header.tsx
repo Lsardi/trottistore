@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Search, ShoppingCart, User, Menu, X } from "lucide-react";
 import { brand } from "@/lib/brand";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
+import { cartApi } from "@/lib/api";
 
 const NAV_ITEMS = [
   { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
@@ -15,7 +17,31 @@ const NAV_ITEMS = [
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const cartCount = 0;
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function refreshCart() {
+      try {
+        const res = await cartApi.get();
+        if (!mounted) return;
+        setCartCount(res.data.itemCount ?? 0);
+      } catch {
+        if (!mounted) return;
+        setCartCount(0);
+      }
+    }
+
+    refreshCart();
+    window.addEventListener("focus", refreshCart);
+    window.addEventListener("trottistore:cart-updated", refreshCart);
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", refreshCart);
+      window.removeEventListener("trottistore:cart-updated", refreshCart);
+    };
+  }, []);
 
   return (
     <header>
@@ -118,6 +144,9 @@ export default function Header() {
 
           {/* Right: Icons */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div className="hidden md:block mr-2">
+              <ThemeSwitcher />
+            </div>
             <Link
               href="/produits"
               style={{
@@ -300,6 +329,7 @@ export default function Header() {
               <span style={{ color: "var(--color-neon)" }}>{brand.nameParts[0]}</span>
               <span style={{ color: "var(--color-text)" }}>{brand.nameParts[1]}</span>
             </span>
+            <ThemeSwitcher />
             <button
               onClick={() => setMenuOpen(false)}
               style={{

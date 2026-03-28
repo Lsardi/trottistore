@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import {
@@ -70,6 +70,8 @@ function CatalogueSkeleton() {
 
 function ProductsPage() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +83,13 @@ function ProductsPage() {
   const [categorySlug, setCategorySlug] = useState(
     searchParams.get("categorySlug") || ""
   );
+
+  useEffect(() => {
+    setSort(searchParams.get("sort") || "newest");
+    setSearch(searchParams.get("search") || "");
+    setCategorySlug(searchParams.get("categorySlug") || "");
+    setPage(Number(searchParams.get("page") || 1));
+  }, [searchParams]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -118,6 +127,16 @@ function ProductsPage() {
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
+  useEffect(() => {
+    const qs = new URLSearchParams();
+    if (search) qs.set("search", search);
+    if (categorySlug) qs.set("categorySlug", categorySlug);
+    if (sort && sort !== "newest") qs.set("sort", sort);
+    if (page > 1) qs.set("page", String(page));
+    const nextUrl = qs.toString() ? `${pathname}?${qs.toString()}` : pathname;
+    router.replace(nextUrl, { scroll: false });
+  }, [categorySlug, page, pathname, router, search, sort]);
 
   /* ─── Pagination helpers ─── */
   function buildPageNumbers(): (number | "ellipsis")[] {
