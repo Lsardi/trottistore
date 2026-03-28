@@ -10,8 +10,7 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"],
-      "dotEnv": [".env"]
+      "outputs": ["dist/**", ".next/**"]
     },
     "lint": {
       "dependsOn": ["^build"]
