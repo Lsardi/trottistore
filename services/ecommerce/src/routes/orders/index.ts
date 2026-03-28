@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { Decimal } from "@prisma/client/runtime/library";
 
@@ -88,13 +88,48 @@ interface Cart {
   updatedAt: string;
 }
 
-function getCartKey(request: any): string {
-  const user = (request as any).user;
+interface RequestUser {
+  id: string;
+  userId: string;
+  email: string;
+  role: string;
+}
+
+type AuthenticatedRequest = FastifyRequest & { user: RequestUser };
+
+function getRequestUser(request: FastifyRequest): RequestUser | null {
+  const maybeUser = request.user as Partial<RequestUser> | undefined;
+  if (!maybeUser) return null;
+  if (
+    typeof maybeUser.id !== "string" ||
+    typeof maybeUser.userId !== "string" ||
+    typeof maybeUser.email !== "string" ||
+    typeof maybeUser.role !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    id: maybeUser.id,
+    userId: maybeUser.userId,
+    email: maybeUser.email,
+    role: maybeUser.role,
+  };
+}
+
+function getCartKey(request: FastifyRequest): string {
+  const user = getRequestUser(request);
   const userId = user?.id ?? user?.userId;
   if (userId) return `cart:${userId}`;
+
+  const sessionHeader = request.headers["x-session-id"];
   const sessionId =
-    (request.headers["x-session-id"] as string) ??
-    (request.cookies?.sessionId as string | undefined);
+    typeof sessionHeader === "string"
+      ? sessionHeader
+      : Array.isArray(sessionHeader) && typeof sessionHeader[0] === "string"
+        ? sessionHeader[0]
+        : request.cookies?.sessionId;
+
   if (!sessionId) {
     throw {
       statusCode: 400,
@@ -105,8 +140,8 @@ function getCartKey(request: any): string {
   return `cart:session:${sessionId}`;
 }
 
-function requireAuth(request: any, reply: any): boolean {
-  const user = (request as any).user;
+function requireAuth(request: FastifyRequest, reply: FastifyReply): request is AuthenticatedRequest {
+  const user = getRequestUser(request);
   const userId = user?.id ?? user?.userId;
   if (!userId) {
     reply.status(401).send({
@@ -125,7 +160,7 @@ export async function orderRoutes(app: FastifyInstance) {
   app.post("/orders", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
 
-    const user = (request as any).user;
+    const user = request.user;
     const userId = user.id ?? user.userId;
     const parsed = checkoutSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -449,7 +484,7 @@ export async function orderRoutes(app: FastifyInstance) {
   app.get("/orders", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
 
-    const user = (request as any).user;
+    const user = request.user;
     const userId = user.id ?? user.userId;
     const parsed = listOrdersSchema.safeParse(request.query);
     if (!parsed.success) {
@@ -466,11 +501,11 @@ export async function orderRoutes(app: FastifyInstance) {
     const { page, limit } = parsed.data;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = { customerId: userId };
+    const where = { customerId: userId };
 
     const [orders, total] = await Promise.all([
       app.prisma.order.findMany({
-        where: where as any,
+        where,
         include: {
           items: {
             select: { id: true },
@@ -481,7 +516,7 @@ export async function orderRoutes(app: FastifyInstance) {
         skip,
         take: limit,
       }),
-      app.prisma.order.count({ where: where as any }),
+      app.prisma.order.count({ where }),
     ]);
 
     const totalPages = Math.ceil(total / limit);
@@ -515,7 +550,7 @@ export async function orderRoutes(app: FastifyInstance) {
   app.get("/orders/:id", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
 
-    const user = (request as any).user;
+    const user = request.user;
     const userId = user.id ?? user.userId;
     const params = orderIdParamsSchema.safeParse(request.params);
     if (!params.success) {
@@ -580,7 +615,7 @@ export async function orderRoutes(app: FastifyInstance) {
   app.put("/orders/:id/status", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
 
-    const user = (request as any).user;
+    const user = request.user;
     const userId = user.id ?? user.userId;
     if (user.role !== "ADMIN") {
       return reply.status(403).send({
