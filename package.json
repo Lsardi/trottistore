@@ -7,7 +7,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "sh -c 'export $(grep -v ^# .env | grep = | xargs -0) 2>/dev/null; turbo dev'",
+    "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "vitest run",
