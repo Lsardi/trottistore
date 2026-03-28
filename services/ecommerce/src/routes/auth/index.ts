@@ -4,6 +4,7 @@ import { randomUUID, createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { Role, JwtAccessPayload, JwtRefreshPayload } from "@trottistore/shared";
 import { ROLES } from "@trottistore/shared";
+import type { InputJsonValue } from "@prisma/client/runtime/library";
 
 // ─── Constants ─────────────────────────────────────────────
 
@@ -41,12 +42,14 @@ function signAccessToken(
   app: FastifyInstance,
   user: { id: string; email: string; role: string },
 ): string {
+  const payload: Omit<JwtAccessPayload, "iat" | "exp"> = {
+    sub: user.id,
+    email: user.email,
+    role: user.role as Role,
+  };
+
   return app.jwt.sign(
-    {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    } as any,
+    payload,
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
 }
@@ -68,7 +71,7 @@ async function createRefreshToken(
       userId,
       tokenHash,
       expiresAt,
-      deviceInfo: (deviceInfo ?? undefined) as any,
+      deviceInfo: (deviceInfo as InputJsonValue | undefined) ?? undefined,
     },
   });
 

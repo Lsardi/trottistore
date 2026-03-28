@@ -188,7 +188,7 @@ export async function adminRoutes(app: FastifyInstance) {
       });
 
       return reply.status(201).send({ success: true, data: product });
-    } catch (err: any) {
+    } catch (err: unknown) {
       app.log.error(err);
       return reply.status(500).send({
         success: false,
@@ -224,7 +224,10 @@ export async function adminRoutes(app: FastifyInstance) {
       });
     }
 
-    const { categories, images, ...updateData } = parsed.data;
+    const { categories, images, ...restUpdateData } = parsed.data;
+    const updateData: typeof restUpdateData & { slug?: string } = {
+      ...restUpdateData,
+    };
 
     // Re-slug if name changed
     if (updateData.name && updateData.name !== existing.name) {
@@ -232,7 +235,7 @@ export async function adminRoutes(app: FastifyInstance) {
       const slugTaken = await app.prisma.product.findFirst({
         where: { slug: newSlug, id: { not: id } },
       });
-      (updateData as any).slug = slugTaken
+      updateData.slug = slugTaken
         ? `${newSlug}-${Date.now().toString(36)}`
         : newSlug;
     }
@@ -294,7 +297,7 @@ export async function adminRoutes(app: FastifyInstance) {
       });
 
       return { success: true, data: product };
-    } catch (err: any) {
+    } catch (err: unknown) {
       app.log.error(err);
       return reply.status(500).send({
         success: false,
@@ -329,7 +332,7 @@ export async function adminRoutes(app: FastifyInstance) {
         });
         return { success: true, message: "Product archived" };
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       app.log.error(err);
       return reply.status(500).send({
         success: false,
@@ -388,7 +391,7 @@ export async function adminRoutes(app: FastifyInstance) {
       }
 
       return { success: true, data: variant };
-    } catch (err: any) {
+    } catch (err: unknown) {
       app.log.error(err);
       return reply.status(500).send({
         success: false,
@@ -425,7 +428,7 @@ export async function adminRoutes(app: FastifyInstance) {
       );
 
       return { success: true, data: { updatedCount: results.length } };
-    } catch (err: any) {
+    } catch (err: unknown) {
       app.log.error(err);
       return reply.status(500).send({
         success: false,
@@ -458,7 +461,7 @@ export async function adminRoutes(app: FastifyInstance) {
       });
 
       return { success: true, data: { updatedCount: result.count } };
-    } catch (err: any) {
+    } catch (err: unknown) {
       app.log.error(err);
       return reply.status(500).send({
         success: false,
@@ -568,7 +571,7 @@ export async function adminRoutes(app: FastifyInstance) {
       });
 
       return reply.status(201).send({ success: true, data: product });
-    } catch (err: any) {
+    } catch (err: unknown) {
       app.log.error(err);
       return reply.status(500).send({
         success: false,

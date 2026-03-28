@@ -49,7 +49,30 @@ export async function productRoutes(app: FastifyInstance) {
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: Record<string, unknown> = {};
+    const where: {
+      status: "ACTIVE" | "DRAFT" | "ARCHIVED";
+      brand?: { slug: string };
+      categories?: {
+        some: { category: { slug: string } };
+      };
+      OR?: Array<{
+        name?: { contains: string; mode: "insensitive" };
+        sku?: { contains: string; mode: "insensitive" };
+        description?: { contains: string; mode: "insensitive" };
+      }>;
+      priceHt?: {
+        gte?: number;
+        lte?: number;
+      };
+      variants?: {
+        some: {
+          isActive: true;
+          stockQuantity: { gt: number };
+        };
+      };
+    } = {
+      status: status ?? "ACTIVE",
+    };
 
     // Status filter (defaults to ACTIVE for public)
     where.status = status ?? "ACTIVE";
@@ -79,10 +102,10 @@ export async function productRoutes(app: FastifyInstance) {
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.priceHt = {};
       if (minPrice !== undefined) {
-        (where.priceHt as Record<string, unknown>).gte = minPrice;
+        where.priceHt.gte = minPrice;
       }
       if (maxPrice !== undefined) {
-        (where.priceHt as Record<string, unknown>).lte = maxPrice;
+        where.priceHt.lte = maxPrice;
       }
     }
 
@@ -97,7 +120,11 @@ export async function productRoutes(app: FastifyInstance) {
     }
 
     // Sort
-    let orderBy: Record<string, string>;
+    let orderBy:
+      | { priceHt: "asc" }
+      | { priceHt: "desc" }
+      | { name: "asc" }
+      | { createdAt: "desc" };
     switch (sort) {
       case "price_asc":
         orderBy = { priceHt: "asc" };
@@ -114,7 +141,7 @@ export async function productRoutes(app: FastifyInstance) {
 
     const [products, total] = await Promise.all([
       app.prisma.product.findMany({
-        where: where as any,
+        where,
         include: {
           brand: { select: { id: true, name: true, slug: true } },
           categories: {
@@ -143,11 +170,11 @@ export async function productRoutes(app: FastifyInstance) {
             },
           },
         },
-        orderBy: orderBy as any,
+        orderBy,
         skip,
         take: limit,
       }),
-      app.prisma.product.count({ where: where as any }),
+      app.prisma.product.count({ where }),
     ]);
 
     const totalPages = Math.ceil(total / limit);

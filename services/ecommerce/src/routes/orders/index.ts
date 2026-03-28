@@ -138,7 +138,6 @@ function getCartKey(request: FastifyRequest): string {
   return `cart:session:${sessionId}`;
 }
 
-<<<<<<< HEAD
 function requireAuth(
   request: FastifyRequest,
   reply: FastifyReply,

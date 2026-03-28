@@ -17,7 +17,7 @@ declare module "fastify" {
 
 declare module "@fastify/jwt" {
   interface FastifyJWT {
-    payload: JwtAccessPayload;
+    payload: Omit<JwtAccessPayload, "iat" | "exp">;
     user: {
       id: string;
       userId: string;
