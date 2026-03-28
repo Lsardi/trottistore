@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { authApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export default function MonComptePage() {
+export default function MonCompteWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-[80vh] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-neon" /></div>}>
+      <MonComptePage />
+    </Suspense>
+  );
+}
+
+function MonComptePage() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/mon-compte";
   const [mode, setMode] = useState<"login" | "register">("login");
