@@ -15,7 +15,7 @@
     "@fastify/helmet": "^13.0.0",
     "@fastify/jwt": "^9.0.0",
     "@fastify/rate-limit": "^10.2.0",
-    "@prisma/client": "^7.5.0",
+    "@prisma/client": "^6.6.0",
     "@trottistore/database": "workspace:*",
     "@trottistore/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
