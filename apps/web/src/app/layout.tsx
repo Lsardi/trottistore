@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
+import { DEFAULT_THEME, THEME_PROFILES, THEME_STORAGE_KEY } from "@/lib/themes";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +19,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const allowedThemes = THEME_PROFILES.map((item) => item.id);
+
   return (
     <html lang="fr">
       <body className="font-sans antialiased">
@@ -26,11 +29,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               (function() {
                 try {
-                  var saved = localStorage.getItem('trottistore-theme');
-                  var theme = saved || 'atelier';
+                  var allowed = ${JSON.stringify(allowedThemes)};
+                  var fallback = ${JSON.stringify(DEFAULT_THEME)};
+                  var saved = localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
+                  var theme = allowed.indexOf(saved) >= 0 ? saved : fallback;
                   document.documentElement.setAttribute('data-theme', theme);
                 } catch (_e) {
-                  document.documentElement.setAttribute('data-theme', 'atelier');
+                  document.documentElement.setAttribute('data-theme', ${JSON.stringify(DEFAULT_THEME)});
                 }
               })();
             `,

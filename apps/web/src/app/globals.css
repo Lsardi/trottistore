@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Serif:wght@500;600;700&family=Manrope:wght@500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
 
 /*
  * DESIGN SYSTEM — TrottiStore "Electric Workshop"
@@ -35,6 +35,7 @@
   --radius-md: 0px;
   --radius-lg: 0px;
   --card-shadow: none;
+  --surface-pattern: none;
   --bg-gradient: radial-gradient(circle at 15% -10%, rgba(0, 255, 209, 0.18), transparent 35%),
     radial-gradient(circle at 85% -5%, rgba(0, 153, 255, 0.08), transparent 28%);
 }
@@ -60,6 +61,7 @@
   --radius-md: 0px;
   --radius-lg: 0px;
   --card-shadow: none;
+  --surface-pattern: none;
   --bg-gradient: radial-gradient(circle at 15% -10%, rgba(0, 255, 209, 0.18), transparent 35%),
     radial-gradient(circle at 85% -5%, rgba(0, 153, 255, 0.08), transparent 28%);
 }
@@ -84,6 +86,7 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --card-shadow: 0 12px 35px rgba(58, 49, 37, 0.08);
+  --surface-pattern: linear-gradient(45deg, rgba(43, 36, 26, 0.02) 25%, transparent 25%, transparent 50%, rgba(43, 36, 26, 0.02) 50%, rgba(43, 36, 26, 0.02) 75%, transparent 75%, transparent);
   --bg-gradient: radial-gradient(circle at 15% 0%, rgba(212, 182, 120, 0.2), transparent 30%),
     radial-gradient(circle at 80% -5%, rgba(15, 123, 108, 0.08), transparent 30%);
 }
@@ -108,8 +111,119 @@
   --radius-md: 0px;
   --radius-lg: 0px;
   --card-shadow: 6px 6px 0 #111111;
+  --surface-pattern: linear-gradient(0deg, rgba(0, 0, 0, 0.045) 1px, transparent 1px);
   --bg-gradient: linear-gradient(135deg, rgba(255, 222, 0, 0.12), transparent 45%),
     linear-gradient(45deg, rgba(255, 255, 255, 0.05), transparent 40%);
+}
+
+/* ─── SITE MODE OVERRIDES ────────────────────────────────── */
+
+[data-theme="atelier"] .heading-xl,
+[data-theme="atelier"] .heading-lg {
+  text-transform: uppercase;
+}
+
+[data-theme="atelier"] .btn-neon,
+[data-theme="atelier"] .btn-outline {
+  border-radius: 0;
+}
+
+[data-theme="atelier"] .product-card:hover {
+  box-shadow: 0 0 0 1px var(--color-neon-dim);
+}
+
+[data-theme="editorial"] .heading-xl,
+[data-theme="editorial"] .heading-lg {
+  text-transform: none;
+  letter-spacing: -0.01em;
+  line-height: 1.04;
+  font-weight: 600;
+}
+
+[data-theme="editorial"] .spec-label {
+  letter-spacing: 0.09em;
+}
+
+[data-theme="editorial"] .btn-neon,
+[data-theme="editorial"] .btn-outline {
+  text-transform: none;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding-inline: 1.4rem;
+}
+
+[data-theme="editorial"] .btn-neon {
+  box-shadow: 0 8px 20px rgba(15, 123, 108, 0.2);
+}
+
+[data-theme="editorial"] .product-card {
+  border-width: 1px;
+}
+
+[data-theme="editorial"] .product-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-neon-muted);
+}
+
+[data-theme="editorial"] .divider-neon {
+  background: linear-gradient(90deg, transparent, rgba(15, 123, 108, 0.65), transparent);
+}
+
+[data-theme="editorial"] .theme-switcher {
+  border-radius: 999px;
+}
+
+[data-theme="editorial"] .theme-switcher-option {
+  border-radius: 999px !important;
+}
+
+[data-theme="brutalist"] .heading-xl,
+[data-theme="brutalist"] .heading-lg {
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+
+[data-theme="brutalist"] .btn-neon,
+[data-theme="brutalist"] .btn-outline {
+  border: 2px solid #111111;
+  box-shadow: 4px 4px 0 #111111;
+  transition-duration: 120ms;
+}
+
+[data-theme="brutalist"] .btn-neon:hover,
+[data-theme="brutalist"] .btn-outline:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 #111111;
+}
+
+[data-theme="brutalist"] .btn-neon:active,
+[data-theme="brutalist"] .btn-outline:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 #111111;
+}
+
+[data-theme="brutalist"] .product-card {
+  border: 2px solid #111111;
+  box-shadow: 8px 8px 0 #111111;
+  transition-property: transform;
+}
+
+[data-theme="brutalist"] .product-card:hover {
+  transform: translate(-4px, -4px);
+}
+
+[data-theme="brutalist"] .divider-neon {
+  background: repeating-linear-gradient(
+    90deg,
+    #111111 0,
+    #111111 8px,
+    var(--color-neon) 8px,
+    var(--color-neon) 16px
+  );
+}
+
+[data-theme="brutalist"] .theme-switcher-option {
+  border: 2px solid #111111 !important;
 }
 
 /* ─── BASE ─────────────────────────────────────────────────── */
@@ -121,7 +235,8 @@ html {
 
 body {
   background-color: var(--color-void);
-  background-image: var(--bg-gradient);
+  background-image: var(--bg-gradient), var(--surface-pattern);
+  background-size: auto, 16px 16px;
   color: var(--color-text);
   font-family: var(--font-sans);
 }
