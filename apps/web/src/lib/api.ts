@@ -273,7 +273,7 @@ export const repairsApi = {
       body: JSON.stringify(body),
     }),
 
-  list: (params?: { status?: string; page?: number }) =>
+  list: (params?: { status?: string; page?: number; limit?: number; customerId?: string; sort?: string }) =>
     apiFetch<{ success: boolean; data: RepairTicket[]; pagination: Pagination }>('sav', '/repairs', { params }),
 
   getById: (id: string) =>
