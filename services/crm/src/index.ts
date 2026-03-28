@@ -58,6 +58,15 @@ async function start() {
       return;
     }
     await app.authenticate(request, reply);
+    if (request.user?.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Access denied for CLIENT role on CRM service",
+        },
+      });
+    }
   });
 
   // Global error handler

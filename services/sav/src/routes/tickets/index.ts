@@ -133,6 +133,9 @@ export async function repairRoutes(app: FastifyInstance) {
   app.get("/repairs", async (request) => {
     const query = listQuerySchema.parse(request.query);
     const { page, limit, status, type, priority, assignedTo, customerId, search, sort } = query;
+    const user = (request as any).user as
+      | { userId: string; role: string }
+      | undefined;
 
     const where: Record<string, unknown> = {};
 
@@ -140,7 +143,11 @@ export async function repairRoutes(app: FastifyInstance) {
     if (type) where.type = type;
     if (priority) where.priority = priority;
     if (assignedTo) where.assignedTo = assignedTo;
-    if (customerId) where.customerId = customerId;
+    if (user?.role === "CLIENT") {
+      where.customerId = user.userId;
+    } else if (customerId) {
+      where.customerId = customerId;
+    }
     if (search) {
       where.OR = [
         { productModel: { contains: search, mode: "insensitive" } },
@@ -213,6 +220,9 @@ export async function repairRoutes(app: FastifyInstance) {
   // GET /repairs/:id — Full ticket detail
   app.get("/repairs/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
+    const user = (request as any).user as
+      | { userId: string; role: string }
+      | undefined;
 
     const ticket = await app.prisma.repairTicket.findUnique({
       where: { id },
@@ -249,11 +259,31 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
+    if (user?.role === "CLIENT" && ticket.customerId !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Access denied to this ticket" },
+      });
+    }
+
     return { success: true, data: ticket };
   });
 
   // PUT /repairs/:id/status — Change ticket status
   app.put("/repairs/:id/status", async (request, reply) => {
+    const user = (request as any).user as
+      | { userId: string; role: string }
+      | undefined;
+    if (user?.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Clients cannot update repair statuses",
+        },
+      });
+    }
+
     const { id } = request.params as { id: string };
     const body = updateStatusSchema.parse(request.body);
 
@@ -329,6 +359,19 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // POST /repairs/:id/diagnosis — Add diagnosis info
   app.post("/repairs/:id/diagnosis", async (request, reply) => {
+    const user = (request as any).user as
+      | { userId: string; role: string }
+      | undefined;
+    if (user?.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Clients cannot submit diagnosis updates",
+        },
+      });
+    }
+
     const { id } = request.params as { id: string };
     const body = diagnosisSchema.parse(request.body);
 
@@ -383,6 +426,19 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // POST /repairs/:id/quote — Create and send quote
   app.post("/repairs/:id/quote", async (request, reply) => {
+    const user = (request as any).user as
+      | { userId: string; role: string }
+      | undefined;
+    if (user?.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Clients cannot generate repair quotes",
+        },
+      });
+    }
+
     const { id } = request.params as { id: string };
     const body = quoteSchema.parse(request.body);
 
@@ -438,6 +494,19 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // PUT /repairs/:id/quote/accept — Accept quote
   app.put("/repairs/:id/quote/accept", async (request, reply) => {
+    const user = (request as any).user as
+      | { userId: string; role: string }
+      | undefined;
+    if (user?.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Clients cannot accept quotes from this endpoint",
+        },
+      });
+    }
+
     const { id } = request.params as { id: string };
 
     const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
@@ -482,6 +551,19 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // POST /repairs/:id/parts — Add a part used
   app.post("/repairs/:id/parts", async (request, reply) => {
+    const user = (request as any).user as
+      | { userId: string; role: string }
+      | undefined;
+    if (user?.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Clients cannot add repair parts",
+        },
+      });
+    }
+
     const { id } = request.params as { id: string };
     const body = addPartSchema.parse(request.body);
 
@@ -524,6 +606,19 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // POST /repairs/:id/complete — Mark ticket as complete
   app.post("/repairs/:id/complete", async (request, reply) => {
+    const user = (request as any).user as
+      | { userId: string; role: string }
+      | undefined;
+    if (user?.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Clients cannot mark repair as complete",
+        },
+      });
+    }
+
     const { id } = request.params as { id: string };
 
     const ticket = await app.prisma.repairTicket.findUnique({
