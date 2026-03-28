@@ -52,11 +52,12 @@ async function start() {
 
   // Global error handler
   app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    const errorWithCode = error as { code?: unknown };
     const isZodError = error instanceof ZodError;
     const statusCode = isZodError ? 400 : error.statusCode || 500;
     const customCode =
-      statusCode < 500 && typeof (error as any).code === "string"
-        ? (error as any).code
+      statusCode < 500 && typeof errorWithCode.code === "string"
+        ? errorWithCode.code
         : undefined;
     const code =
       customCode ??
