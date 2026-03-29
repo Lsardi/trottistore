@@ -53,7 +53,6 @@ export default function AdminStockPage() {
 
   const variantOptions = useMemo(() => {
     const map = new Map<string, { id: string; label: string }>();
-
     for (const item of summary) {
       map.set(item.variantId, { id: item.variantId, label: `${item.sku} · ${item.name}` });
     }
@@ -65,13 +64,12 @@ export default function AdminStockPage() {
         map.set(item.variant.id, { id: item.variant.id, label: `${item.variant.sku} · ${item.variant.name}` });
       }
     }
-
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [summary, alerts, movements]);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 3000);
+    const timer = setTimeout(() => setToast(null), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
 
@@ -96,7 +94,6 @@ export default function AdminStockPage() {
         setLoading(false);
       }
     }
-
     void loadAll();
   }, []);
 
@@ -108,7 +105,7 @@ export default function AdminStockPage() {
       setPage(res.pagination?.page || targetPage);
       setTotalPages(res.pagination?.totalPages || 1);
     } catch {
-      setToast({ type: "error", message: "Impossible de charger l'historique des mouvements." });
+      setToast({ type: "error", message: "Impossible de charger l'historique." });
     } finally {
       setLoadingMovements(false);
     }
@@ -128,15 +125,12 @@ export default function AdminStockPage() {
 
   async function handleCreateMovement(e: FormEvent) {
     e.preventDefault();
-
     const parsedQty = Number.parseInt(quantity, 10);
     if (!variantId || Number.isNaN(parsedQty) || parsedQty <= 0) {
-      setToast({ type: "error", message: "Variante et quantite (> 0) obligatoires." });
+      setToast({ type: "error", message: "Variante et quantite (>0) obligatoires." });
       return;
     }
-
     setCreating(true);
-    setError(null);
     try {
       const res = await stockApi.createMovement({
         variantId,
@@ -146,17 +140,15 @@ export default function AdminStockPage() {
         referenceId: referenceId.trim() || undefined,
         referenceType: referenceId.trim() ? "MANUAL" : undefined,
       });
-
       setReason("");
       setReferenceId("");
       setQuantity("1");
       await refreshData();
 
-      const baseMessage = `Mouvement enregistre. Stock apres: ${res.data.stockAfter}`;
       const alertMessage = res.data.alert?.message ? ` · ${res.data.alert.message}` : "";
-      setToast({ type: "success", message: `${baseMessage}${alertMessage}` });
+      setToast({ type: "success", message: `Mouvement enregistre. Stock: ${res.data.stockAfter}${alertMessage}` });
     } catch {
-      setToast({ type: "error", message: "Impossible d'enregistrer le mouvement." });
+      setToast({ type: "error", message: "Erreur lors de l'enregistrement du mouvement." });
     } finally {
       setCreating(false);
     }
@@ -172,9 +164,7 @@ export default function AdminStockPage() {
         <div
           className={cn(
             "fixed right-4 top-4 z-50 border px-4 py-2 font-mono text-xs",
-            toast.type === "success"
-              ? "border-neon/40 bg-neon-dim text-neon"
-              : "border-danger/40 bg-danger/10 text-danger",
+            toast.type === "success" ? "border-neon/40 bg-neon-dim text-neon" : "border-danger/40 bg-danger/10 text-danger",
           )}
         >
           {toast.message}
@@ -207,9 +197,7 @@ export default function AdminStockPage() {
         </div>
       </div>
 
-      {error ? (
-        <div className="border border-danger/40 bg-danger/10 p-3 font-mono text-xs text-danger">{error}</div>
-      ) : null}
+      {error ? <div className="border border-danger/40 bg-danger/10 p-3 font-mono text-xs text-danger">{error}</div> : null}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <section className="xl:col-span-2 bg-surface border border-border p-4">
@@ -236,9 +224,6 @@ export default function AdminStockPage() {
                   </option>
                 ))}
               </datalist>
-              <p className="font-mono text-[11px] text-text-dim mt-1">
-                Choisis via la liste ou colle l&apos;UUID de la variante.
-              </p>
             </div>
 
             <div>
@@ -309,15 +294,14 @@ export default function AdminStockPage() {
               {alerts.slice(0, 20).map((item) => (
                 <div key={item.variantId} className="border border-border bg-surface-2 p-2">
                   <p className="font-mono text-xs text-text">{item.productName}</p>
-                  <p className="font-mono text-[11px] text-text-dim">{item.sku} · {item.variantName}</p>
+                  <p className="font-mono text-[11px] text-text-dim">
+                    {item.sku} · {item.variantName}
+                  </p>
                   <p className={cn("font-mono text-[11px] mt-1", item.severity === "OUT_OF_STOCK" ? "text-danger" : "text-warning")}>
                     {item.stockQuantity}/{item.lowStockThreshold} · {item.severity === "OUT_OF_STOCK" ? "Rupture" : "Stock faible"}
                   </p>
                 </div>
               ))}
-              {alerts.length > 20 ? (
-                <p className="font-mono text-[11px] text-text-dim">+{alerts.length - 20} autres alertes</p>
-              ) : null}
             </div>
           )}
           <div className="mt-4 pt-3 border-t border-border font-mono text-xs text-text-dim">
@@ -331,7 +315,6 @@ export default function AdminStockPage() {
           <h2 className="font-display font-bold text-text">Historique des mouvements</h2>
           <div className="font-mono text-xs text-text-dim">Page {page}/{Math.max(totalPages, 1)}</div>
         </div>
-
         {loadingMovements ? (
           <div className="h-28 flex items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-neon" />

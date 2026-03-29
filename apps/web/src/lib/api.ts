@@ -405,6 +405,26 @@ export const stockApi = {
     ),
 };
 
+// ─── CRM ───────────────────────────────────────────────────
+
+export const customersApi = {
+  list: (params?: { page?: number; limit?: number; search?: string; sort?: string }) =>
+    apiFetch<{ success: boolean; data: CustomerListItem[]; pagination: Pagination }>("crm", "/customers", { params }),
+
+  getGarage: (customerId: string) =>
+    apiFetch<{ success: boolean; data: CustomerGarage }>("crm", `/customers/${customerId}/garage`),
+};
+
+// ─── TRIGGERS (SAV) ───────────────────────────────────────
+
+export const triggersApi = {
+  run: (body?: { dryRun?: boolean }) =>
+    apiFetch<{ success: boolean; data?: TriggerRunResult; message?: string }>("sav", "/triggers/run", {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    }),
+};
+
 // ─── TYPES ────────────────────────────────────────────────
 
 export interface Product {
@@ -770,4 +790,48 @@ export interface StockMovementSummary {
   totalOut: number;
   movementCount: number;
   currentStock: number;
+}
+
+export interface CustomerListItem {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  customerProfile?: {
+    loyaltyTier: string;
+    loyaltyPoints: number;
+    totalOrders: number;
+    totalSpent: number | string;
+  } | null;
+}
+
+export interface CustomerGarage {
+  profile: {
+    loyaltyTier: string;
+    loyaltyPoints: number;
+    totalOrders: number;
+    totalSpent: number;
+    scooterModels: string[];
+    tags: string[];
+  };
+  stats: {
+    totalRepairs: number;
+    activeRepairs: number;
+    totalOrders: number;
+    totalSpent: number;
+    scooterModels: string[];
+  };
+  timeline: Array<{
+    date: string;
+    type: "REPAIR" | "ORDER" | "INTERACTION";
+    data: Record<string, unknown>;
+  }>;
+}
+
+export interface TriggerRunResult {
+  processed?: number;
+  sent?: number;
+  failed?: number;
+  details?: Array<Record<string, unknown>>;
 }
