@@ -6,6 +6,7 @@ import {
   getNextStatuses,
   TERMINAL_STATUSES,
 } from "../../utils/status-machine.js";
+import { notifyStatusChange } from "../../notifications/engine.js";
 
 // --- Zod Schemas ---
 
@@ -221,6 +222,19 @@ export async function repairRoutes(app: FastifyInstance) {
 
       return created;
     });
+
+    // Fire-and-forget notification for reception
+    notifyStatusChange({
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticketNumber,
+      customerName: ticket.customerName ?? body.customerName ?? "Client",
+      customerEmail: ticket.customerEmail ?? body.customerEmail ?? null,
+      customerPhone: ticket.customerPhone ?? body.customerPhone ?? null,
+      productModel: ticket.productModel,
+      trackingToken,
+      fromStatus: "",
+      toStatus: "RECU",
+    }).catch((err) => app.log.error({ err }, "Reception notification failed"));
 
     return reply.status(201).send({
       success: true,
@@ -587,6 +601,22 @@ export async function repairRoutes(app: FastifyInstance) {
 
       return updatedTicket;
     });
+
+    // Fire-and-forget notification (don't block the response)
+    notifyStatusChange({
+      ticketId: id,
+      ticketNumber: ticket.ticketNumber,
+      customerName: ticket.customerName ?? "Client",
+      customerEmail: ticket.customerEmail,
+      customerPhone: ticket.customerPhone,
+      productModel: ticket.productModel,
+      trackingToken: ticket.trackingToken,
+      fromStatus: ticket.status,
+      toStatus: body.status,
+      estimatedCost: ticket.estimatedCost ? Number(ticket.estimatedCost) : null,
+      estimatedDays: ticket.estimatedDays,
+      performedBy: body.performedBy ?? user?.userId ?? null,
+    }).catch((err) => app.log.error({ err }, "Notification failed"));
 
     return { success: true, data: updated };
   });
@@ -955,6 +985,21 @@ export async function repairRoutes(app: FastifyInstance) {
 
       return updatedTicket;
     });
+
+    // Notify customer that repair is complete
+    notifyStatusChange({
+      ticketId: id,
+      ticketNumber: ticket.ticketNumber,
+      customerName: ticket.customerName ?? "Client",
+      customerEmail: ticket.customerEmail,
+      customerPhone: ticket.customerPhone,
+      productModel: ticket.productModel,
+      trackingToken: ticket.trackingToken,
+      fromStatus: ticket.status,
+      toStatus: "PRET",
+      estimatedCost: ticket.estimatedCost ? Number(ticket.estimatedCost) : null,
+      estimatedDays: ticket.estimatedDays,
+    }).catch((err) => app.log.error({ err }, "Complete notification failed"));
 
     return { success: true, data: updated };
   });
