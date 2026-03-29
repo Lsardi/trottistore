@@ -328,6 +328,9 @@ export const analyticsApi = {
   realtime: () =>
     apiFetch<{ success: boolean; data: RealtimeKpis }>('analytics', '/analytics/realtime'),
 
+  cockpit: () =>
+    apiFetch<{ success: boolean; data: CockpitSnapshot }>('analytics', '/analytics/cockpit'),
+
   kpis: (period: string) =>
     apiFetch<{ success: boolean; data: AggregatedKpis }>('analytics', '/analytics/kpis', { params: { period } }),
 
@@ -592,4 +595,64 @@ export interface SalesDataPoint {
   date: string;
   revenue: number;
   orders: number;
+}
+
+export interface CockpitSnapshot {
+  revenue: {
+    today: number;
+    yesterday: number;
+    sameDayLastWeek: number;
+  };
+  ordersToPrepare: Array<{
+    id: string;
+    orderNumber: number;
+    status: string;
+    totalTtc: string;
+    createdAt: string;
+  }>;
+  appointmentsToday: Array<{
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    customerName: string;
+    serviceType: string;
+    isExpress: boolean;
+    status: string;
+  }>;
+  savWaiting: Array<{
+    id: string;
+    ticketNumber: number;
+    status: string;
+    priority: string;
+    productModel: string;
+    customerName: string | null;
+    createdAt: string;
+  }>;
+  lowStock: Array<{
+    id: string;
+    sku: string;
+    name: string;
+    stockQuantity: number;
+    lowStockThreshold: number;
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+  }>;
+  crmInteractions: Array<{
+    id: string;
+    type: string;
+    channel: string;
+    subject: string | null;
+    referenceId: string | null;
+    createdAt: string;
+    customer: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
+  }>;
+  updatedAt: string;
 }

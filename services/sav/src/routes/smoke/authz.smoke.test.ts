@@ -69,4 +69,41 @@ describe("SAV auth guard smoke", () => {
     });
     expect(res.statusCode).toBe(200);
   });
+
+  it("allows MANAGER role on protected route", async () => {
+    const token = makeToken(app, "MANAGER");
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/internal",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("allows ADMIN role on protected route", async () => {
+    const token = makeToken(app, "ADMIN");
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/internal",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("rejects expired token", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = app.jwt.sign({
+      sub: "00000000-0000-0000-0000-000000000222",
+      email: "expired@trottistore.test",
+      role: "MANAGER",
+      iat: now - 3600,
+      exp: now - 1800,
+    });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/internal",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });
