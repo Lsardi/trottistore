@@ -265,6 +265,9 @@ export async function repairRoutes(app: FastifyInstance) {
     if (assignedTo) where.assignedTo = assignedTo;
     if (user?.role === "CLIENT") {
       where.customerId = user.userId;
+    } else if (user?.role === "TECHNICIAN") {
+      // TECHNICIAN can only see tickets assigned to them
+      where.assignedTo = user.userId;
     } else if (customerId) {
       where.customerId = customerId;
     }
@@ -527,6 +530,13 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
+      });
+    }
+
     return { success: true, data: ticket };
   });
 
@@ -555,6 +565,14 @@ export async function repairRoutes(app: FastifyInstance) {
       return reply.status(404).send({
         success: false,
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    // TECHNICIAN can only modify their assigned tickets
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
       });
     }
 
@@ -648,6 +666,14 @@ export async function repairRoutes(app: FastifyInstance) {
       return reply.status(404).send({
         success: false,
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    // TECHNICIAN can only diagnose their assigned tickets
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
       });
     }
 
@@ -899,6 +925,14 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
+    // TECHNICIAN can only add parts to their assigned tickets
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
+      });
+    }
+
     const part = await app.prisma.$transaction(async (tx) => {
       const created = await tx.repairPartUsed.create({
         data: {
@@ -967,6 +1001,14 @@ export async function repairRoutes(app: FastifyInstance) {
       return reply.status(404).send({
         success: false,
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    // TECHNICIAN can only complete their assigned tickets
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
       });
     }
 
