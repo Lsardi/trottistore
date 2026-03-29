@@ -1,0 +1,118 @@
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to deploy (all, web, ecommerce, crm, sav, analytics)"
+        required: false
+        default: "all"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  RAILWAY_PROJECT_ID: 64a2a1d8-a50a-4f24-80dd-bbe5e0ef1b4d
+
+jobs:
+  deploy:
+    name: Deploy to Railway Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy Web (Next.js)
+        if: inputs.service == 'all' || inputs.service == 'web' || github.event_name == 'push'
+        run: |
+          cd apps/web
+          railway up --service web --environment staging --detach -p $RAILWAY_PROJECT_ID
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy Ecommerce Service
+        if: inputs.service == 'all' || inputs.service == 'ecommerce' || github.event_name == 'push'
+        run: |
+          cd services/ecommerce
+          railway up --service ecommerce --environment staging --detach -p $RAILWAY_PROJECT_ID
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy CRM Service
+        if: inputs.service == 'all' || inputs.service == 'crm' || github.event_name == 'push'
+        run: |
+          cd services/crm
+          railway up --service crm --environment staging --detach -p $RAILWAY_PROJECT_ID
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy SAV Service
+        if: inputs.service == 'all' || inputs.service == 'sav' || github.event_name == 'push'
+        run: |
+          cd services/sav
+          railway up --service sav --environment staging --detach -p $RAILWAY_PROJECT_ID
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy Analytics Service
+        if: inputs.service == 'all' || inputs.service == 'analytics' || github.event_name == 'push'
+        run: |
+          cd services/analytics
+          railway up --service analytics --environment staging --detach -p $RAILWAY_PROJECT_ID
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  healthcheck:
+    name: Post-deploy healthchecks
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for services to start
+        run: sleep 30
+
+      - name: Check Web
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.STAGING_WEB_URL || 'https://staging.trottistore.fr' }}/ || echo "000")
+          echo "Web: $STATUS"
+          [ "$STATUS" = "200" ] || [ "$STATUS" = "308" ] || exit 1
+
+      - name: Check Ecommerce /health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.STAGING_ECOMMERCE_URL || 'https://ecommerce-staging.trottistore.fr' }}/health || echo "000")
+          echo "Ecommerce: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Check CRM /health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.STAGING_CRM_URL || 'https://crm-staging.trottistore.fr' }}/health || echo "000")
+          echo "CRM: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Check SAV /health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.STAGING_SAV_URL || 'https://sav-staging.trottistore.fr' }}/health || echo "000")
+          echo "SAV: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Check Analytics /health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.STAGING_ANALYTICS_URL || 'https://analytics-staging.trottistore.fr' }}/health || echo "000")
+          echo "Analytics: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Check Ecommerce /ready
+        run: |
+          BODY=$(curl -s ${{ vars.STAGING_ECOMMERCE_URL || 'https://ecommerce-staging.trottistore.fr' }}/ready)
+          echo "Ecommerce ready: $BODY"
+          echo "$BODY" | grep -q '"ready"' || exit 1
+
+      - name: Summary
+        if: always()
+        run: echo "Staging healthchecks complete"
