@@ -111,10 +111,16 @@ describe("Orders integration tests", () => {
   it("POST /api/v1/orders with missing body returns 400 (when authenticated)", async () => {
     // Build a separate app that injects a fake user via onRequest hook
     const authApp = buildTestApp();
+    authApp.decorateRequest("user", null);
 
     // Simulate authentication by injecting user on every request
     authApp.addHook("onRequest", async (request) => {
-      (request as any).user = { userId: "user-123", email: "test@test.com", role: "CLIENT" };
+      (request as FastifyRequest & { user: unknown }).user = {
+        id: "user-123",
+        userId: "user-123",
+        email: "test@test.com",
+        role: "CLIENT",
+      };
     });
 
     await authApp.register(orderRoutes, { prefix: "/api/v1" });
@@ -137,9 +143,15 @@ describe("Orders integration tests", () => {
 
   it("POST /api/v1/orders with empty cart returns 400 (when authenticated)", async () => {
     const authApp = buildTestApp();
+    authApp.decorateRequest("user", null);
 
     authApp.addHook("onRequest", async (request) => {
-      (request as any).user = { userId: "user-123", email: "test@test.com", role: "CLIENT" };
+      (request as FastifyRequest & { user: unknown }).user = {
+        id: "user-123",
+        userId: "user-123",
+        email: "test@test.com",
+        role: "CLIENT",
+      };
     });
 
     await authApp.register(orderRoutes, { prefix: "/api/v1" });
