@@ -13,6 +13,7 @@ import { healthRoutes } from "./routes/health.js";
 import { customerRoutes } from "./routes/customers/index.js";
 import { segmentRoutes } from "./routes/segments/index.js";
 import { campaignRoutes } from "./routes/campaigns/index.js";
+import { triggerRoutes } from "./routes/triggers/index.js";
 import { ZodError } from "zod";
 
 const PORT = parseInt(process.env.PORT_CRM || "3002", 10);
@@ -133,6 +134,7 @@ async function start() {
   await app.register(customerRoutes, { prefix: "/api/v1" });
   await app.register(segmentRoutes, { prefix: "/api/v1" });
   await app.register(campaignRoutes, { prefix: "/api/v1" });
+  await app.register(triggerRoutes, { prefix: "/api/v1" });
 
   // Demarrage
   try {

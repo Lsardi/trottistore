@@ -41,6 +41,9 @@ function buildTestApp(): FastifyInstance {
     repairStatusLog: {
       create: vi.fn().mockResolvedValue({}),
     },
+    repairActivityLog: {
+      create: vi.fn().mockResolvedValue({}),
+    },
     repairPartUsed: {
       create: vi.fn().mockResolvedValue({}),
       aggregate: vi.fn().mockResolvedValue({ _sum: { unitCost: 0 } }),
@@ -108,7 +111,7 @@ describe("SAV Tickets integration tests", () => {
   it("GET /api/v1/repairs supports filter params", async () => {
     const res = await app.inject({
       method: "GET",
-      url: "/api/v1/repairs?status=NOUVEAU&priority=HIGH&sort=priority",
+      url: "/api/v1/repairs?status=RECU&priority=HIGH&sort=priority",
     });
 
     expect(res.statusCode).toBe(200);

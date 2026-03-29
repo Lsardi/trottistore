@@ -83,12 +83,12 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
         <div>
           <h1 className="heading-lg">DASHBOARD</h1>
           <p className="font-mono text-sm text-text-muted mt-1">Vue 360 du magasin: ventes, SAV, RDV, stock, CRM</p>
         </div>
-        <div className="flex items-center gap-2 bg-surface border border-border px-4 py-2">
+        <div className="inline-flex w-fit items-center gap-2 bg-surface border border-border px-3 py-2">
           <span className={cn("h-2 w-2", cockpit ? "bg-neon animate-neon-pulse" : "bg-text-dim")} />
           <span className="font-mono text-xs text-text-muted">
             {cockpit ? `Maj ${formatShortDate(cockpit.updatedAt)}` : "En attente..."}
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 md:mb-8">
         <a href="/admin/commandes" className="group bg-surface border border-border p-5 hover:border-neon/40 transition-all">
           <div className="flex items-center justify-between">
             <p className="font-display font-bold text-text">Commandes à préparer</p>
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
           </div>
           <p className="font-mono text-xs text-text-muted mt-2">Prioriser les tickets bloquants</p>
         </a>
-        <a href="/admin/produits" className="group bg-surface border border-border p-5 hover:border-neon/40 transition-all">
+        <a href="/admin/stock" className="group bg-surface border border-border p-5 hover:border-neon/40 transition-all">
           <div className="flex items-center justify-between">
             <p className="font-display font-bold text-text">Stock critique</p>
             <ArrowRight className="h-4 w-4 text-text-dim group-hover:text-neon transition-colors" />
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
           </div>
           {cockpit?.ordersToPrepare.length ? (
             <div className="space-y-3">
-              {cockpit.ordersToPrepare.slice(0, 6).map((order) => (
+              {cockpit.ordersToPrepare.slice(0, 4).map((order) => (
                 <div key={order.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
                   <div>
                     <p className="font-mono text-xs text-neon font-bold">#{order.orderNumber}</p>
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
           </div>
           {cockpit?.appointmentsToday.length ? (
             <div className="space-y-3">
-              {cockpit.appointmentsToday.slice(0, 6).map((rdv) => (
+              {cockpit.appointmentsToday.slice(0, 4).map((rdv) => (
                 <div key={rdv.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
                   <div>
                     <p className="font-mono text-xs text-text">{rdv.customerName}</p>
@@ -198,7 +198,7 @@ export default function AdminDashboard() {
           </div>
           {cockpit?.savWaiting.length ? (
             <div className="space-y-3">
-              {cockpit.savWaiting.slice(0, 6).map((ticket) => (
+              {cockpit.savWaiting.slice(0, 4).map((ticket) => (
                 <div key={ticket.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
                   <div>
                     <p className="font-mono text-xs text-neon font-bold">SAV-{String(ticket.ticketNumber).padStart(4, "0")}</p>
@@ -225,7 +225,7 @@ export default function AdminDashboard() {
           </div>
           {cockpit?.lowStock.length ? (
             <div className="space-y-3">
-              {cockpit.lowStock.slice(0, 6).map((variant) => (
+              {cockpit.lowStock.slice(0, 4).map((variant) => (
                 <div key={variant.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
                   <div>
                     <p className="font-mono text-xs text-text">{variant.product.name}</p>

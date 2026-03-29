@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Package,
+  Boxes,
   Users,
   Wrench,
   BarChart3,
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Commandes", href: "/admin/commandes", icon: ShoppingCart },
   { label: "Produits", href: "/admin/produits", icon: Package },
+  { label: "Stock", href: "/admin/stock", icon: Boxes },
   { label: "Clients", href: "/admin/clients", icon: Users },
   { label: "SAV", href: "/admin/sav", icon: Wrench },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
@@ -29,8 +31,55 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-void">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-void border-r border-border flex flex-col z-40">
+      {/* Mobile top bar */}
+      <header className="md:hidden sticky top-0 z-40 border-b border-border bg-void/95 backdrop-blur">
+        <div className="px-4 py-3 flex items-center justify-between gap-3">
+          <Link href="/admin" className="flex items-center gap-2 min-w-0">
+            <div className="flex h-8 w-8 items-center justify-center bg-neon shrink-0">
+              <Package className="h-4 w-4 text-void" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-display text-sm font-bold text-text truncate">{brand.name}</p>
+              <p className="font-mono text-[10px] text-text-dim">Admin</p>
+            </div>
+          </Link>
+          <Link
+            href="/"
+            className="font-mono text-[11px] text-text-dim border border-border px-2.5 py-1.5 shrink-0"
+          >
+            Boutique
+          </Link>
+        </div>
+        <nav className="px-3 pb-3 overflow-x-auto">
+          <div className="flex items-center gap-2 min-w-max">
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                item.href === "/admin"
+                  ? pathname === "/admin"
+                  : pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 border font-mono text-[11px] whitespace-nowrap",
+                    isActive
+                      ? "border-neon bg-neon-dim text-neon"
+                      : "border-border text-text-muted",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      </header>
+
+      {/* Sidebar desktop */}
+      <aside className="hidden md:flex fixed left-0 top-0 h-full w-64 bg-void border-r border-border flex-col z-40">
         {/* Logo */}
         <div className="px-6 py-6">
           <Link href="/admin" className="flex items-center gap-3">
@@ -98,7 +147,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main content */}
-      <main className="ml-64 min-h-screen p-8">
+      <main className="min-h-screen p-4 md:ml-64 md:p-8">
         {children}
       </main>
     </div>
