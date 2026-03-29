@@ -478,7 +478,7 @@ export async function customerRoutes(app: FastifyInstance) {
         profile,
         stats: {
           totalRepairs: repairs.length,
-          activeRepairs: repairs.filter((r) => !["RECUPERE", "REFUS_CLIENT", "IRREPARABLE"].includes(r.status)).length,
+          activeRepairs: repairs.filter((r: { status: string }) => !["RECUPERE", "REFUS_CLIENT", "IRREPARABLE"].includes(r.status)).length,
           totalOrders: orders.length,
           totalSpent: Number(profile.totalSpent),
           scooterModels: profile.scooterModels,
