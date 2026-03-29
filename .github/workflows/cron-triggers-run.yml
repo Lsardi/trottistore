@@ -1,0 +1,67 @@
+name: Cron — Run CRM Triggers
+
+on:
+  schedule:
+    # Every hour at minute 5
+    - cron: "5 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry mode (no side effects when supported)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+jobs:
+  run-triggers:
+    name: Run /triggers/run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Default requested endpoint for internal network setups.
+      TRIGGERS_RUN_URL: ${{ vars.TRIGGERS_RUN_URL || 'http://crm:3002/api/v1/triggers/run' }}
+      TRIGGERS_RUN_TOKEN: ${{ secrets.TRIGGERS_RUN_TOKEN }}
+      INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+    steps:
+      - name: Call CRM triggers endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Calling: ${TRIGGERS_RUN_URL}"
+          if [ "${INPUT_DRY_RUN}" = "true" ]; then
+            PAYLOAD='{"dryRun":true}'
+          else
+            PAYLOAD='{}'
+          fi
+
+          if [ -n "${TRIGGERS_RUN_TOKEN:-}" ]; then
+            AUTH_HEADER=(-H "Authorization: Bearer ${TRIGGERS_RUN_TOKEN}")
+          else
+            AUTH_HEADER=()
+          fi
+
+          curl --fail-with-body --show-error --silent \
+            --max-time 30 \
+            --retry 3 \
+            --retry-delay 5 \
+            -X POST "${TRIGGERS_RUN_URL}" \
+            -H "Content-Type: application/json" \
+            "${AUTH_HEADER[@]}" \
+            -d "${PAYLOAD}" \
+            | tee /tmp/triggers-run.json
+
+      - name: Print compact summary
+        shell: bash
+        run: |
+          if command -v jq >/dev/null 2>&1; then
+            jq '{success, message, data}' /tmp/triggers-run.json || cat /tmp/triggers-run.json
+          else
+            cat /tmp/triggers-run.json
+          fi
