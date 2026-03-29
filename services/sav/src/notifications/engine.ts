@@ -229,9 +229,31 @@ export async function sendEmail(payload: NotificationPayload): Promise<boolean> 
   return false;
 }
 
+// --- Phone number normalization ---
+
+/**
+ * Normalize French phone number to E.164 format for Brevo.
+ * 0612345678 → +33612345678
+ * +33612345678 → +33612345678
+ * Returns null if invalid.
+ */
+function normalizePhone(phone: string): string | null {
+  const cleaned = phone.replace(/[\s\-\.\(\)]/g, "");
+  if (cleaned.startsWith("+") && cleaned.length >= 10) return cleaned;
+  if (cleaned.startsWith("0") && cleaned.length === 10) return `+33${cleaned.substring(1)}`;
+  if (cleaned.startsWith("33") && cleaned.length === 11) return `+${cleaned}`;
+  console.warn(`[notifications] Invalid phone format: ${phone}`);
+  return null;
+}
+
+// --- SMS dispatch ---
+
 export async function sendSMS(payload: NotificationPayload): Promise<boolean> {
   const template = getTemplate(payload.toStatus);
   if (!template?.smsContent || !payload.customerPhone) return false;
+
+  const recipient = normalizePhone(payload.customerPhone);
+  if (!recipient) return false;
 
   const trackingUrl = buildTrackingUrl(payload.trackingToken);
   const content = interpolate(template.smsContent, {
@@ -240,21 +262,51 @@ export async function sendSMS(payload: NotificationPayload): Promise<boolean> {
     trackingUrl,
   });
 
-  return brevoFetch("/transactionalSMS/sms", {
+  if (!process.env.BREVO_API_KEY) {
+    // Dev mode: log SMS content instead of sending
+    console.log(`[notifications] SMS (dev log, not sent) to ${recipient}: ${content}`);
+    return false;
+  }
+
+  const success = await brevoFetch("/transactionalSMS/sms", {
     sender: "TrottiStore",
-    recipient: payload.customerPhone,
+    recipient,
     content,
     type: "transactional",
   });
+
+  if (success) {
+    console.log(`[notifications] SMS sent to ${recipient} (status: ${payload.toStatus})`);
+  }
+
+  return success;
+}
+
+// --- Notification result type ---
+
+export interface NotificationResult {
+  email: boolean;
+  sms: boolean;
+  status: string;
+  ticketId: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
 }
 
 /**
  * Main notification dispatch — call this on every status change.
- * Returns { email: boolean, sms: boolean } indicating success.
+ * Returns structured result for logging/audit.
  */
-export async function notifyStatusChange(payload: NotificationPayload): Promise<{ email: boolean; sms: boolean }> {
+export async function notifyStatusChange(payload: NotificationPayload): Promise<NotificationResult> {
+  const base = {
+    status: payload.toStatus,
+    ticketId: payload.ticketId,
+    customerEmail: payload.customerEmail,
+    customerPhone: payload.customerPhone,
+  };
+
   if (!shouldNotify(payload.toStatus)) {
-    return { email: false, sms: false };
+    return { email: false, sms: false, ...base };
   }
 
   const [email, sms] = await Promise.all([
@@ -262,5 +314,7 @@ export async function notifyStatusChange(payload: NotificationPayload): Promise<
     sendSMS(payload),
   ]);
 
-  return { email, sms };
+  const result = { email, sms, ...base };
+  console.log(`[notifications] Result: ${JSON.stringify(result)}`);
+  return result;
 }
