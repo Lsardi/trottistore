@@ -1,9 +1,16 @@
 /**
  * Notification engine for SAV status changes.
- * Sends email + SMS via Brevo API on ticket status transitions.
+ * Sends email via SMTP (Mailpit in dev) or Brevo API (prod).
+ * Sends SMS via Brevo transactional SMS API.
+ *
+ * Email routing:
+ *   - If SMTP_HOST is set → nodemailer SMTP (Mailpit in dev, any SMTP in prod)
+ *   - Else if BREVO_API_KEY is set → Brevo API
+ *   - Else → skip (logged)
  *
  * Feature flag: FEATURE_AUTO_NOTIFICATIONS (default: false)
  */
+import nodemailer from "nodemailer";
 
 export interface NotificationPayload {
   ticketId: string;
@@ -122,14 +129,77 @@ async function brevoFetch(path: string, body: unknown): Promise<boolean> {
   }
 }
 
+// --- SMTP transport (Mailpit in dev, any SMTP relay in prod) ---
+
+function getSmtpTransport() {
+  const host = process.env.SMTP_HOST;
+  if (!host) return null;
+
+  return nodemailer.createTransport({
+    host,
+    port: Number(process.env.SMTP_PORT || "1025"),
+    secure: false, // Mailpit doesn't use TLS
+    ...(process.env.SMTP_USER ? {
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS || "",
+      },
+    } : {}),
+  });
+}
+
+async function sendEmailSmtp(
+  to: string,
+  toName: string,
+  subject: string,
+  text: string,
+): Promise<boolean> {
+  const transport = getSmtpTransport();
+  if (!transport) return false;
+
+  try {
+    await transport.sendMail({
+      from: `"TrottiStore SAV" <${process.env.BREVO_SENDER_EMAIL || "sav@trottistore.fr"}>`,
+      to: `"${toName}" <${to}>`,
+      subject,
+      text,
+    });
+    console.log(`[notifications] Email sent via SMTP to ${to}`);
+    return true;
+  } catch (err) {
+    console.error("[notifications] SMTP send error:", err);
+    return false;
+  }
+}
+
+// --- Email dispatch (SMTP first, then Brevo API fallback) ---
+
 export async function sendEmail(payload: NotificationPayload): Promise<boolean> {
   const template = getTemplate(payload.toStatus);
   if (!template || !payload.customerEmail) return false;
 
   const trackingUrl = buildTrackingUrl(payload.trackingToken);
+  const textContent = interpolate(
+    "Bonjour {customerName},\n\n{subject}\n\nSuivez votre reparation: {trackingUrl}\n\nTrottiStore SAV",
+    {
+      customerName: payload.customerName,
+      subject: template.subject,
+      trackingUrl,
+    },
+  );
 
-  if (template.emailTemplateId) {
-    // Use Brevo template
+  // Route 1: SMTP (Mailpit in dev, any SMTP relay)
+  if (process.env.SMTP_HOST) {
+    return sendEmailSmtp(
+      payload.customerEmail,
+      payload.customerName,
+      template.subject,
+      textContent,
+    );
+  }
+
+  // Route 2: Brevo API with template
+  if (process.env.BREVO_API_KEY && template.emailTemplateId) {
     return brevoFetch("/smtp/email", {
       templateId: Number(template.emailTemplateId),
       to: [{ email: payload.customerEmail, name: payload.customerName }],
@@ -145,20 +215,18 @@ export async function sendEmail(payload: NotificationPayload): Promise<boolean> 
     });
   }
 
-  // Fallback: send plain text email
-  return brevoFetch("/smtp/email", {
-    sender: { name: "TrottiStore SAV", email: process.env.BREVO_SENDER_EMAIL || "sav@trottistore.fr" },
-    to: [{ email: payload.customerEmail, name: payload.customerName }],
-    subject: template.subject,
-    textContent: interpolate(
-      "Bonjour {customerName},\n\n{subject}\n\nSuivez votre reparation: {trackingUrl}\n\nTrottiStore SAV",
-      {
-        customerName: payload.customerName,
-        subject: template.subject,
-        trackingUrl,
-      },
-    ),
-  });
+  // Route 3: Brevo API plain text fallback
+  if (process.env.BREVO_API_KEY) {
+    return brevoFetch("/smtp/email", {
+      sender: { name: "TrottiStore SAV", email: process.env.BREVO_SENDER_EMAIL || "sav@trottistore.fr" },
+      to: [{ email: payload.customerEmail, name: payload.customerName }],
+      subject: template.subject,
+      textContent,
+    });
+  }
+
+  console.warn("[notifications] No email transport configured (set SMTP_HOST or BREVO_API_KEY)");
+  return false;
 }
 
 export async function sendSMS(payload: NotificationPayload): Promise<boolean> {
