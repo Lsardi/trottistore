@@ -364,6 +364,47 @@ export const analyticsApi = {
     }),
 };
 
+// ─── STOCK (admin) ────────────────────────────────────────
+
+export const stockApi = {
+  createMovement: (body: {
+    variantId: string;
+    type: StockMovementType;
+    quantity: number;
+    reason?: string;
+    referenceId?: string;
+    referenceType?: "ORDER" | "REPAIR_TICKET" | "MANUAL";
+  }) =>
+    apiFetch<{ success: boolean; data: { movement: StockMovement; stockAfter: number; alert: StockAlertMessage | null } }>(
+      "ecommerce",
+      "/stock/movements",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    ),
+
+  listMovements: (params?: { page?: number; limit?: number; variantId?: string; type?: StockMovementType }) =>
+    apiFetch<{ success: boolean; data: StockMovement[]; pagination: Pagination }>(
+      "ecommerce",
+      "/stock/movements",
+      { params },
+    ),
+
+  listAlerts: (params?: { threshold?: number }) =>
+    apiFetch<{ success: boolean; data: StockAlert[]; count: number }>(
+      "ecommerce",
+      "/stock/alerts",
+      { params },
+    ),
+
+  summary: () =>
+    apiFetch<{ success: boolean; data: StockMovementSummary[] }>(
+      "ecommerce",
+      "/stock/movements/summary",
+    ),
+};
+
 // ─── TYPES ────────────────────────────────────────────────
 
 export interface Product {
@@ -675,4 +716,58 @@ export interface CockpitSnapshot {
     };
   }>;
   updatedAt: string;
+}
+
+export type StockMovementType =
+  | "IN_PURCHASE"
+  | "IN_RETURN"
+  | "IN_ADJUSTMENT"
+  | "OUT_SALE"
+  | "OUT_REPAIR"
+  | "OUT_ADJUSTMENT"
+  | "OUT_LOSS";
+
+export interface StockMovement {
+  id: string;
+  variantId: string;
+  type: StockMovementType;
+  quantity: number;
+  reason?: string | null;
+  referenceId?: string | null;
+  referenceType?: "ORDER" | "REPAIR_TICKET" | "MANUAL" | null;
+  performedBy: string;
+  stockBefore: number;
+  stockAfter: number;
+  createdAt: string;
+  variant?: {
+    id: string;
+    sku: string;
+    name: string;
+    stockQuantity: number;
+  };
+}
+
+export interface StockAlert {
+  variantId: string;
+  sku: string;
+  variantName: string;
+  productName: string;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  severity: "OUT_OF_STOCK" | "LOW_STOCK";
+}
+
+export interface StockAlertMessage {
+  type: "LOW_STOCK";
+  message: string;
+}
+
+export interface StockMovementSummary {
+  variantId: string;
+  sku: string;
+  name: string;
+  totalIn: number;
+  totalOut: number;
+  movementCount: number;
+  currentStock: number;
 }
