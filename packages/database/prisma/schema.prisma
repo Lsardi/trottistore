@@ -209,10 +209,35 @@ model ProductVariant {
   product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
   repairParts RepairPartUsed[]
+  stockMovements StockMovement[]
 
   @@index([productId])
   @@index([sku])
   @@map("product_variants")
+  @@schema("ecommerce")
+}
+
+model StockMovement {
+  id          String   @id @default(uuid()) @db.Uuid
+  variantId   String   @map("variant_id") @db.Uuid
+  type        String   @db.VarChar(30)
+  // IN_PURCHASE, IN_RETURN, IN_ADJUSTMENT, OUT_SALE, OUT_REPAIR, OUT_ADJUSTMENT, OUT_LOSS
+  quantity    Int      // Positif = entrée, négatif = sortie
+  reason      String?  @db.VarChar(500)
+  referenceId String?  @map("reference_id") @db.VarChar(100) // orderId, ticketId, etc.
+  referenceType String? @map("reference_type") @db.VarChar(30) // ORDER, REPAIR_TICKET, MANUAL
+  performedBy String?  @map("performed_by") @db.Uuid
+  stockBefore Int      @map("stock_before")
+  stockAfter  Int      @map("stock_after")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId])
+  @@index([type])
+  @@index([referenceId])
+  @@index([createdAt])
+  @@map("stock_movements")
   @@schema("ecommerce")
 }
 
