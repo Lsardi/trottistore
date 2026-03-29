@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+if [[ "$branch" == "main" || "$branch" == "develop" ]]; then
+  echo "Push bloque: branche protegee ($branch)."
+  exit 1
+fi
+
+agent="$(git config --worktree --get trottistore.agent || true)"
+if [[ -z "$agent" ]]; then
+  echo "Push bloque: worktree non initialise."
+  echo "Execute: ./scripts/git-agent-worktree.sh init <agent> [topic] [base-ref]"
+  exit 1
+fi
+
+if [[ "$branch" != "$agent/"* ]]; then
+  echo "Push bloque: branche '$branch' incompatible avec agent '$agent'."
+  echo "Convention attendue: ${agent}/*"
+  exit 1
+fi
+
+exit 0
