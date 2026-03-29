@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Minus, Plus, ImageOff, ArrowLeft } from "lucide-react";
+import { Minus, Plus, ImageOff, ArrowLeft, MapPin, Clock } from "lucide-react";
 import { productsApi, cartApi, type Product } from "@/lib/api";
 import { formatPriceTTC, priceTTC } from "@/lib/utils";
 import ProductCard from "@/components/ProductCard";
@@ -329,6 +329,33 @@ export default function ProductPage() {
                 </span>
               </div>
             </div>
+
+            {/* Badge retrait boutique */}
+            {inStock && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 14px",
+                  backgroundColor: "rgba(0, 255, 209, 0.08)",
+                  border: "1px solid rgba(0, 255, 209, 0.2)",
+                  marginBottom: 20,
+                  borderRadius: "var(--radius-sm)",
+                }}
+              >
+                <MapPin style={{ width: 16, height: 16, color: "var(--color-neon)", flexShrink: 0 }} />
+                <div>
+                  <p className="font-display" style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-neon)" }}>
+                    RETRAIT BOUTIQUE EN 1H
+                  </p>
+                  <p className="font-mono" style={{ fontSize: "0.65rem", color: "var(--color-text-muted)" }}>
+                    Commandez en ligne, récupérez en magasin
+                  </p>
+                </div>
+                <Clock style={{ width: 14, height: 14, color: "var(--color-text-dim)", flexShrink: 0, marginLeft: "auto" }} />
+              </div>
+            )}
 
             <div className="divider mb-5" />
 

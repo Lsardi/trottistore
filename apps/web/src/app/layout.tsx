@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import { DEFAULT_THEME, THEME_PROFILES, THEME_STORAGE_KEY } from "@/lib/themes";
+import StructuredData from "@/components/StructuredData";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="fr">
+      <head>
+        <StructuredData />
+      </head>
       <body className="font-sans antialiased">
         <script
           dangerouslySetInnerHTML={{

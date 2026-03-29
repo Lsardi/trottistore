@@ -6,11 +6,11 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { ApiError, authApi, cartApi, ordersApi, type CartItem, type User } from "@/lib/api";
 
 const PAYMENT_METHODS = [
-  { value: "CARD", label: "Carte bancaire" },
   { value: "APPLE_PAY", label: "Apple Pay" },
   { value: "GOOGLE_PAY", label: "Google Pay" },
-  { value: "BANK_TRANSFER", label: "Virement" },
-  { value: "INSTALLMENT_3X", label: "Paiement 3x" },
+  { value: "CARD", label: "Carte bancaire" },
+  { value: "INSTALLMENT_3X", label: "Paiement en 3x sans frais" },
+  { value: "BANK_TRANSFER", label: "Virement bancaire" },
 ] as const;
 
 function formatPrice(amount: number): string {
@@ -24,7 +24,7 @@ export default function CheckoutPage() {
   const [user, setUser] = useState<User | null>(null);
   const [shippingAddressId, setShippingAddressId] = useState("");
   const [billingAddressId, setBillingAddressId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]["value"]>("CARD");
+  const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]["value"]>("APPLE_PAY");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [successOrderId, setSuccessOrderId] = useState("");
