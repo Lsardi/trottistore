@@ -22,6 +22,7 @@ COPY packages/ ./packages/
 COPY apps/web/ ./apps/web/
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DOCKER_BUILD=true
 RUN pnpm --filter @trottistore/database db:generate
 RUN pnpm --filter @trottistore/web build
 
