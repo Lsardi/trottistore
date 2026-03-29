@@ -376,4 +376,115 @@ export async function customerRoutes(app: FastifyInstance) {
 
     return { success: true, data: interaction };
   });
+
+  // GET /customers/:id/garage — Full repair + purchase history (timeline)
+  app.get("/customers/:id/garage", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    // Get customer profile
+    const profile = await app.prisma.customerProfile.findUnique({
+      where: { userId: id },
+      select: {
+        loyaltyTier: true,
+        loyaltyPoints: true,
+        totalOrders: true,
+        totalSpent: true,
+        scooterModels: true,
+        tags: true,
+      },
+    });
+
+    if (!profile) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Profil client introuvable" },
+      });
+    }
+
+    // Fetch repairs, orders, and interactions in parallel
+    const [repairs, orders, interactions] = await Promise.all([
+      app.prisma.repairTicket.findMany({
+        where: { customerId: id },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          ticketNumber: true,
+          productModel: true,
+          type: true,
+          status: true,
+          priority: true,
+          visitReason: true,
+          diagnosis: true,
+          estimatedCost: true,
+          actualCost: true,
+          createdAt: true,
+          closedAt: true,
+        },
+      }),
+      app.prisma.order.findMany({
+        where: { customerId: id },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          totalTtc: true,
+          paymentMethod: true,
+          createdAt: true,
+          items: {
+            select: {
+              quantity: true,
+              product: { select: { name: true } },
+            },
+          },
+        },
+      }),
+      app.prisma.customerInteraction.findMany({
+        where: { customerId: id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          type: true,
+          channel: true,
+          subject: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    // Build unified timeline (sorted by date, newest first)
+    const timeline: Array<{
+      date: Date;
+      type: "REPAIR" | "ORDER" | "INTERACTION";
+      data: unknown;
+    }> = [];
+
+    for (const r of repairs) {
+      timeline.push({ date: r.createdAt, type: "REPAIR", data: r });
+    }
+    for (const o of orders) {
+      timeline.push({ date: o.createdAt, type: "ORDER", data: o });
+    }
+    for (const i of interactions) {
+      timeline.push({ date: i.createdAt, type: "INTERACTION", data: i });
+    }
+
+    timeline.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    return {
+      success: true,
+      data: {
+        profile,
+        stats: {
+          totalRepairs: repairs.length,
+          activeRepairs: repairs.filter((r) => !["RECUPERE", "REFUS_CLIENT", "IRREPARABLE"].includes(r.status)).length,
+          totalOrders: orders.length,
+          totalSpent: Number(profile.totalSpent),
+          scooterModels: profile.scooterModels,
+        },
+        timeline,
+      },
+    };
+  });
 }
