@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, CalendarClock, Loader2, Phone, Wrench } from "lucide-react";
 import { appointmentsApi, repairsApi, type AppointmentSlot } from "@/lib/api";
 import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
+import { trackFunnelEvent } from "@/lib/funnel-tracking";
 
 function formatSlot(iso: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -46,12 +47,24 @@ function UrgencePage() {
 
   const availableSlots = useMemo(() => slots.filter((slot) => slot.available), [slots]);
 
+  useEffect(() => {
+    if (searchParams.get("issue")) {
+      void trackFunnelEvent("diagnostic_ticket_cta_clicked", {
+        source: "diagnostic_to_urgence",
+      });
+    }
+  }, [searchParams]);
+
   async function loadSlots() {
     setLoadingSlots(true);
     setError("");
     try {
       const res = await appointmentsApi.slots({ date, durationMin: 60 });
       setSlots(res.data);
+      void trackFunnelEvent("urgence_slots_loaded", {
+        date,
+        availableSlots: res.data.filter((slot) => slot.available).length,
+      });
     } catch {
       setError("Impossible de charger les créneaux. Réessayez.");
     } finally {
@@ -92,6 +105,10 @@ function UrgencePage() {
       setSuccess({
         trackingUrl: ticketRes.data.trackingUrl,
         ticketNumber: ticketRes.data.ticketNumber,
+      });
+      void trackFunnelEvent("urgence_ticket_created", {
+        express: formData.isExpress,
+        withAppointment: !!selectedSlot,
       });
     } catch {
       setError("Impossible d'envoyer votre demande. Appelez-nous directement.");

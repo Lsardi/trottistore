@@ -59,22 +59,157 @@ const BRAND_DATA: Record<string, { name: string; tagline: string; models: string
   },
 };
 
+const ISSUE_DATA: Record<
+  string,
+  {
+    title: string;
+    symptom: string;
+    likelyCauses: string[];
+    priceRange: string;
+    avgDelay: string;
+    compatibleBrands: string[];
+  }
+> = {
+  "trottinette-ne-demarre-plus": {
+    title: "Trottinette qui ne démarre plus",
+    symptom: "La trottinette reste éteinte ou s’éteint immédiatement après allumage.",
+    likelyCauses: ["Batterie hors service", "Contrôleur HS", "BMS défaillant", "Connectique power endommagée"],
+    priceRange: "À partir de 49€ (diagnostic) puis devis entre 90€ et 390€",
+    avgDelay: "24h à 72h selon pièces",
+    compatibleBrands: ["Xiaomi", "Ninebot", "Dualtron", "Kaabo", "Vsett", "Inokim", "Segway", "Teverun"],
+  },
+  "pneu-creve-trottinette": {
+    title: "Pneu crevé trottinette",
+    symptom: "Perte de pression rapide, roue molle, conduite instable ou chambre à air percée.",
+    likelyCauses: ["Crevaison chambre à air", "Valve défectueuse", "Pneu usé", "Jante pincée"],
+    priceRange: "Entre 29€ et 89€ selon modèle",
+    avgDelay: "30 min à 2h (souvent dans la journée)",
+    compatibleBrands: ["Xiaomi", "Ninebot", "Dualtron", "Kaabo", "Vsett", "Inokim", "Segway", "Teverun"],
+  },
+  "frein-trottinette-ne-freine-plus": {
+    title: "Frein trottinette qui ne freine plus",
+    symptom: "Course de levier excessive, bruit au freinage, distance d’arrêt allongée.",
+    likelyCauses: ["Plaquettes usées", "Disque voilé", "Purge frein hydraulique", "Câble détendu"],
+    priceRange: "Entre 39€ et 149€",
+    avgDelay: "Le jour même à 48h",
+    compatibleBrands: ["Dualtron", "Kaabo", "Vsett", "Ninebot", "Xiaomi", "Teverun"],
+  },
+  "batterie-trottinette-ne-charge-plus": {
+    title: "Batterie trottinette ne charge plus",
+    symptom: "Charge impossible, voyant chargeur anormal, autonomie très faible.",
+    likelyCauses: ["Chargeur défaillant", "Port de charge endommagé", "Cellules batterie usées", "BMS en défaut"],
+    priceRange: "Diagnostic + devis entre 60€ et 490€",
+    avgDelay: "48h à 5 jours selon disponibilité batterie",
+    compatibleBrands: ["Xiaomi", "Ninebot", "Dualtron", "Kaabo", "Inokim", "Segway", "Teverun"],
+  },
+  "guidon-trottinette-qui-bouge": {
+    title: "Guidon trottinette qui bouge / jeu de direction",
+    symptom: "Jeu au niveau de la colonne, vibrations, sensation d’instabilité.",
+    likelyCauses: ["Serrage pliage à reprendre", "Roulements direction usés", "Pièces charnière usées"],
+    priceRange: "Entre 25€ et 120€",
+    avgDelay: "30 min à 24h",
+    compatibleBrands: ["Dualtron", "Kaabo", "Vsett", "Xiaomi", "Ninebot", "Inokim"],
+  },
+};
+
 export async function generateStaticParams() {
-  return Object.keys(BRAND_DATA).map((slug) => ({ slug }));
+  const brandSlugs = Object.keys(BRAND_DATA).map((slug) => ({ slug }));
+  const issueSlugs = Object.keys(ISSUE_DATA).map((slug) => ({ slug }));
+  return [...brandSlugs, ...issueSlugs];
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const data = BRAND_DATA[slug];
-  const name = data?.name || slug;
+  const issue = ISSUE_DATA[slug];
+  if (issue) {
+    return {
+      title: `${issue.title} — Réparation rapide à ${brand.address.city} | ${brand.name}`,
+      description: `${issue.symptom} Diagnostic atelier à ${brand.address.city}, devis transparent et pièces en stock. ${issue.priceRange}.`,
+    };
+  }
+
+  const brandData = BRAND_DATA[slug];
+  const name = brandData?.name || slug;
   return {
     title: `Réparation trottinette ${name} — ${brand.address.city} | ${brand.name}`,
-    description: `Atelier spécialisé réparation trottinette ${name} à ${brand.address.city}. Diagnostic gratuit, devis transparent, pièces en stock. Toutes pannes : ${data?.commonIssues.slice(0, 3).join(", ")}.`,
+    description: `Atelier spécialisé réparation trottinette ${name} à ${brand.address.city}. Diagnostic gratuit, devis transparent, pièces en stock. Toutes pannes : ${brandData?.commonIssues.slice(0, 3).join(", ")}.`,
   };
 }
 
 export default async function ReparationBrandPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const issue = ISSUE_DATA[slug];
+
+  if (issue) {
+    const issueSchema = {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      name: issue.title,
+      description: issue.symptom,
+      provider: {
+        "@type": "LocalBusiness",
+        name: brand.name,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: brand.address.street,
+          postalCode: brand.address.postalCode,
+          addressLocality: brand.address.city,
+          addressCountry: "FR",
+        },
+      },
+      areaServed: "Île-de-France",
+    };
+
+    return (
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(issueSchema) }} />
+
+        <div className="mb-10">
+          <p className="spec-label mb-2 text-neon">PANNE COURANTE</p>
+          <h1 className="heading-lg mb-3">{issue.title.toUpperCase()}</h1>
+          <p className="font-mono text-sm text-text-muted max-w-2xl">{issue.symptom}</p>
+        </div>
+
+        <div className="flex flex-wrap gap-3 mb-10">
+          <Link href={`/urgence?issue=${encodeURIComponent(issue.title)}`} className="btn-neon">DEMANDE URGENTE</Link>
+          <Link href="/diagnostic" className="btn-outline">LANCER LE DIAGNOSTIC</Link>
+          <a href={`tel:${brand.phoneIntl}`} className="btn-outline">APPELER L&apos;ATELIER</a>
+        </div>
+
+        <section className="bg-surface border border-border p-6 mb-6">
+          <h2 className="font-display font-bold text-text uppercase text-sm mb-4">Causes probables</h2>
+          <div className="space-y-3">
+            {issue.likelyCauses.map((cause) => (
+              <div key={cause} className="font-mono text-sm text-text border-b border-border pb-2 last:border-0 last:pb-0">
+                {cause}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-surface border border-border p-6 mb-6">
+          <h2 className="font-display font-bold text-text uppercase text-sm mb-4">Tarifs et délais</h2>
+          <p className="font-mono text-sm text-text mb-2">{issue.priceRange}</p>
+          <p className="font-mono text-sm text-text-muted">Délai moyen: {issue.avgDelay}</p>
+        </section>
+
+        <section className="bg-surface border border-border p-6 mb-6">
+          <h2 className="font-display font-bold text-text uppercase text-sm mb-4">Marques prises en charge</h2>
+          <div className="flex flex-wrap gap-2">
+            {issue.compatibleBrands.map((label) => (
+              <span
+                key={label}
+                className="font-mono text-xs px-3 py-1.5 border border-border text-text-muted"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   const data = BRAND_DATA[slug];
 
   if (!data) {

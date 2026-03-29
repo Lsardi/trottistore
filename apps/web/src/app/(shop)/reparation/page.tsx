@@ -30,6 +30,14 @@ const STEPS = [
   { icon: Wrench, title: "Reparation" },
 ];
 
+const SEO_ISSUE_LINKS = [
+  { label: "Trottinette ne demarre plus", slug: "trottinette-ne-demarre-plus" },
+  { label: "Pneu creve trottinette", slug: "pneu-creve-trottinette" },
+  { label: "Frein trottinette ne freine plus", slug: "frein-trottinette-ne-freine-plus" },
+  { label: "Batterie ne charge plus", slug: "batterie-trottinette-ne-charge-plus" },
+  { label: "Guidon qui bouge", slug: "guidon-trottinette-qui-bouge" },
+] as const;
+
 export default function ReparationPageWrapper() {
   return (
     <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-neon" /></div>}>
@@ -99,6 +107,21 @@ function ReparationPage() {
           repare toutes les marques.
         </p>
       </div>
+
+      <section className="bg-surface border border-border p-5 mb-8">
+        <p className="spec-label mb-3">PANNES COURANTES</p>
+        <div className="flex flex-wrap gap-2">
+          {SEO_ISSUE_LINKS.map((item) => (
+            <Link
+              key={item.slug}
+              href={`/reparation/${item.slug}`}
+              className="font-mono text-xs px-3 py-1.5 border border-border hover:border-neon text-text-muted hover:text-neon transition-colors"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* Steps */}
       <div className="flex items-center justify-center gap-0 mb-12">
