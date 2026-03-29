@@ -80,7 +80,7 @@ async function start() {
         : undefined;
     const code =
       customCode ??
-      isZodError
+      (isZodError
         ? "VALIDATION_ERROR"
         : statusCode === 401
           ? "UNAUTHORIZED"
@@ -92,7 +92,7 @@ async function start() {
                 ? "RATE_LIMITED"
                 : statusCode >= 500
                   ? "INTERNAL_ERROR"
-                  : "REQUEST_ERROR";
+                  : "REQUEST_ERROR");
     const message = isZodError
       ? "Invalid request data"
       : statusCode >= 500
