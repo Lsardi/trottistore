@@ -480,6 +480,51 @@ model EmailCampaign {
   @@schema("crm")
 }
 
+model AutomatedTrigger {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        String    @db.VarChar(30)
+  // PICKUP_REMINDER (J+3 non récupéré), QUOTE_REMINDER (48h devis non répondu),
+  // POST_REPAIR_REVIEW (7j après récupération → demander avis Google)
+  delayHours  Int       @map("delay_hours")
+  channel     String    @default("EMAIL") @db.VarChar(10) // EMAIL, SMS, BOTH
+  templateId  String?   @map("template_id") @db.VarChar(100) // Brevo template ID
+  smsContent  String?   @map("sms_content") @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  lastRunAt   DateTime? @map("last_run_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  logs NotificationLog[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("automated_triggers")
+  @@schema("crm")
+}
+
+model NotificationLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  triggerId   String?  @map("trigger_id") @db.Uuid
+  ticketId    String?  @map("ticket_id") @db.Uuid
+  customerId  String?  @map("customer_id") @db.Uuid
+  channel     String   @db.VarChar(10) // EMAIL, SMS
+  recipient   String   @db.VarChar(255)
+  subject     String?  @db.VarChar(500)
+  content     String?  @db.Text
+  status      String   @default("SENT") @db.VarChar(20) // SENT, FAILED, SKIPPED
+  errorMessage String? @map("error_message") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trigger AutomatedTrigger? @relation(fields: [triggerId], references: [id])
+
+  @@index([triggerId])
+  @@index([ticketId])
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("notification_logs")
+  @@schema("crm")
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SCHÉMA SAV — Tickets, diagnostics, pièces
 // ═══════════════════════════════════════════════════════════════
