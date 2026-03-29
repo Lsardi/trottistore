@@ -12,14 +12,14 @@ import {
 const repairTypeEnum = z.enum(["GARANTIE", "REPARATION", "RETOUR", "RECLAMATION"]);
 
 const repairStatusEnum = z.enum([
-  "NOUVEAU",
-  "DIAGNOSTIQUE",
+  "RECU",
+  "DIAGNOSTIC",
   "DEVIS_ENVOYE",
   "DEVIS_ACCEPTE",
   "EN_REPARATION",
   "EN_ATTENTE_PIECE",
-  "TERMINE",
-  "LIVRE",
+  "PRET",
+  "RECUPERE",
   "REFUS_CLIENT",
   "IRREPARABLE",
 ]);
@@ -35,8 +35,10 @@ const createRepairSchema = z.object({
   serialNumber: z.string().optional(),
   type: repairTypeEnum,
   priority: priorityEnum.optional().default("NORMAL"),
+  visitReason: z.string().max(300).optional(),
   issueDescription: z.string().min(1),
-  photosUrls: z.array(z.string().url()).optional(),
+  photosBefore: z.array(z.string().url()).optional(),
+  photosUrls: z.array(z.string().url()).optional(), // Legacy support
 }).superRefine((value, ctx) => {
   const hasAccount = !!value.customerId;
   const hasGuestProfile = !!value.customerName && !!value.customerPhone;
@@ -203,9 +205,12 @@ export async function repairRoutes(app: FastifyInstance) {
           serialNumber: body.serialNumber ?? null,
           type: body.type,
           priority: body.priority,
-          status: "NOUVEAU",
+          status: "RECU",
+          visitReason: body.visitReason ?? null,
           issueDescription: body.issueDescription,
+          photosBefore: body.photosBefore ?? [],
           photosUrls: body.photosUrls ?? [],
+          receivedBy: user?.userId ?? null,
           trackingToken,
         },
       });
@@ -214,8 +219,23 @@ export async function repairRoutes(app: FastifyInstance) {
         data: {
           ticketId: created.id,
           fromStatus: "",
-          toStatus: "NOUVEAU",
+          toStatus: "RECU",
           note: "Ticket cree",
+        },
+      });
+
+      await tx.repairActivityLog.create({
+        data: {
+          ticketId: created.id,
+          action: "RECEIVED",
+          performedBy: user?.userId ?? null,
+          performerName: user ? undefined : body.customerName ?? null,
+          details: `Reception: ${body.productModel}${body.visitReason ? ` — Motif: ${body.visitReason}` : ""}`,
+          metadata: {
+            type: body.type,
+            priority: body.priority,
+            visitReason: body.visitReason ?? null,
+          },
         },
       });
 
@@ -352,6 +372,8 @@ export async function repairRoutes(app: FastifyInstance) {
         estimatedCost: ticket.estimatedCost,
         actualCost: ticket.actualCost,
         estimatedDays: ticket.estimatedDays,
+        photosBefore: ticket.photosBefore,
+        photosAfter: ticket.photosAfter,
         photosUrls: ticket.photosUrls,
         quoteAcceptedAt: ticket.quoteAcceptedAt,
         createdAt: ticket.createdAt,
@@ -475,6 +497,9 @@ export async function repairRoutes(app: FastifyInstance) {
         statusLog: {
           orderBy: { createdAt: "asc" },
         },
+        activityLog: {
+          orderBy: { createdAt: "asc" },
+        },
         partsUsed: {
           include: {
             variant: {
@@ -548,8 +573,8 @@ export async function repairRoutes(app: FastifyInstance) {
       status: body.status,
     };
 
-    // If TERMINE: set closedAt and compute actualCost from parts
-    if (body.status === "TERMINE") {
+    // If PRET: set closedAt and compute actualCost from parts
+    if (body.status === "PRET") {
       updateData.closedAt = new Date();
       const partsCostResult = await app.prisma.repairPartUsed.aggregate({
         where: { ticketId: id },
@@ -564,8 +589,8 @@ export async function repairRoutes(app: FastifyInstance) {
       updateData.actualCost = actualCost;
     }
 
-    // If LIVRE: set closedAt if not already set
-    if (body.status === "LIVRE" && !ticket.closedAt) {
+    // If RECUPERE: set closedAt if not already set
+    if (body.status === "RECUPERE" && !ticket.closedAt) {
       updateData.closedAt = new Date();
     }
 
@@ -582,6 +607,16 @@ export async function repairRoutes(app: FastifyInstance) {
           toStatus: body.status,
           note: body.note ?? null,
           performedBy: body.performedBy ?? null,
+        },
+      });
+
+      await tx.repairActivityLog.create({
+        data: {
+          ticketId: id,
+          action: "STATUS_CHANGE",
+          performedBy: body.performedBy ?? user?.userId ?? null,
+          details: body.note ?? `Statut: ${ticket.status} → ${body.status}`,
+          metadata: { fromStatus: ticket.status, toStatus: body.status },
         },
       });
 
@@ -616,19 +651,19 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    if (!validateTransition(ticket.status, "DIAGNOSTIQUE")) {
+    if (!validateTransition(ticket.status, "DIAGNOSTIC")) {
       return reply.status(400).send({
         success: false,
         error: {
           code: "INVALID_TRANSITION",
-          message: `Impossible de passer en DIAGNOSTIQUE depuis le statut '${ticket.status}'`,
+          message: `Impossible de passer en DIAGNOSTIC depuis le statut '${ticket.status}'`,
         },
       });
     }
 
     const updateData: Record<string, unknown> = {
       diagnosis: body.diagnosis,
-      status: "DIAGNOSTIQUE",
+      status: "DIAGNOSTIC",
     };
 
     if (body.estimatedCost !== undefined) updateData.estimatedCost = body.estimatedCost;
@@ -645,7 +680,7 @@ export async function repairRoutes(app: FastifyInstance) {
         data: {
           ticketId: id,
           fromStatus: ticket.status,
-          toStatus: "DIAGNOSTIQUE",
+          toStatus: "DIAGNOSTIC",
           note: `Diagnostic: ${body.diagnosis.substring(0, 200)}`,
         },
       });
@@ -886,6 +921,22 @@ export async function repairRoutes(app: FastifyInstance) {
         });
       }
 
+      await tx.repairActivityLog.create({
+        data: {
+          ticketId: id,
+          action: "PART_ADDED",
+          performedBy: user?.userId ?? null,
+          details: `Piece ajoutee: ${body.partName} x${body.quantity} (${body.unitCost}€/u)`,
+          metadata: {
+            partName: body.partName,
+            partRef: body.partRef ?? null,
+            quantity: body.quantity,
+            unitCost: body.unitCost,
+            variantId: body.variantId ?? null,
+          },
+        },
+      });
+
       return created;
     });
 
@@ -919,12 +970,12 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    if (!validateTransition(ticket.status, "TERMINE")) {
+    if (!validateTransition(ticket.status, "PRET")) {
       return reply.status(400).send({
         success: false,
         error: {
           code: "INVALID_TRANSITION",
-          message: `Impossible de passer en TERMINE depuis le statut '${ticket.status}'`,
+          message: `Impossible de passer en PRET depuis le statut '${ticket.status}'`,
         },
       });
     }
@@ -938,7 +989,7 @@ export async function repairRoutes(app: FastifyInstance) {
       const updatedTicket = await tx.repairTicket.update({
         where: { id },
         data: {
-          status: "TERMINE",
+          status: "PRET",
           closedAt: new Date(),
           actualCost,
         },
@@ -948,7 +999,7 @@ export async function repairRoutes(app: FastifyInstance) {
         data: {
           ticketId: id,
           fromStatus: ticket.status,
-          toStatus: "TERMINE",
+          toStatus: "PRET",
           note: `Reparation terminee. Cout reel: ${actualCost.toFixed(2)} EUR`,
         },
       });
