@@ -6,6 +6,11 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "effect": "^3.20.0"
+    }
+  },
   "scripts": {
     "dev": "bash dev.sh",
     "agent:init": "bash scripts/git-agent-worktree.sh init",

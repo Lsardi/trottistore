@@ -148,6 +148,28 @@ function atParisTime(dateTime: string) {
   return new Date(dateTime);
 }
 
+function getParisOffsetMinutes(year: number, month: number, day: number, hour: number): number {
+  const probe = new Date(Date.UTC(year, month - 1, day, hour, 0, 0));
+  const tz = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  }).formatToParts(probe);
+  const offsetPart = tz.find((part) => part.type === "timeZoneName")?.value ?? "GMT+0";
+  const match = offsetPart.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] ?? 0);
+  const minutes = Number(match[3] ?? 0);
+  return sign * (hours * 60 + minutes);
+}
+
+function parisLocalDate(year: number, month: number, day: number, hour: number, minute = 0): Date {
+  const offsetMinutes = getParisOffsetMinutes(year, month, day, hour);
+  const utcMs = Date.UTC(year, month - 1, day, hour, minute, 0) - offsetMinutes * 60_000;
+  return new Date(utcMs);
+}
+
 function computeEnd(start: Date, durationMin: number): Date {
   return new Date(start.getTime() + durationMin * 60_000);
 }
@@ -167,12 +189,13 @@ export async function repairRoutes(app: FastifyInstance) {
   // POST /repairs — Create a repair ticket
   app.post("/repairs", async (request, reply) => {
     const body = createRepairSchema.parse(request.body);
+    const user = getRequestUser(request);
     const trackingToken = randomUUID();
 
     const ticket = await app.prisma.$transaction(async (tx) => {
       const created = await tx.repairTicket.create({
         data: {
-          customerId: body.customerId ?? null,
+          customerId: user?.userId ?? body.customerId ?? null,
           customerName: body.customerName ?? null,
           customerEmail: body.customerEmail ?? null,
           customerPhone: body.customerPhone ?? null,
@@ -353,8 +376,8 @@ export async function repairRoutes(app: FastifyInstance) {
     const openingHour = 10;
     const closingHour = 19;
 
-    const dayStart = new Date(Date.UTC(year, month - 1, day, openingHour, 0, 0));
-    const dayEnd = new Date(Date.UTC(year, month - 1, day, closingHour, 0, 0));
+    const dayStart = parisLocalDate(year, month, day, openingHour);
+    const dayEnd = parisLocalDate(year, month, day, closingHour);
 
     const existing = await (app.prisma as any).repairAppointment.findMany({
       where: {

@@ -178,7 +178,7 @@ function UrgencePage() {
         </section>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-surface border border-border p-6 mt-6 space-y-4">
+      <form id="urgent-form" onSubmit={handleSubmit} className="bg-surface border border-border p-6 mt-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="spec-label block mb-2">Nom complet *</label>
