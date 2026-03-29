@@ -744,12 +744,13 @@ export async function repairRoutes(app: FastifyInstance) {
       await tx.repairActivityLog.create({
         data: {
           ticketId: id,
-          action: "STATUS_CHANGE",
+          action: "DIAGNOSIS_ADDED",
           performedBy: user?.userId ?? null,
           details: `Diagnostic: ${body.diagnosis.substring(0, 200)}`,
           metadata: {
             fromStatus: ticket.status,
             toStatus: "DIAGNOSTIC",
+            diagnosis: body.diagnosis,
             estimatedCost: body.estimatedCost ?? null,
             estimatedDays: body.estimatedDays ?? null,
           },
