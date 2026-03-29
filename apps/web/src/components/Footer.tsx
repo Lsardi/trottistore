@@ -5,6 +5,7 @@ const NAV_LINKS = [
   { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
   { label: brand.nav.parts, href: `/produits?categorySlug=${brand.nav.partsSlug}` },
   { label: "Catalogue", href: "/produits" },
+  { label: "Quiz — Trouvez votre trott", href: "/quiz" },
   { label: "Mon compte", href: "/mon-compte" },
 ];
 
