@@ -15,6 +15,8 @@ const NAV_ITEMS = [
   { label: brand.nav.repair, href: "/reparation" },
   { label: brand.nav.diagnostic, href: "/diagnostic" },
   { label: brand.nav.compatibility, href: "/compatibilite" },
+  { label: "ATELIER", href: "/atelier" },
+  { label: "PRO", href: "/pro" },
 ] as const;
 
 export default function Header() {
