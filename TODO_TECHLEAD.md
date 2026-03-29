@@ -23,17 +23,17 @@ Branch: `techlead/fond-comble-audit`
 ## P1 Qualité CI/E2E
 
 - [x] Reporter Playwright HTML en CI + artifacts upload.
-- [ ] Exécuter passe E2E complète sur GitHub Actions et traiter les flaky tests.
+- [x] Exécuter passe E2E complète sur GitHub Actions et traiter les flaky tests. (14/14 pass, aucun flaky)
 - [x] Rendre lint web non-interactif (éviter prompt Next lint).
 
 ## P2 Ops
 
 - [x] Runbook release/rollback documenté.
-- [ ] Ajouter template postmortem incident.
-- [ ] Ajouter checklist go/no-go release dans PR template.
+- [x] Ajouter template postmortem incident.
+- [x] Ajouter checklist go/no-go release dans PR template.
 
 ## Next Batch immédiat
 
-1. Passe E2E complète GitHub Actions + traitement flakiness.
-2. Ajouter template postmortem incident.
-3. Ajouter checklist go/no-go release dans PR template.
+1. ~~Passe E2E complète GitHub Actions + traitement flakiness.~~ DONE — 14/14 pass
+2. ~~Ajouter template postmortem incident.~~ DONE — `.github/ISSUE_TEMPLATE/postmortem.md`
+3. ~~Ajouter checklist go/no-go release dans PR template.~~ DONE — `.github/pull_request_template.md`
