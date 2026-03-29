@@ -1,3 +1,7 @@
+import { config } from "dotenv";
+import { resolve } from "path";
+config({ path: resolve(process.cwd(), "../../.env") });
+
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
@@ -12,6 +16,7 @@ import { orderRoutes } from "./routes/orders/index.js";
 import { categoryRoutes } from "./routes/categories/index.js";
 import { authRoutes } from "./routes/auth/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
+import { ZodError } from "zod";
 
 const PORT = parseInt(process.env.PORT_ECOMMERCE || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -44,6 +49,65 @@ async function start() {
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
   await app.register(authPlugin);
+
+  // Global error handler
+  app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    const errorWithCode = error as { code?: unknown };
+    const isZodError = error instanceof ZodError;
+    const statusCode = isZodError ? 400 : error.statusCode || 500;
+    const customCode =
+      statusCode < 500 && typeof errorWithCode.code === "string"
+        ? errorWithCode.code
+        : undefined;
+    const code =
+      customCode ??
+      (isZodError
+        ? "VALIDATION_ERROR"
+        : statusCode === 401
+          ? "UNAUTHORIZED"
+          : statusCode === 403
+            ? "FORBIDDEN"
+            : statusCode === 404
+              ? "NOT_FOUND"
+              : statusCode === 429
+                ? "RATE_LIMITED"
+                : statusCode >= 500
+                  ? "INTERNAL_ERROR"
+                  : "REQUEST_ERROR");
+    const message = isZodError
+      ? "Invalid request data"
+      : statusCode >= 500
+        ? "Une erreur interne est survenue"
+        : error.message;
+
+    app.log.error({
+      err: error,
+      method: request.method,
+      url: request.url,
+      statusCode,
+    });
+
+    reply.status(statusCode).send({
+      success: false,
+      error: {
+        code,
+        message,
+        ...(isZodError ? { details: error.flatten().fieldErrors } : {}),
+        ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
+      },
+    });
+  });
+
+  // 404 handler
+  app.setNotFoundHandler((request, reply) => {
+    reply.status(404).send({
+      success: false,
+      error: {
+        code: "NOT_FOUND",
+        message: `Route ${request.method} ${request.url} introuvable`,
+      },
+    });
+  });
 
   // Routes
   await app.register(healthRoutes);

@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Zap, Battery, Disc, Monitor, Settings, AlertTriangle,
-  ChevronRight, RotateCcw, Wrench, ArrowRight
+  ChevronRight, RotateCcw, Wrench, ArrowRight, CheckCircle2, Phone
 } from "lucide-react";
+import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 const SYMPTOM_CATEGORIES = [
@@ -238,24 +239,49 @@ export default function DiagnosticPage() {
                   </div>
                 </div>
 
-                {/* CTA */}
-                <div className="flex gap-3">
-                  <Link
-                    href={`/reparation?issue=${encodeURIComponent(symptom.label)}`}
-                    className="btn-neon flex-1"
-                  >
-                    <Wrench className="w-5 h-5" />
-                    DEPOSER UN TICKET SAV
-                  </Link>
-                  {solution.diy && (
+                {/* Devis cliquable */}
+                <div className="border-t-2 border-t-neon bg-surface-2 -mx-6 -mb-6 p-6 mt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <CheckCircle2 className="w-5 h-5 text-neon" />
+                    <p className="font-display font-bold text-text uppercase text-sm">Devis estimatif</p>
+                  </div>
+
+                  <div className="flex items-baseline justify-between mb-1">
+                    <span className="font-mono text-sm text-text-muted">{solution.title}</span>
+                    <span className="price-main text-lg">{solution.estimatedCost}</span>
+                  </div>
+                  <p className="font-mono text-xs text-text-dim mb-5">
+                    Diagnostic gratuit. Prix final apres examen en atelier.
+                  </p>
+
+                  <div className="flex gap-3">
                     <Link
-                      href="/produits"
-                      className="btn-outline"
+                      href={`/reparation?issue=${encodeURIComponent(symptom.label)}&diag=${encodeURIComponent(solution.title)}&cost=${encodeURIComponent(solution.estimatedCost)}&duration=${encodeURIComponent(severityConfig.estimate)}&category=${encodeURIComponent(category?.label || "")}`}
+                      className="btn-neon flex-1"
                     >
-                      PIECES
-                      <ArrowRight className="w-4 h-4" />
+                      <Wrench className="w-5 h-5" />
+                      ACCEPTER — DEPOSER MON TICKET
                     </Link>
-                  )}
+                  </div>
+
+                  <div className="flex items-center gap-4 mt-4">
+                    {solution.diy && (
+                      <Link
+                        href="/produits"
+                        className="btn-outline flex-1 text-center"
+                      >
+                        PIECES DETACHEES
+                        <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    )}
+                    <a
+                      href={`tel:${brand.phoneIntl}`}
+                      className="btn-outline flex-1 text-center"
+                    >
+                      <Phone className="w-4 h-4" />
+                      APPELER
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

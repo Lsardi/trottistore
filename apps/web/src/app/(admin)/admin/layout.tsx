@@ -13,6 +13,7 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { brand } from "@/lib/brand";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -37,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Package className="h-5 w-5 text-void" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-display text-lg font-bold tracking-tight text-text">TrottiStore</span>
+              <span className="font-display text-lg font-bold tracking-tight text-text">{brand.name}</span>
               <span className="badge badge-neon">Admin</span>
             </div>
           </Link>
@@ -89,7 +90,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-mono text-sm text-text truncate">Administrateur</p>
-                <p className="font-mono text-xs text-text-dim truncate">admin@trottistore.fr</p>
+                <p className="font-mono text-xs text-text-dim truncate">admin@{brand.domain}</p>
               </div>
             </div>
           </div>

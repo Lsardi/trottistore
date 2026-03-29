@@ -4,8 +4,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "trottistore.fr" },
-      { protocol: "https", hostname: "www.trottistore.fr" },
+      { protocol: "https", hostname: process.env.NEXT_PUBLIC_BRAND_DOMAIN || "trottistore.fr" },
+      { protocol: "https", hostname: `www.${process.env.NEXT_PUBLIC_BRAND_DOMAIN || "trottistore.fr"}` },
       { protocol: "http", hostname: "localhost", port: "9001" }, // MinIO dev
     ],
   },

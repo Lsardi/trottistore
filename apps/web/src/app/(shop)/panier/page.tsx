@@ -2,19 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ShoppingCart,
   Minus,
   Plus,
-  Trash2,
   ArrowRight,
   ImageOff,
   CreditCard,
-  Loader2,
   X,
 } from "lucide-react";
 import { cartApi, type CartItem } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 function formatPrice(amount: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
@@ -28,7 +26,7 @@ export default function CartPage() {
     async function load() {
       try {
         const res = await cartApi.get();
-        setItems(res.data || []);
+        setItems(res.data.items || []);
       } catch {
         // Panier vide ou erreur
       } finally {
@@ -41,11 +39,13 @@ export default function CartPage() {
   async function updateQuantity(productId: string, quantity: number) {
     try {
       if (quantity <= 0) {
-        await cartApi.removeItem(productId);
-        setItems((prev) => prev.filter((item) => item.productId !== productId));
+        const res = await cartApi.removeItem(productId);
+        setItems(res.data.items || []);
+        window.dispatchEvent(new Event("trottistore:cart-updated"));
       } else {
         const res = await cartApi.updateItem(productId, { quantity });
-        setItems(res.data || []);
+        setItems(res.data.items || []);
+        window.dispatchEvent(new Event("trottistore:cart-updated"));
       }
     } catch {
       console.error("Erreur mise a jour panier");
@@ -56,6 +56,7 @@ export default function CartPage() {
     try {
       await cartApi.clear();
       setItems([]);
+      window.dispatchEvent(new Event("trottistore:cart-updated"));
     } catch {
       console.error("Erreur vidange panier");
     }
@@ -75,9 +76,7 @@ export default function CartPage() {
   }
 
   const subtotal = items.reduce((sum, item) => {
-    const price = parseFloat(item.product?.priceHt || "0");
-    const tva = parseFloat(item.product?.tvaRate || "20");
-    return sum + price * (1 + tva / 100) * item.quantity;
+    return sum + item.lineTotalHt * 1.2;
   }, 0);
 
   return (
@@ -105,11 +104,8 @@ export default function CartPage() {
           {/* Items */}
           <div className="lg:col-span-2 space-y-3">
             {items.map((item) => {
-              const price = parseFloat(item.product?.priceHt || "0");
-              const tva = parseFloat(item.product?.tvaRate || "20");
-              const priceTTC = price * (1 + tva / 100);
-              const image =
-                item.product?.images?.find((img) => img.isPrimary) || item.product?.images?.[0];
+              const priceTTC = item.unitPriceHt * 1.2;
+              const image = item.product?.image;
 
               return (
                 <div
@@ -117,9 +113,9 @@ export default function CartPage() {
                   className="flex gap-4 bg-surface border border-border p-4 sm:p-5"
                 >
                   {/* Image */}
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-void border border-border overflow-hidden flex-shrink-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-void border border-border overflow-hidden flex-shrink-0 relative">
                     {image ? (
-                      <img src={image.url} alt="" className="w-full h-full object-contain p-1" />
+                      <Image src={image.url} alt={image.alt || item.product?.name || "Produit"} fill sizes="96px" style={{ objectFit: "contain", padding: "4px" }} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <ImageOff className="w-8 h-8 text-text-dim" />
@@ -208,7 +204,7 @@ export default function CartPage() {
 
               <div className="space-y-3">
                 <Link
-                  href="/mon-compte"
+                  href="/checkout"
                   className="btn-neon w-full"
                 >
                   COMMANDER

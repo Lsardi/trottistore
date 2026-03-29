@@ -1,6 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+
+const EMPTY_CAMPAIGN_STATS = {
+  sent: 0,
+  delivered: 0,
+  opened: 0,
+  clicked: 0,
+  bounced: 0,
+  unsubscribed: 0,
+} as const;
 
 const createCampaignSchema = z.object({
   name: z.string().min(1).max(200),
@@ -65,14 +73,7 @@ export async function campaignRoutes(app: FastifyInstance) {
         content: body.content ?? null,
         templateId: body.templateId ?? null,
         status: "DRAFT",
-        stats: {
-          sent: 0,
-          delivered: 0,
-          opened: 0,
-          clicked: 0,
-          bounced: 0,
-          unsubscribed: 0,
-        } as Prisma.JsonObject,
+        stats: EMPTY_CAMPAIGN_STATS as unknown as Record<string, number>,
       },
     });
 

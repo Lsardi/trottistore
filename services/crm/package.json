@@ -12,17 +12,20 @@
   "dependencies": {
     "@fastify/cors": "^11.0.0",
     "@fastify/helmet": "^13.0.0",
+    "@fastify/jwt": "^9.0.0",
     "@fastify/rate-limit": "^10.2.0",
-    "@prisma/client": "^7.5.0",
+    "@prisma/client": "^6.6.0",
     "@trottistore/database": "workspace:*",
     "@trottistore/shared": "workspace:*",
     "bullmq": "^5.30.0",
+    "dotenv": "^16.4.7",
     "fastify": "^5.2.0",
     "fastify-plugin": "^5.1.0",
     "ioredis": "^5.4.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "prisma": "^6.19.2",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

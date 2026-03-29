@@ -1,0 +1,25 @@
+{$DOMAIN:localhost} {
+    # API routing
+    handle /api/v1/products/* { reverse_proxy ecommerce:3001 }
+    handle /api/v1/categories/* { reverse_proxy ecommerce:3001 }
+    handle /api/v1/orders/* { reverse_proxy ecommerce:3001 }
+    handle /api/v1/auth/* { reverse_proxy ecommerce:3001 }
+    handle /api/v1/admin/* { reverse_proxy ecommerce:3001 }
+    handle /api/v1/cart/* { reverse_proxy ecommerce:3001 }
+    handle /api/v1/customers/* { reverse_proxy crm:3002 }
+    handle /api/v1/segments/* { reverse_proxy crm:3002 }
+    handle /api/v1/campaigns/* { reverse_proxy crm:3002 }
+    handle /api/v1/analytics/* { reverse_proxy analytics:3003 }
+    handle /api/v1/repairs/* { reverse_proxy sav:3004 }
+    handle /api/v1/technicians/* { reverse_proxy sav:3004 }
+
+    # Frontend
+    handle { reverse_proxy web:3000 }
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}

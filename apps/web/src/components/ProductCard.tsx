@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { ImageOff } from "lucide-react";
+import Image from "next/image";
+import { ImageOff, MapPin } from "lucide-react";
 import type { Product } from "@/lib/api";
-import { formatPriceTTC } from "@/lib/utils";
+import { formatPriceTTC, priceTTC } from "@/lib/utils";
 
 function formatHT(priceHt: string): string {
   const num = parseFloat(priceHt);
@@ -29,6 +30,10 @@ export default function ProductCard({ product }: { product: Product }) {
 
   const displayPriceHt = hasSalePrice ? product.salePriceHt! : product.priceHt;
   const ttcFormatted = formatPriceTTC(displayPriceHt, product.tvaRate);
+  const ttcNum = priceTTC(displayPriceHt, product.tvaRate);
+
+  const variant = product.variants?.[0];
+  const inStock = variant ? variant.stockQuantity > 0 : false;
 
   const categoryName = product.categories?.[0]?.category?.name;
 
@@ -40,13 +45,14 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* Image */}
       <div className="product-card-image">
         {primaryImage ? (
-          <img
+          <Image
             src={primaryImage.url}
             alt={primaryImage.alt || product.name}
-            loading="lazy"
+            fill
+            style={{ objectFit: "contain" }}
           />
         ) : (
-          <span className="flex items-center justify-center w-full h-full" style={{ color: "#2A2A2A" }}>
+          <span className="flex items-center justify-center w-full h-full" style={{ color: "var(--color-border)" }}>
             <ImageOff className="w-10 h-10" />
           </span>
         )}
@@ -59,6 +65,12 @@ export default function ProductCard({ product }: { product: Product }) {
           {isNew && !hasSalePrice && (
             <span className="badge badge-neon">NOUVEAU</span>
           )}
+          {inStock && (
+            <span className="badge" style={{ backgroundColor: "var(--color-success)", color: "var(--color-void)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <MapPin style={{ width: 9, height: 9 }} />
+              RETRAIT 1H
+            </span>
+          )}
         </span>
       </div>
 
@@ -70,7 +82,7 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
 
         {/* Product name */}
-        <h3 className="heading-md text-[#E8E8E8] leading-tight mb-3" style={{ fontSize: "0.95rem" }}>
+        <h3 className="heading-md text-text leading-tight mb-3" style={{ fontSize: "0.95rem" }}>
           {product.name}
         </h3>
 
@@ -79,7 +91,7 @@ export default function ProductCard({ product }: { product: Product }) {
           <div className="flex items-baseline gap-2">
             <span className="price-main" style={{ fontSize: "1.25rem" }}>{ttcFormatted}</span>
             {hasSalePrice && (
-              <span className="font-mono text-xs line-through" style={{ color: "#555555" }}>
+              <span className="font-mono text-xs line-through" style={{ color: "var(--color-text-dim)" }}>
                 {formatPriceTTC(product.priceHt, product.tvaRate)}
               </span>
             )}
@@ -87,6 +99,11 @@ export default function ProductCard({ product }: { product: Product }) {
           <p className="price-sub mt-0.5">
             {formatHT(displayPriceHt)} &euro; HT
           </p>
+          {ttcNum >= 300 && (
+            <p className="font-mono mt-1" style={{ fontSize: "0.6rem", color: "var(--color-neon-muted)" }}>
+              ou 3&times;{new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(ttcNum / 3)}&euro; sans frais
+            </p>
+          )}
         </div>
       </div>
 

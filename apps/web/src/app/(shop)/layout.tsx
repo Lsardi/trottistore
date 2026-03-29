@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import SOSButton from "@/components/SOSButton";
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,6 +8,7 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       <Header />
       <main style={{ flex: 1 }}>{children}</main>
       <Footer />
+      <SOSButton />
     </div>
   );
 }

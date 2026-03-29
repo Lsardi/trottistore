@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+
 
 // --- Schemas ---
 
@@ -27,9 +27,9 @@ const CACHE_TTL = 300; // 5 minutes
 
 interface SalesTimeSeriesRow {
   date: Date;
-  revenue: Prisma.Decimal | number;
+  revenue: number;
   orders: bigint | number;
-  avg_order_value: Prisma.Decimal | number;
+  avg_order_value: number;
 }
 
 interface TopProductRow {
@@ -37,7 +37,7 @@ interface TopProductRow {
   name: string;
   slug: string;
   image: string | null;
-  total_revenue: Prisma.Decimal | number;
+  total_revenue: number;
   total_quantity: bigint | number;
   order_count: bigint | number;
 }
