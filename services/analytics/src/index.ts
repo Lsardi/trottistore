@@ -12,6 +12,13 @@ import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { analyticsRoutes } from "./routes/index.js";
 import { ZodError } from "zod";
+import { validateEnv, COMMON_ENV } from "@trottistore/shared";
+
+validateEnv("analytics", [
+  ...COMMON_ENV,
+  { name: "PORT_ANALYTICS", required: false },
+  { name: "CLICKHOUSE_URL", required: false },
+]);
 
 const PORT = parseInt(process.env.PORT_ANALYTICS || "3003", 10);
 const HOST = process.env.HOST || "0.0.0.0";

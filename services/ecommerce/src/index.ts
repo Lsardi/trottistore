@@ -18,6 +18,15 @@ import { authRoutes } from "./routes/auth/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
 import { stockRoutes } from "./routes/stock/index.js";
 import { ZodError } from "zod";
+import { validateEnv, COMMON_ENV } from "@trottistore/shared";
+
+// Fail-fast if required env vars are missing
+validateEnv("ecommerce", [
+  ...COMMON_ENV,
+  { name: "PORT_ECOMMERCE", required: false },
+  { name: "STRIPE_SECRET_KEY", required: false },
+  { name: "STRIPE_WEBHOOK_SECRET", required: false },
+]);
 
 const PORT = parseInt(process.env.PORT_ECOMMERCE || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
