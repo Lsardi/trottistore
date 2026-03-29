@@ -41,6 +41,7 @@ jobs:
           pnpm --filter @trottistore/service-crm lint
           pnpm --filter @trottistore/service-sav lint
           pnpm --filter @trottistore/service-analytics lint
+          pnpm --filter @trottistore/web lint
 
   # ─────────────────────────────────────────────
   # Build
