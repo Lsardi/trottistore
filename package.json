@@ -8,6 +8,9 @@
   },
   "scripts": {
     "dev": "bash dev.sh",
+    "agent:init": "bash scripts/git-agent-worktree.sh init",
+    "agent:hooks": "bash scripts/git-agent-worktree.sh install-hooks",
+    "agent:status": "bash scripts/git-agent-status.sh",
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "vitest run",

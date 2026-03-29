@@ -39,6 +39,7 @@ data/crawl/raw-html/
 
 # Claude Code
 .claude/
+/.worktrees/
 
 # OS
 Thumbs.db
