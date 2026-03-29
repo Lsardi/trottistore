@@ -1,5 +1,12 @@
 version: "3.8"
 
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "20m"
+    max-file: "10"
+    compress: "true"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,6 +23,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging: *default-logging
     networks:
       - internal
 
@@ -31,6 +39,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging: *default-logging
     networks:
       - internal
 
@@ -55,6 +64,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging: *default-logging
     networks:
       - internal
 
@@ -79,6 +89,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging: *default-logging
     networks:
       - internal
 
@@ -103,6 +114,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging: *default-logging
     networks:
       - internal
 
@@ -127,6 +139,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging: *default-logging
     networks:
       - internal
 
@@ -149,6 +162,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging: *default-logging
     networks:
       - internal
 
@@ -171,6 +185,7 @@ services:
       - crm
       - analytics
       - sav
+    logging: *default-logging
     networks:
       - internal
 
