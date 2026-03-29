@@ -57,8 +57,19 @@ async function start() {
     const isPublicSavIntake =
       request.method === "POST" &&
       (path === "/api/v1/repairs" || path === "/repairs");
+    const isPublicTracking = request.method === "GET" && path.startsWith("/api/v1/repairs/tracking/");
+    const isPublicSlots = request.method === "GET" && (path === "/api/v1/appointments/slots" || path === "/appointments/slots");
+    const isPublicAppointmentBooking = request.method === "POST" && (path === "/api/v1/appointments" || path === "/appointments");
+    const isPublicQuoteAccept = request.method === "PUT" && path.endsWith("/quote/accept-client");
 
-    if (isHealth || isPublicSavIntake) {
+    if (
+      isHealth ||
+      isPublicSavIntake ||
+      isPublicTracking ||
+      isPublicSlots ||
+      isPublicAppointmentBooking ||
+      isPublicQuoteAccept
+    ) {
       return;
     }
     await app.authenticate(request, reply);

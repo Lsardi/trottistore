@@ -267,7 +267,18 @@ export const authApi = {
 // ─── SAV ──────────────────────────────────────────────────
 
 export const repairsApi = {
-  create: (body: { productModel: string; serialNumber?: string; type: string; issueDescription: string }) =>
+  create: (body: {
+    customerId?: string;
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    productModel: string;
+    serialNumber?: string;
+    type: string;
+    priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT";
+    issueDescription: string;
+    photosUrls?: string[];
+  }) =>
     apiFetch<{ success: boolean; data: RepairTicket }>('sav', '/repairs', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -278,6 +289,37 @@ export const repairsApi = {
 
   getById: (id: string) =>
     apiFetch<{ success: boolean; data: RepairTicket }>('sav', `/repairs/${id}`),
+
+  getTracking: (token: string) =>
+    apiFetch<{ success: boolean; data: RepairTracking }>('sav', `/repairs/tracking/${token}`),
+
+  acceptQuoteClient: (id: string, trackingToken?: string) =>
+    apiFetch<{ success: boolean; data: RepairTicket }>('sav', `/repairs/${id}/quote/accept-client`, {
+      method: 'PUT',
+      body: JSON.stringify({ trackingToken }),
+    }),
+};
+
+export const appointmentsApi = {
+  slots: (params: { date: string; durationMin?: number }) =>
+    apiFetch<{ success: boolean; data: AppointmentSlot[] }>('sav', '/appointments/slots', { params }),
+
+  create: (body: {
+    ticketId?: string;
+    customerId?: string;
+    customerName: string;
+    customerEmail?: string;
+    customerPhone: string;
+    serviceType?: "REPARATION" | "DIAGNOSTIC" | "ESSAI_BOUTIQUE";
+    isExpress?: boolean;
+    startsAt: string;
+    durationMin?: number;
+    notes?: string;
+  }) =>
+    apiFetch<{ success: boolean; data: RepairAppointment }>('sav', '/appointments', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 // ─── ANALYTICS (admin) ────────────────────────────────────
@@ -432,14 +474,71 @@ export interface User {
 export interface RepairTicket {
   id: string;
   ticketNumber: number;
+  trackingToken?: string;
+  trackingUrl?: string;
   productModel: string;
   status: string;
   type: string;
   priority: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   issueDescription: string;
   diagnosis?: string;
   estimatedCost?: string;
+  quoteAcceptedAt?: string;
+  statusLog?: Array<{
+    fromStatus: string;
+    toStatus: string;
+    note?: string;
+    createdAt: string;
+  }>;
+  appointments?: RepairAppointment[];
   createdAt: string;
+}
+
+export interface RepairAppointment {
+  id: string;
+  ticketId?: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone: string;
+  serviceType: string;
+  isExpress: boolean;
+  expressSurcharge: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  notes?: string;
+}
+
+export interface AppointmentSlot {
+  startsAt: string;
+  endsAt: string;
+  available: boolean;
+}
+
+export interface RepairTracking {
+  ticketNumber: number;
+  productModel: string;
+  status: string;
+  priority: string;
+  type: string;
+  diagnosis?: string;
+  estimatedCost?: string;
+  actualCost?: string;
+  estimatedDays?: number;
+  photosUrls: string[];
+  quoteAcceptedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  nextAppointment?: RepairAppointment | null;
+  statusLog: Array<{
+    fromStatus: string;
+    toStatus: string;
+    note?: string;
+    createdAt: string;
+  }>;
 }
 
 export interface Pagination {

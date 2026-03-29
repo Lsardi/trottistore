@@ -9,9 +9,13 @@ const NAV_LINKS = [
 ];
 
 const SERVICE_LINKS = [
+  { label: "SOS Urgence", href: "/urgence" },
   { label: "Réparation SAV", href: "/reparation" },
+  { label: "Atelier", href: "/atelier" },
   { label: "Diagnostic", href: "/diagnostic" },
   { label: "Compatibilité", href: "/compatibilite" },
+  { label: "Avis clients", href: "/avis" },
+  { label: "Offre Pro", href: "/pro" },
   { label: "Suivi commande", href: "/mon-compte" },
 ];
 

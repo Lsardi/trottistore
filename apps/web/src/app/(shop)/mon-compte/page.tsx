@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useEffect } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ClipboardList, Loader2, Wrench } from "lucide-react";
 import {
@@ -214,6 +215,14 @@ function formatPrice(amount: string | number): string {
                     <div>
                       <p className="font-mono text-xs text-text">{ticket.productModel}</p>
                       <p className="font-mono text-[11px] text-text-dim">{ticket.status}</p>
+                      {ticket.trackingToken ? (
+                        <Link
+                          href={`/mon-compte/suivi/${ticket.trackingToken}`}
+                          className="font-mono text-[11px] text-neon hover:underline"
+                        >
+                          Suivi en temps réel
+                        </Link>
+                      ) : null}
                     </div>
                     <p className="font-mono text-xs text-text-muted">#{ticket.ticketNumber}</p>
                   </div>

@@ -8,6 +8,7 @@ import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { cartApi } from "@/lib/api";
 
 const NAV_ITEMS = [
+  { label: "Urgence", href: "/urgence" },
   { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
   { label: brand.nav.parts, href: `/produits?categorySlug=${brand.nav.partsSlug}` },
   { label: brand.nav.repair, href: "/reparation" },

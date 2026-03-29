@@ -38,6 +38,7 @@ model User {
   interactions    CustomerInteraction[] @relation("InteractionCustomer")
   handledInteractions CustomerInteraction[] @relation("InteractionAgent")
   assignedTickets RepairTicket[] @relation("AssignedTechnician")
+  repairAppointments RepairAppointment[]
   technician      Technician?
 
   @@index([email])
@@ -460,7 +461,10 @@ model EmailCampaign {
 model RepairTicket {
   id                String    @id @default(uuid()) @db.Uuid
   ticketNumber      Int       @unique @default(autoincrement()) @map("ticket_number")
-  customerId        String    @map("customer_id") @db.Uuid
+  customerId        String?   @map("customer_id") @db.Uuid
+  customerName      String?   @map("customer_name") @db.VarChar(200)
+  customerEmail     String?   @map("customer_email") @db.VarChar(255)
+  customerPhone     String?   @map("customer_phone") @db.VarChar(20)
   orderId           String?   @map("order_id") @db.Uuid // Commande d'origine si applicable
   productModel      String    @map("product_model") @db.VarChar(200)
   serialNumber      String?   @map("serial_number") @db.VarChar(100)
@@ -475,16 +479,20 @@ model RepairTicket {
   estimatedDays     Int?      @map("estimated_days")
   assignedTo        String?   @map("assigned_to") @db.Uuid
   photosUrls        String[]  @default([]) @map("photos_urls")
+  trackingToken     String    @unique @default(uuid()) @map("tracking_token") @db.Uuid
+  quoteAcceptedAt   DateTime? @map("quote_accepted_at") @db.Timestamptz()
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
   closedAt          DateTime? @map("closed_at") @db.Timestamptz()
 
-  customer   User             @relation(fields: [customerId], references: [id])
+  customer   User?            @relation(fields: [customerId], references: [id])
   technician User?            @relation("AssignedTechnician", fields: [assignedTo], references: [id])
   partsUsed  RepairPartUsed[]
   statusLog  RepairStatusLog[]
+  appointments RepairAppointment[]
 
   @@index([customerId])
+  @@index([trackingToken])
   @@index([status])
   @@index([assignedTo])
   @@index([createdAt])
@@ -537,5 +545,33 @@ model Technician {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("technicians")
+  @@schema("sav")
+}
+
+model RepairAppointment {
+  id               String   @id @default(uuid()) @db.Uuid
+  ticketId         String?  @map("ticket_id") @db.Uuid
+  customerId       String?  @map("customer_id") @db.Uuid
+  customerName     String   @map("customer_name") @db.VarChar(200)
+  customerEmail    String?  @map("customer_email") @db.VarChar(255)
+  customerPhone    String   @map("customer_phone") @db.VarChar(20)
+  serviceType      String   @default("REPARATION") @map("service_type") @db.VarChar(30)
+  isExpress        Boolean  @default(false) @map("is_express")
+  expressSurcharge Decimal  @default(0) @map("express_surcharge") @db.Decimal(5, 2)
+  startsAt         DateTime @map("starts_at") @db.Timestamptz()
+  endsAt           DateTime @map("ends_at") @db.Timestamptz()
+  notes            String?  @db.Text
+  status           String   @default("BOOKED") @db.VarChar(20) // BOOKED, CONFIRMED, CANCELLED, COMPLETED, NO_SHOW
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  ticket   RepairTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  customer User?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([startsAt])
+  @@index([status])
+  @@index([ticketId])
+  @@index([customerId])
+  @@map("repair_appointments")
   @@schema("sav")
 }
