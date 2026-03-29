@@ -16,6 +16,7 @@ on:
 
 env:
   RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  RAILWAY_PROJECT_ID: 64a2a1d8-a50a-4f24-80dd-bbe5e0ef1b4d
 
 jobs:
   deploy:
@@ -32,7 +33,7 @@ jobs:
         if: inputs.service == 'all' || inputs.service == 'web' || github.event_name == 'push'
         run: |
           cd apps/web
-          railway up --service web --environment staging --detach
+          railway up --service web --environment staging --detach -p $RAILWAY_PROJECT_ID
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
@@ -40,7 +41,7 @@ jobs:
         if: inputs.service == 'all' || inputs.service == 'ecommerce' || github.event_name == 'push'
         run: |
           cd services/ecommerce
-          railway up --service ecommerce --environment staging --detach
+          railway up --service ecommerce --environment staging --detach -p $RAILWAY_PROJECT_ID
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
@@ -48,7 +49,7 @@ jobs:
         if: inputs.service == 'all' || inputs.service == 'crm' || github.event_name == 'push'
         run: |
           cd services/crm
-          railway up --service crm --environment staging --detach
+          railway up --service crm --environment staging --detach -p $RAILWAY_PROJECT_ID
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
@@ -56,7 +57,7 @@ jobs:
         if: inputs.service == 'all' || inputs.service == 'sav' || github.event_name == 'push'
         run: |
           cd services/sav
-          railway up --service sav --environment staging --detach
+          railway up --service sav --environment staging --detach -p $RAILWAY_PROJECT_ID
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
@@ -64,7 +65,7 @@ jobs:
         if: inputs.service == 'all' || inputs.service == 'analytics' || github.event_name == 'push'
         run: |
           cd services/analytics
-          railway up --service analytics --environment staging --detach
+          railway up --service analytics --environment staging --detach -p $RAILWAY_PROJECT_ID
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
