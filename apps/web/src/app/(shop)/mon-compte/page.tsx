@@ -5,6 +5,8 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ClipboardList, Loader2, Wrench } from "lucide-react";
+import GarageSection from "@/components/GarageSection";
+import LoyaltyCard from "@/components/LoyaltyCard";
 import {
   ApiError,
   authApi,
@@ -152,24 +154,13 @@ function formatPrice(amount: string | number): string {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-surface border border-border p-5">
-            <p className="spec-label mb-2">FIDELITE</p>
-            <p className="heading-md">{user.customerProfile?.loyaltyTier || "BRONZE"}</p>
-            <p className="font-mono text-sm text-neon mt-2">
-              {user.customerProfile?.loyaltyPoints ?? 0} points
-            </p>
-          </div>
-          <div className="bg-surface border border-border p-5">
-            <p className="spec-label mb-2">COMMANDES</p>
-            <p className="heading-md">{user.customerProfile?.totalOrders ?? orders.length}</p>
-            <p className="font-mono text-sm text-text-muted mt-2">Total historique</p>
-          </div>
-          <div className="bg-surface border border-border p-5">
-            <p className="spec-label mb-2">DEPENSE CUMULEE</p>
-            <p className="heading-md">{formatPrice(user.customerProfile?.totalSpent ?? 0)}</p>
-            <p className="font-mono text-sm text-text-muted mt-2">Tous achats confondus</p>
-          </div>
+        <div className="mb-8">
+          <LoyaltyCard
+            tier={user.customerProfile?.loyaltyTier || "BRONZE"}
+            points={user.customerProfile?.loyaltyPoints ?? 0}
+            totalSpent={user.customerProfile?.totalSpent ?? 0}
+            totalOrders={user.customerProfile?.totalOrders ?? orders.length}
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -230,6 +221,10 @@ function formatPrice(amount: string | number): string {
               </div>
             )}
           </section>
+        </div>
+
+        <div className="mt-6">
+          <GarageSection />
         </div>
 
         <section className="bg-surface border border-border p-5 mt-6">

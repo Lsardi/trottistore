@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Minus, Plus, ImageOff, ArrowLeft, MapPin, Clock } from "lucide-react";
+import { Minus, Plus, ImageOff, ArrowLeft, MapPin, Clock, Bell } from "lucide-react";
 import { productsApi, cartApi, type Product } from "@/lib/api";
 import { formatPriceTTC, priceTTC } from "@/lib/utils";
 import ProductCard from "@/components/ProductCard";
@@ -28,6 +28,8 @@ export default function ProductPage() {
   const [cartMessage, setCartMessage] = useState("");
   const [cartSuccess, setCartSuccess] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [alertEmail, setAlertEmail] = useState("");
+  const [alertSent, setAlertSent] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -411,13 +413,48 @@ export default function ProductPage() {
             )}
 
             {!inStock && (
-              <button
-                disabled
-                className="w-full h-12 font-mono text-xs uppercase tracking-wider cursor-not-allowed"
-                style={{ backgroundColor: "var(--color-surface-2)", color: "var(--color-text-dim)", border: "1px solid var(--color-border)" }}
-              >
-                INDISPONIBLE
-              </button>
+              <div>
+                <div
+                  className="w-full h-12 font-mono text-xs uppercase tracking-wider flex items-center justify-center mb-3"
+                  style={{ backgroundColor: "var(--color-surface-2)", color: "var(--color-text-dim)", border: "1px solid var(--color-border)" }}
+                >
+                  RUPTURE DE STOCK
+                </div>
+                {alertSent ? (
+                  <div
+                    className="flex items-center gap-2 p-3"
+                    style={{ backgroundColor: "rgba(0, 255, 209, 0.08)", border: "1px solid rgba(0, 255, 209, 0.2)" }}
+                  >
+                    <Bell style={{ width: 16, height: 16, color: "var(--color-neon)" }} />
+                    <p className="font-mono text-xs" style={{ color: "var(--color-neon)" }}>
+                      Vous serez prevenu(e) des le retour en stock.
+                    </p>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      // TODO: POST to stock alert API when backend supports it
+                      setAlertSent(true);
+                    }}
+                    className="flex gap-0"
+                  >
+                    <input
+                      type="email"
+                      required
+                      placeholder="Votre email pour etre prevenu"
+                      value={alertEmail}
+                      onChange={(e) => setAlertEmail(e.target.value)}
+                      className="input-dark flex-1"
+                      style={{ borderRight: "none" }}
+                    />
+                    <button type="submit" className="btn-neon whitespace-nowrap" style={{ borderRadius: 0 }}>
+                      <Bell style={{ width: 14, height: 14 }} />
+                      ALERTEZ-MOI
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
 
             {/* Cart message */}
