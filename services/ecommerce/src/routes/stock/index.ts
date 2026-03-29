@@ -45,6 +45,11 @@ function getRequestUser(request: { user?: unknown }): RequestUser | undefined {
 // --- Routes ---
 
 export async function stockRoutes(app: FastifyInstance) {
+  // All stock routes require authentication
+  app.addHook("onRequest", async (request, reply) => {
+    await app.authenticate(request, reply);
+  });
+
   // POST /stock/movements — Record a stock movement (atomic)
   app.post("/stock/movements", async (request, reply) => {
     const user = getRequestUser(request);
