@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import "./load-env";
+import prisma from "@trottistore/database";
 import bcryptjs from "bcryptjs";
 const { hashSync } = bcryptjs;
-
-const prisma = new PrismaClient({ log: ["warn", "error"] });
 
 // ── Helpers ──────────────────────────────────────────────
 const now = new Date();
@@ -325,57 +324,63 @@ async function main() {
   });
   console.log("✓ 2 technicians");
 
-  // ── 16. REPAIR TICKETS ──
-  const ticket1 = await prisma.repairTicket.create({
-    data: {
-      customerId: thomas, productModel: "Dualtron Storm LTD 84V", type: "REPARATION",
-      status: "EN_REPARATION", priority: "HIGH",
-      issueDescription: "Ne démarre plus après charge complète. Le display s'allume brièvement puis s'éteint.",
-      diagnosis: "Contrôleur HS — court-circuit détecté sur la carte mère du contrôleur 84V.",
-      estimatedCost: 120, estimatedDays: 3, assignedTo: users["tech1@demo.fr"],
-      createdAt: daysAgo(5),
-    },
-  });
-  const ticket2 = await prisma.repairTicket.create({
-    data: {
-      customerId: jean, productModel: "Dualtron Achilleus 60V", type: "GARANTIE",
-      status: "DEVIS_ENVOYE", priority: "NORMAL",
-      issueDescription: "Autonomie réduite de 50% — batterie neuve il y a 6 mois.",
-      diagnosis: "2 cellules défectueuses sur le pack 60V. Remplacement pack recommandé.",
-      estimatedCost: 280, estimatedDays: 5, assignedTo: users["tech2@demo.fr"],
-      createdAt: daysAgo(3),
-    },
-  });
-  await prisma.repairTicket.create({
-    data: {
-      customerId: marie, productModel: "Teverun Tetra", type: "REPARATION",
-      status: "NOUVEAU", priority: "LOW",
-      issueDescription: "Bruit au freinage avant — grincement à basse vitesse.",
-      createdAt: daysAgo(1),
-    },
-  });
-  console.log("✓ 3 repair tickets");
+  let savSeeded = false;
+  try {
+    // ── 16. REPAIR TICKETS ──
+    const ticket1 = await prisma.repairTicket.create({
+      data: {
+        customerId: thomas, productModel: "Dualtron Storm LTD 84V", type: "REPARATION",
+        status: "EN_REPARATION", priority: "HIGH",
+        issueDescription: "Ne démarre plus après charge complète. Le display s'allume brièvement puis s'éteint.",
+        diagnosis: "Contrôleur HS — court-circuit détecté sur la carte mère du contrôleur 84V.",
+        estimatedCost: 120, estimatedDays: 3, assignedTo: users["tech1@demo.fr"],
+        createdAt: daysAgo(5),
+      },
+    });
+    await prisma.repairTicket.create({
+      data: {
+        customerId: jean, productModel: "Dualtron Achilleus 60V", type: "GARANTIE",
+        status: "DEVIS_ENVOYE", priority: "NORMAL",
+        issueDescription: "Autonomie réduite de 50% — batterie neuve il y a 6 mois.",
+        diagnosis: "2 cellules défectueuses sur le pack 60V. Remplacement pack recommandé.",
+        estimatedCost: 280, estimatedDays: 5, assignedTo: users["tech2@demo.fr"],
+        createdAt: daysAgo(3),
+      },
+    });
+    await prisma.repairTicket.create({
+      data: {
+        customerId: marie, productModel: "Teverun Tetra", type: "REPARATION",
+        status: "NOUVEAU", priority: "LOW",
+        issueDescription: "Bruit au freinage avant — grincement à basse vitesse.",
+        createdAt: daysAgo(1),
+      },
+    });
+    console.log("✓ 3 repair tickets");
 
-  // ── 17. REPAIR STATUS LOG ──
-  const statusLog = [
-    { ticketId: ticket1.id, fromStatus: "NOUVEAU", toStatus: "DIAGNOSTIQUE", createdAt: daysAgo(4) },
-    { ticketId: ticket1.id, fromStatus: "DIAGNOSTIQUE", toStatus: "DEVIS_ENVOYE", createdAt: daysAgo(4) },
-    { ticketId: ticket1.id, fromStatus: "DEVIS_ENVOYE", toStatus: "DEVIS_ACCEPTE", createdAt: daysAgo(2) },
-    { ticketId: ticket1.id, fromStatus: "DEVIS_ACCEPTE", toStatus: "EN_REPARATION", createdAt: daysAgo(0) },
-  ];
-  for (const s of statusLog) {
-    await prisma.repairStatusLog.create({ data: { ...s, performedBy: users["tech1@demo.fr"] } });
+    // ── 17. REPAIR STATUS LOG ──
+    const statusLog = [
+      { ticketId: ticket1.id, fromStatus: "NOUVEAU", toStatus: "DIAGNOSTIQUE", createdAt: daysAgo(4) },
+      { ticketId: ticket1.id, fromStatus: "DIAGNOSTIQUE", toStatus: "DEVIS_ENVOYE", createdAt: daysAgo(4) },
+      { ticketId: ticket1.id, fromStatus: "DEVIS_ENVOYE", toStatus: "DEVIS_ACCEPTE", createdAt: daysAgo(2) },
+      { ticketId: ticket1.id, fromStatus: "DEVIS_ACCEPTE", toStatus: "EN_REPARATION", createdAt: daysAgo(0) },
+    ];
+    for (const s of statusLog) {
+      await prisma.repairStatusLog.create({ data: { ...s, performedBy: users["tech1@demo.fr"] } });
+    }
+    console.log("✓ 4 status log entries");
+
+    // ── 18. REPAIR PARTS USED ──
+    await prisma.repairPartUsed.create({
+      data: { ticketId: ticket1.id, partName: "Contrôleur 52V", partRef: "PD-CTRL-52V", quantity: 1, unitCost: 65 },
+    });
+    await prisma.repairPartUsed.create({
+      data: { ticketId: ticket1.id, partName: "Câble connectique", partRef: "PD-CABLE-SET", quantity: 2, unitCost: 8 },
+    });
+    console.log("✓ 2 repair parts");
+    savSeeded = true;
+  } catch (error) {
+    console.warn("⚠ Seed SAV partiellement ignoré (schéma SAV local différent):", error);
   }
-  console.log("✓ 4 status log entries");
-
-  // ── 18. REPAIR PARTS USED ──
-  await prisma.repairPartUsed.create({
-    data: { ticketId: ticket1.id, partName: "Contrôleur 52V", partRef: "PD-CTRL-52V", quantity: 1, unitCost: 65 },
-  });
-  await prisma.repairPartUsed.create({
-    data: { ticketId: ticket1.id, partName: "Câble connectique", partRef: "PD-CABLE-SET", quantity: 2, unitCost: 8 },
-  });
-  console.log("✓ 2 repair parts");
 
   // ══════════════════════════════════════════════════════════
   console.log("\n══════════════════════════════════════════");
@@ -392,7 +397,7 @@ async function main() {
   console.log(`  Loyalty Points: 7`);
   console.log(`  Segments:       3`);
   console.log(`  Campaigns:      2`);
-  console.log(`  SAV Tickets:    3`);
+  console.log(`  SAV Tickets:    ${savSeeded ? 3 : "skip"}`);
   console.log(`  Technicians:    2`);
   console.log("══════════════════════════════════════════\n");
   console.log("  SCÉNARIOS DÉMO\n");

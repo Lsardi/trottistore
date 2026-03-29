@@ -154,15 +154,18 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.0.2
         version: 2.0.2
-      '@prisma/client':
-        specifier: ^6.6.0
-        version: 6.19.2(prisma@7.6.0(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3))(typescript@5.9.3)
+      '@trottistore/database':
+        specifier: workspace:*
+        version: link:../packages/database
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
       cheerio:
         specifier: ^1.0.0
         version: 1.2.0
+      dotenv:
+        specifier: ^17.3.1
+        version: 17.3.1
       tsx:
         specifier: ^4.19.0
         version: 4.21.0

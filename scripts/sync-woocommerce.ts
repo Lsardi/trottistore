@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import "./load-env";
+import prisma from "@trottistore/database";
 
 // ---------------------------------------------------------------------------
 // Types for WooCommerce Store API v1 response
@@ -191,8 +192,6 @@ async function fetchAllProducts(): Promise<WcProduct[]> {
 
 async function main() {
   console.log("=== TrottiStore WooCommerce Sync ===\n");
-
-  const prisma = new PrismaClient();
 
   try {
     // 1. Fetch all products from WooCommerce

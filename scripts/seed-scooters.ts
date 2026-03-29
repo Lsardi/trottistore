@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import "./load-env";
+import prisma from "@trottistore/database";
 
 function slugify(text: string): string {
   return text

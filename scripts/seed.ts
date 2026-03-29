@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import "./load-env";
+import prisma from "@trottistore/database";
 import { hash } from "@node-rs/argon2";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -105,10 +106,6 @@ function parsePrice(product: CrawlProduct): number {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const prisma = new PrismaClient({
-    log: ["warn", "error"],
-  });
-
   try {
     // ------------------------------------------------------------------
     // 1. Create schemas
