@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Search, ShoppingCart, User, Menu, X } from "lucide-react";
 import { brand } from "@/lib/brand";
+import { getStoreStatusLabel, GOOGLE_MAPS_DIR_URL } from "@/lib/storefront";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { cartApi } from "@/lib/api";
 
@@ -92,6 +93,17 @@ export default function Header() {
           >
             <a href={`tel:${brand.phoneIntl}`} style={{ color: "var(--color-text-muted)" }}>
               {brand.phone}
+            </a>
+            <span style={{ color: "var(--color-border-light)" }}>&middot;</span>
+            <span style={{ color: "var(--color-neon)" }}>{getStoreStatusLabel()}</span>
+            <span style={{ color: "var(--color-border-light)" }}>&middot;</span>
+            <a
+              href={GOOGLE_MAPS_DIR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--color-text-muted)", textDecoration: "none" }}
+            >
+              ITINÉRAIRE
             </a>
             <span style={{ color: "var(--color-border-light)" }}>&middot;</span>
             <span style={{ color: "var(--color-text-dim)", textTransform: "uppercase" }}>
@@ -394,6 +406,15 @@ export default function Header() {
             >
               {brand.phone}
             </a>
+            <a
+              href={GOOGLE_MAPS_DIR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--color-text-muted)", display: "block", marginBottom: 8, textDecoration: "none" }}
+            >
+              ITINÉRAIRE GOOGLE MAPS
+            </a>
+            <span style={{ display: "block", marginBottom: 4 }}>{getStoreStatusLabel()}</span>
             <span>{brand.address.cityShort}</span>
           </div>
         </div>

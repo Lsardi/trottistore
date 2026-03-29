@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { brand } from "@/lib/brand";
+import { GOOGLE_MAPS_DIR_URL, WAZE_DIR_URL } from "@/lib/storefront";
 
 const NAV_LINKS = [
   { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
@@ -144,6 +145,26 @@ export default function Footer() {
               <p style={{ margin: 0 }}>
                 <a href={`mailto:${brand.email}`} style={{ color: "var(--color-text-muted)", textDecoration: "none" }}>
                   {brand.email}
+                </a>
+              </p>
+              <p style={{ margin: "8px 0 0" }}>
+                <a
+                  href={GOOGLE_MAPS_DIR_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "var(--color-text-muted)", textDecoration: "none" }}
+                >
+                  Itinéraire Google Maps
+                </a>
+              </p>
+              <p style={{ margin: "4px 0 0" }}>
+                <a
+                  href={WAZE_DIR_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "var(--color-text-muted)", textDecoration: "none" }}
+                >
+                  Ouvrir Waze
                 </a>
               </p>
             </div>
