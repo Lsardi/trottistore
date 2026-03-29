@@ -349,7 +349,7 @@ async function main() {
   await prisma.repairTicket.create({
     data: {
       customerId: marie, productModel: "Teverun Tetra", type: "REPARATION",
-      status: "NOUVEAU", priority: "LOW",
+      status: "RECU", priority: "LOW",
       issueDescription: "Bruit au freinage avant — grincement à basse vitesse.",
       createdAt: daysAgo(1),
     },
@@ -358,8 +358,8 @@ async function main() {
 
   // ── 17. REPAIR STATUS LOG ──
   const statusLog = [
-    { ticketId: ticket1.id, fromStatus: "NOUVEAU", toStatus: "DIAGNOSTIQUE", createdAt: daysAgo(4) },
-    { ticketId: ticket1.id, fromStatus: "DIAGNOSTIQUE", toStatus: "DEVIS_ENVOYE", createdAt: daysAgo(4) },
+    { ticketId: ticket1.id, fromStatus: "RECU", toStatus: "DIAGNOSTIC", createdAt: daysAgo(4) },
+    { ticketId: ticket1.id, fromStatus: "DIAGNOSTIC", toStatus: "DEVIS_ENVOYE", createdAt: daysAgo(4) },
     { ticketId: ticket1.id, fromStatus: "DEVIS_ENVOYE", toStatus: "DEVIS_ACCEPTE", createdAt: daysAgo(2) },
     { ticketId: ticket1.id, fromStatus: "DEVIS_ACCEPTE", toStatus: "EN_REPARATION", createdAt: daysAgo(0) },
   ];

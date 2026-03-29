@@ -13,14 +13,14 @@ import {
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, { label: string; badgeClass: string }> = {
-  NOUVEAU: { label: "Nouveau", badgeClass: "badge badge-neon" },
-  DIAGNOSTIQUE: { label: "Diagnostique", badgeClass: "badge badge-muted" },
+  RECU: { label: "Recu", badgeClass: "badge badge-neon" },
+  DIAGNOSTIC: { label: "Diagnostic", badgeClass: "badge badge-muted" },
   DEVIS_ENVOYE: { label: "Devis envoye", badgeClass: "badge badge-warning" },
   DEVIS_ACCEPTE: { label: "Devis accepte", badgeClass: "badge badge-neon" },
   EN_REPARATION: { label: "En reparation", badgeClass: "badge badge-muted" },
   EN_ATTENTE_PIECE: { label: "Attente piece", badgeClass: "badge badge-warning" },
-  TERMINE: { label: "Termine", badgeClass: "badge badge-neon" },
-  LIVRE: { label: "Livre", badgeClass: "badge badge-neon" },
+  PRET: { label: "Pret", badgeClass: "badge badge-neon" },
+  RECUPERE: { label: "Recupere", badgeClass: "badge badge-neon" },
   REFUS_CLIENT: { label: "Refuse", badgeClass: "badge badge-danger" },
   IRREPARABLE: { label: "Irreparable", badgeClass: "badge badge-muted" },
 };
@@ -52,7 +52,7 @@ export default function AdminSavPage() {
   const STAT_CARDS = [
     {
       label: "Ouverts",
-      count: tickets.filter((t) => !["LIVRE", "REFUS_CLIENT", "IRREPARABLE"].includes(t.status)).length,
+      count: tickets.filter((t) => !["RECUPERE", "REFUS_CLIENT", "IRREPARABLE"].includes(t.status)).length,
       icon: Clock,
     },
     {
@@ -67,7 +67,7 @@ export default function AdminSavPage() {
     },
     {
       label: "Termines",
-      count: tickets.filter((t) => ["TERMINE", "LIVRE"].includes(t.status)).length,
+      count: tickets.filter((t) => ["PRET", "RECUPERE"].includes(t.status)).length,
       icon: CheckCircle2,
     },
   ];

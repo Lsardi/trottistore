@@ -29,7 +29,7 @@ function buildTestApp(): FastifyInstance {
       count: vi.fn().mockResolvedValue(0),
       create: vi.fn().mockResolvedValue({
         id: "ticket-1",
-        status: "NOUVEAU",
+        status: "RECU",
         productModel: "Xiaomi Pro 2",
         type: "REPARATION",
         priority: "NORMAL",

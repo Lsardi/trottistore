@@ -8,13 +8,13 @@ import { cn } from "@/lib/utils";
 import { trackFunnelEvent } from "@/lib/funnel-tracking";
 
 const STATUS_STEPS = [
-  "NOUVEAU",
-  "DIAGNOSTIQUE",
+  "RECU",
+  "DIAGNOSTIC",
   "DEVIS_ENVOYE",
   "DEVIS_ACCEPTE",
   "EN_REPARATION",
-  "TERMINE",
-  "LIVRE",
+  "PRET",
+  "RECUPERE",
 ] as const;
 
 function formatDate(iso: string) {
