@@ -1,0 +1,41 @@
+groups:
+  - name: trottistore-alerts
+    rules:
+      # Service down — no /health response for 2 minutes
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been unreachable for 2 minutes."
+
+      # High error rate — >5% of requests return 5xx
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx rate on {{ $labels.job }}"
+          description: "{{ $labels.job }} has >5% error rate for 5 minutes."
+
+      # High latency — p95 > 2s
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency on {{ $labels.job }}"
+          description: "{{ $labels.job }} p95 latency >2s for 5 minutes."
+
+      # Database connection failure
+      - alert: DatabaseUnhealthy
+        expr: probe_success{job="readiness"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database or Redis unreachable from {{ $labels.instance }}"

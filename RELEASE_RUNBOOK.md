@@ -85,7 +85,57 @@ Ce runbook couvre:
 - ETA de stabilisation
 - Responsable technique
 
-## 7. Ownership
+## 7. Database Backup & Restore
+
+### Backup (quotidien)
+
+```bash
+# Via le script existant
+bash infra/backup-db.sh
+
+# Ou manuellement
+pg_dump -h localhost -U trottistore -d trottistore_dev \
+  --format=custom --compress=9 \
+  -f backup_$(date +%Y%m%d_%H%M%S).dump
+```
+
+### Restore
+
+```bash
+# Stopper les services
+podman compose -f docker-compose.dev.yml stop
+
+# Restaurer
+pg_restore -h localhost -U trottistore -d trottistore_dev \
+  --clean --if-exists backup_YYYYMMDD_HHMMSS.dump
+
+# Relancer et vérifier
+podman compose -f docker-compose.dev.yml start
+pnpm db:push  # réaligner le schema si nécessaire
+curl http://localhost:3001/ready
+curl http://localhost:3002/ready
+curl http://localhost:3003/ready
+curl http://localhost:3004/ready
+```
+
+### Validation post-restore
+
+- [ ] /ready retourne 200 sur les 4 services
+- [ ] Données métier cohérentes (compter tickets, commandes, clients)
+- [ ] Pas de migration en attente
+
+## 8. Alerting (Prometheus)
+
+Fichier: `infra/alerting-rules.yml`
+
+| Alerte | Seuil | Sévérité |
+|--------|-------|----------|
+| ServiceDown | /health KO pendant 2min | critical |
+| HighErrorRate | >5% de 5xx pendant 5min | warning |
+| HighLatency | p95 >2s pendant 5min | warning |
+| DatabaseUnhealthy | /ready KO pendant 1min | critical |
+
+## 9. Ownership
 
 - Tech Lead: go/no-go release, validation finale
 - Dev owner PR: préparation notes + validation fonctionnelle
