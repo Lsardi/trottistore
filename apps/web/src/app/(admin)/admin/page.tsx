@@ -7,9 +7,11 @@ import {
   ArrowRight,
   CalendarDays,
   DollarSign,
+  FlaskConical,
   MessageSquare,
   Package,
   ShoppingCart,
+  Smartphone,
   Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -82,7 +84,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div>
+    <div className="space-y-4 md:space-y-0">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
         <div>
           <h1 className="heading-lg">DASHBOARD</h1>
@@ -96,21 +98,34 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="md:hidden border border-border bg-surface p-3 mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Smartphone className="h-4 w-4 text-neon" />
+          <p className="font-mono text-xs text-text-muted">Actions rapides mobile</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <a href="/admin/sav" className="btn-outline text-center py-2">SAV</a>
+          <a href="/admin/stock" className="btn-outline text-center py-2">Stock</a>
+          <a href="/admin/commandes" className="btn-outline text-center py-2">Commandes</a>
+          <a href="/admin/clients" className="btn-outline text-center py-2">Clients</a>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         {kpiCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="bg-surface border border-border p-6 hover:border-neon/30 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <p className="spec-label">{card.label}</p>
-                <div className={cn("flex h-10 w-10 items-center justify-center", card.isDanger ? "bg-danger/10" : "bg-neon-dim")}>
+            <div key={card.label} className="bg-surface border border-border p-4 md:p-6 hover:border-neon/30 transition-colors">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <p className="spec-label leading-tight">{card.label}</p>
+                <div className={cn("flex h-9 w-9 md:h-10 md:w-10 items-center justify-center", card.isDanger ? "bg-danger/10" : "bg-neon-dim")}>
                   <Icon className={cn("h-5 w-5", card.isDanger ? "text-danger" : "text-neon")} />
                 </div>
               </div>
-              <p className="font-mono text-3xl font-bold text-neon">
+              <p className="font-mono text-2xl md:text-3xl font-bold text-neon">
                 {loading ? <span className="inline-block w-20 h-8 bg-surface-2 animate-pulse" /> : card.value}
               </p>
-              <p className="font-mono text-xs text-text-dim mt-2">{card.comparison}</p>
+              <p className="font-mono text-[11px] md:text-xs text-text-dim mt-1.5 md:mt-2">{card.comparison}</p>
             </div>
           );
         })}
@@ -247,11 +262,15 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-2 mb-4">
           <MessageSquare className="h-5 w-5 text-neon" />
           <h3 className="font-display font-bold text-text">Dernieres interactions CRM</h3>
+          <span className="md:hidden ml-auto inline-flex items-center gap-1 font-mono text-[10px] text-text-dim">
+            <FlaskConical className="h-3.5 w-3.5" />
+            Mobile
+          </span>
         </div>
         {cockpit?.crmInteractions.length ? (
           <div className="space-y-3">
-            {cockpit.crmInteractions.map((interaction) => (
-              <div key={interaction.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
+            {cockpit.crmInteractions.slice(0, 8).map((interaction) => (
+              <div key={interaction.id} className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border border-border bg-surface-2 px-3 py-2">
                 <div>
                   <p className="font-mono text-xs text-text">
                     {interaction.customer.firstName} {interaction.customer.lastName}

@@ -14,6 +14,14 @@ import { repairRoutes } from "./routes/tickets/index.js";
 import { technicianRoutes } from "./routes/technicians/index.js";
 import { statsRoutes } from "./routes/stats/index.js";
 import { ZodError } from "zod";
+import { validateEnv, COMMON_ENV } from "@trottistore/shared";
+
+validateEnv("sav", [
+  ...COMMON_ENV,
+  { name: "PORT_SAV", required: false },
+  { name: "SMTP_HOST", required: false },
+  { name: "BREVO_API_KEY", required: false },
+]);
 
 const PORT = parseInt(process.env.PORT_SAV || "3004", 10);
 const HOST = process.env.HOST || "0.0.0.0";
