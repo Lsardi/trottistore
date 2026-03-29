@@ -172,6 +172,9 @@ export default function HomePage() {
                 <Link href="/produits" className="btn-neon">
                   CATALOGUE
                 </Link>
+                <Link href="/quiz" className="btn-outline">
+                  TROUVEZ VOTRE TROTT
+                </Link>
                 <Link href="/reparation" className="btn-outline">
                   RÉPARATION SAV
                 </Link>

@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Urgence", href: "/urgence" },
   { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
   { label: brand.nav.parts, href: `/produits?categorySlug=${brand.nav.partsSlug}` },
+  { label: "QUIZ", href: "/quiz" },
   { label: brand.nav.repair, href: "/reparation" },
   { label: brand.nav.diagnostic, href: "/diagnostic" },
   { label: brand.nav.compatibility, href: "/compatibilite" },
