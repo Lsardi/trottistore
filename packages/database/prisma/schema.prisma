@@ -38,6 +38,7 @@ model User {
   interactions    CustomerInteraction[] @relation("InteractionCustomer")
   handledInteractions CustomerInteraction[] @relation("InteractionAgent")
   assignedTickets RepairTicket[] @relation("AssignedTechnician")
+  receivedTickets RepairTicket[] @relation("ReceivedBy")
   repairAppointments RepairAppointment[]
   technician      Technician?
 
@@ -469,26 +470,32 @@ model RepairTicket {
   productModel      String    @map("product_model") @db.VarChar(200)
   serialNumber      String?   @map("serial_number") @db.VarChar(100)
   type              String    @db.VarChar(30) // GARANTIE, REPARATION, RETOUR, RECLAMATION
-  status            String    @default("NOUVEAU") @db.VarChar(30)
-  // NOUVEAU, DIAGNOSTIQUE, DEVIS_ENVOYE, DEVIS_ACCEPTE, EN_REPARATION, EN_ATTENTE_PIECE, TERMINE, LIVRE, REFUS_CLIENT, IRREPARABLE
+  status            String    @default("RECU") @db.VarChar(30)
+  // RECU, DIAGNOSTIC, DEVIS_ENVOYE, DEVIS_ACCEPTE, EN_REPARATION, EN_ATTENTE_PIECE, PRET, RECUPERE, REFUS_CLIENT, IRREPARABLE
   priority          String    @default("NORMAL") @db.VarChar(20) // LOW, NORMAL, HIGH, URGENT
+  visitReason       String?   @map("visit_reason") @db.VarChar(300) // Motif de venue à la réception
   issueDescription  String    @map("issue_description") @db.Text
   diagnosis         String?   @db.Text
   estimatedCost     Decimal?  @map("estimated_cost") @db.Decimal(10, 2)
   actualCost        Decimal?  @map("actual_cost") @db.Decimal(10, 2)
   estimatedDays     Int?      @map("estimated_days")
   assignedTo        String?   @map("assigned_to") @db.Uuid
-  photosUrls        String[]  @default([]) @map("photos_urls")
+  receivedBy        String?   @map("received_by") @db.Uuid // Qui a réceptionné
+  photosBefore      String[]  @default([]) @map("photos_before") // Photos à la réception
+  photosAfter       String[]  @default([]) @map("photos_after")  // Photos après réparation
+  photosUrls        String[]  @default([]) @map("photos_urls")   // Legacy — migration progressive
   trackingToken     String    @unique @default(uuid()) @map("tracking_token") @db.Uuid
   quoteAcceptedAt   DateTime? @map("quote_accepted_at") @db.Timestamptz()
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
   closedAt          DateTime? @map("closed_at") @db.Timestamptz()
 
-  customer   User?            @relation(fields: [customerId], references: [id])
-  technician User?            @relation("AssignedTechnician", fields: [assignedTo], references: [id])
-  partsUsed  RepairPartUsed[]
-  statusLog  RepairStatusLog[]
+  customer     User?              @relation(fields: [customerId], references: [id])
+  technician   User?              @relation("AssignedTechnician", fields: [assignedTo], references: [id])
+  receiver     User?              @relation("ReceivedBy", fields: [receivedBy], references: [id])
+  partsUsed    RepairPartUsed[]
+  statusLog    RepairStatusLog[]
+  activityLog  RepairActivityLog[]
   appointments RepairAppointment[]
 
   @@index([customerId])
@@ -513,6 +520,28 @@ model RepairStatusLog {
 
   @@index([ticketId])
   @@map("repair_status_log")
+  @@schema("sav")
+}
+
+model RepairActivityLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  ticketId      String   @map("ticket_id") @db.Uuid
+  action        String   @db.VarChar(30)
+  // STATUS_CHANGE, PHOTO_ADDED, NOTE_ADDED, PART_ADDED, ASSIGNED, HANDOVER, QUOTE_SENT, QUOTE_ACCEPTED, QUOTE_REFUSED, RECEIVED, CLOSED
+  performedBy   String?  @map("performed_by") @db.Uuid
+  performerName String?  @map("performer_name") @db.VarChar(200) // Dénormalisé pour lisibilité
+  details       String?  @db.Text // Description libre de l'action
+  handoverNote  String?  @map("handover_note") @db.Text // Message au prochain intervenant
+  metadata      Json?    // Données structurées (ex: fromStatus/toStatus, photoUrl, partName)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  // PAS de updatedAt — append-only, immuable
+
+  ticket RepairTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([performedBy])
+  @@index([createdAt])
+  @@map("repair_activity_log")
   @@schema("sav")
 }
 
