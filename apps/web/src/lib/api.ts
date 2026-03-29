@@ -2,11 +2,15 @@
  * API client pour communiquer avec les microservices TrottiStore
  */
 
+// In browser: use relative URLs (proxied via Next.js rewrites)
+// On server: call services directly
+const isBrowser = typeof window !== "undefined";
+
 const API_URLS = {
-  ecommerce: process.env.NEXT_PUBLIC_API_ECOMMERCE || 'http://localhost:3001',
-  crm: process.env.NEXT_PUBLIC_API_CRM || 'http://localhost:3002',
-  analytics: process.env.NEXT_PUBLIC_API_ANALYTICS || 'http://localhost:3003',
-  sav: process.env.NEXT_PUBLIC_API_SAV || 'http://localhost:3004',
+  ecommerce: isBrowser ? "" : (process.env.NEXT_PUBLIC_API_ECOMMERCE || 'http://localhost:3001'),
+  crm: isBrowser ? "" : (process.env.NEXT_PUBLIC_API_CRM || 'http://localhost:3002'),
+  analytics: isBrowser ? "" : (process.env.NEXT_PUBLIC_API_ANALYTICS || 'http://localhost:3003'),
+  sav: isBrowser ? "" : (process.env.NEXT_PUBLIC_API_SAV || 'http://localhost:3004'),
 } as const;
 
 type Service = keyof typeof API_URLS;
