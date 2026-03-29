@@ -6,20 +6,21 @@ import {
   getNextStatuses,
   TERMINAL_STATUSES,
 } from "../../utils/status-machine.js";
+import { notifyStatusChange } from "../../notifications/engine.js";
 
 // --- Zod Schemas ---
 
 const repairTypeEnum = z.enum(["GARANTIE", "REPARATION", "RETOUR", "RECLAMATION"]);
 
 const repairStatusEnum = z.enum([
-  "NOUVEAU",
-  "DIAGNOSTIQUE",
+  "RECU",
+  "DIAGNOSTIC",
   "DEVIS_ENVOYE",
   "DEVIS_ACCEPTE",
   "EN_REPARATION",
   "EN_ATTENTE_PIECE",
-  "TERMINE",
-  "LIVRE",
+  "PRET",
+  "RECUPERE",
   "REFUS_CLIENT",
   "IRREPARABLE",
 ]);
@@ -35,8 +36,10 @@ const createRepairSchema = z.object({
   serialNumber: z.string().optional(),
   type: repairTypeEnum,
   priority: priorityEnum.optional().default("NORMAL"),
+  visitReason: z.string().max(300).optional(),
   issueDescription: z.string().min(1),
-  photosUrls: z.array(z.string().url()).optional(),
+  photosBefore: z.array(z.string().url()).optional(),
+  photosUrls: z.array(z.string().url()).optional(), // Legacy support
 }).superRefine((value, ctx) => {
   const hasAccount = !!value.customerId;
   const hasGuestProfile = !!value.customerName && !!value.customerPhone;
@@ -203,9 +206,12 @@ export async function repairRoutes(app: FastifyInstance) {
           serialNumber: body.serialNumber ?? null,
           type: body.type,
           priority: body.priority,
-          status: "NOUVEAU",
+          status: "RECU",
+          visitReason: body.visitReason ?? null,
           issueDescription: body.issueDescription,
+          photosBefore: body.photosBefore ?? [],
           photosUrls: body.photosUrls ?? [],
+          receivedBy: user?.userId ?? null,
           trackingToken,
         },
       });
@@ -214,13 +220,41 @@ export async function repairRoutes(app: FastifyInstance) {
         data: {
           ticketId: created.id,
           fromStatus: "",
-          toStatus: "NOUVEAU",
+          toStatus: "RECU",
           note: "Ticket cree",
+        },
+      });
+
+      await tx.repairActivityLog.create({
+        data: {
+          ticketId: created.id,
+          action: "RECEIVED",
+          performedBy: user?.userId ?? null,
+          performerName: user ? undefined : body.customerName ?? null,
+          details: `Reception: ${body.productModel}${body.visitReason ? ` — Motif: ${body.visitReason}` : ""}`,
+          metadata: {
+            type: body.type,
+            priority: body.priority,
+            visitReason: body.visitReason ?? null,
+          },
         },
       });
 
       return created;
     });
+
+    // Fire-and-forget notification for reception
+    notifyStatusChange({
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticketNumber,
+      customerName: ticket.customerName ?? body.customerName ?? "Client",
+      customerEmail: ticket.customerEmail ?? body.customerEmail ?? null,
+      customerPhone: ticket.customerPhone ?? body.customerPhone ?? null,
+      productModel: ticket.productModel,
+      trackingToken,
+      fromStatus: "",
+      toStatus: "RECU",
+    }).catch((err) => app.log.error({ err }, "Reception notification failed"));
 
     return reply.status(201).send({
       success: true,
@@ -245,6 +279,9 @@ export async function repairRoutes(app: FastifyInstance) {
     if (assignedTo) where.assignedTo = assignedTo;
     if (user?.role === "CLIENT") {
       where.customerId = user.userId;
+    } else if (user?.role === "TECHNICIAN") {
+      // TECHNICIAN can only see tickets assigned to them
+      where.assignedTo = user.userId;
     } else if (customerId) {
       where.customerId = customerId;
     }
@@ -352,6 +389,8 @@ export async function repairRoutes(app: FastifyInstance) {
         estimatedCost: ticket.estimatedCost,
         actualCost: ticket.actualCost,
         estimatedDays: ticket.estimatedDays,
+        photosBefore: ticket.photosBefore,
+        photosAfter: ticket.photosAfter,
         photosUrls: ticket.photosUrls,
         quoteAcceptedAt: ticket.quoteAcceptedAt,
         createdAt: ticket.createdAt,
@@ -475,6 +514,9 @@ export async function repairRoutes(app: FastifyInstance) {
         statusLog: {
           orderBy: { createdAt: "asc" },
         },
+        activityLog: {
+          orderBy: { createdAt: "asc" },
+        },
         partsUsed: {
           include: {
             variant: {
@@ -499,6 +541,13 @@ export async function repairRoutes(app: FastifyInstance) {
       return reply.status(403).send({
         success: false,
         error: { code: "FORBIDDEN", message: "Access denied to this ticket" },
+      });
+    }
+
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
       });
     }
 
@@ -533,6 +582,14 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
+    // TECHNICIAN can only modify their assigned tickets
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
+      });
+    }
+
     if (!validateTransition(ticket.status, body.status)) {
       const allowed = getNextStatuses(ticket.status);
       return reply.status(400).send({
@@ -548,8 +605,8 @@ export async function repairRoutes(app: FastifyInstance) {
       status: body.status,
     };
 
-    // If TERMINE: set closedAt and compute actualCost from parts
-    if (body.status === "TERMINE") {
+    // If PRET: set closedAt and compute actualCost from parts
+    if (body.status === "PRET") {
       updateData.closedAt = new Date();
       const partsCostResult = await app.prisma.repairPartUsed.aggregate({
         where: { ticketId: id },
@@ -564,8 +621,8 @@ export async function repairRoutes(app: FastifyInstance) {
       updateData.actualCost = actualCost;
     }
 
-    // If LIVRE: set closedAt if not already set
-    if (body.status === "LIVRE" && !ticket.closedAt) {
+    // If RECUPERE: set closedAt if not already set
+    if (body.status === "RECUPERE" && !ticket.closedAt) {
       updateData.closedAt = new Date();
     }
 
@@ -585,8 +642,34 @@ export async function repairRoutes(app: FastifyInstance) {
         },
       });
 
+      await tx.repairActivityLog.create({
+        data: {
+          ticketId: id,
+          action: "STATUS_CHANGE",
+          performedBy: body.performedBy ?? user?.userId ?? null,
+          details: body.note ?? `Statut: ${ticket.status} → ${body.status}`,
+          metadata: { fromStatus: ticket.status, toStatus: body.status },
+        },
+      });
+
       return updatedTicket;
     });
+
+    // Fire-and-forget notification (don't block the response)
+    notifyStatusChange({
+      ticketId: id,
+      ticketNumber: ticket.ticketNumber,
+      customerName: ticket.customerName ?? "Client",
+      customerEmail: ticket.customerEmail,
+      customerPhone: ticket.customerPhone,
+      productModel: ticket.productModel,
+      trackingToken: ticket.trackingToken,
+      fromStatus: ticket.status,
+      toStatus: body.status,
+      estimatedCost: ticket.estimatedCost ? Number(ticket.estimatedCost) : null,
+      estimatedDays: ticket.estimatedDays,
+      performedBy: body.performedBy ?? user?.userId ?? null,
+    }).catch((err) => app.log.error({ err }, "Notification failed"));
 
     return { success: true, data: updated };
   });
@@ -616,19 +699,27 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    if (!validateTransition(ticket.status, "DIAGNOSTIQUE")) {
+    // TECHNICIAN can only diagnose their assigned tickets
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
+      });
+    }
+
+    if (!validateTransition(ticket.status, "DIAGNOSTIC")) {
       return reply.status(400).send({
         success: false,
         error: {
           code: "INVALID_TRANSITION",
-          message: `Impossible de passer en DIAGNOSTIQUE depuis le statut '${ticket.status}'`,
+          message: `Impossible de passer en DIAGNOSTIC depuis le statut '${ticket.status}'`,
         },
       });
     }
 
     const updateData: Record<string, unknown> = {
       diagnosis: body.diagnosis,
-      status: "DIAGNOSTIQUE",
+      status: "DIAGNOSTIC",
     };
 
     if (body.estimatedCost !== undefined) updateData.estimatedCost = body.estimatedCost;
@@ -645,7 +736,7 @@ export async function repairRoutes(app: FastifyInstance) {
         data: {
           ticketId: id,
           fromStatus: ticket.status,
-          toStatus: "DIAGNOSTIQUE",
+          toStatus: "DIAGNOSTIC",
           note: `Diagnostic: ${body.diagnosis.substring(0, 200)}`,
         },
       });
@@ -864,6 +955,14 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
+    // TECHNICIAN can only add parts to their assigned tickets
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
+      });
+    }
+
     const part = await app.prisma.$transaction(async (tx) => {
       const created = await tx.repairPartUsed.create({
         data: {
@@ -885,6 +984,22 @@ export async function repairRoutes(app: FastifyInstance) {
           },
         });
       }
+
+      await tx.repairActivityLog.create({
+        data: {
+          ticketId: id,
+          action: "PART_ADDED",
+          performedBy: user?.userId ?? null,
+          details: `Piece ajoutee: ${body.partName} x${body.quantity} (${body.unitCost}€/u)`,
+          metadata: {
+            partName: body.partName,
+            partRef: body.partRef ?? null,
+            quantity: body.quantity,
+            unitCost: body.unitCost,
+            variantId: body.variantId ?? null,
+          },
+        },
+      });
 
       return created;
     });
@@ -919,12 +1034,20 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    if (!validateTransition(ticket.status, "TERMINE")) {
+    // TECHNICIAN can only complete their assigned tickets
+    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
+      });
+    }
+
+    if (!validateTransition(ticket.status, "PRET")) {
       return reply.status(400).send({
         success: false,
         error: {
           code: "INVALID_TRANSITION",
-          message: `Impossible de passer en TERMINE depuis le statut '${ticket.status}'`,
+          message: `Impossible de passer en PRET depuis le statut '${ticket.status}'`,
         },
       });
     }
@@ -938,7 +1061,7 @@ export async function repairRoutes(app: FastifyInstance) {
       const updatedTicket = await tx.repairTicket.update({
         where: { id },
         data: {
-          status: "TERMINE",
+          status: "PRET",
           closedAt: new Date(),
           actualCost,
         },
@@ -948,13 +1071,28 @@ export async function repairRoutes(app: FastifyInstance) {
         data: {
           ticketId: id,
           fromStatus: ticket.status,
-          toStatus: "TERMINE",
+          toStatus: "PRET",
           note: `Reparation terminee. Cout reel: ${actualCost.toFixed(2)} EUR`,
         },
       });
 
       return updatedTicket;
     });
+
+    // Notify customer that repair is complete
+    notifyStatusChange({
+      ticketId: id,
+      ticketNumber: ticket.ticketNumber,
+      customerName: ticket.customerName ?? "Client",
+      customerEmail: ticket.customerEmail,
+      customerPhone: ticket.customerPhone,
+      productModel: ticket.productModel,
+      trackingToken: ticket.trackingToken,
+      fromStatus: ticket.status,
+      toStatus: "PRET",
+      estimatedCost: ticket.estimatedCost ? Number(ticket.estimatedCost) : null,
+      estimatedDays: ticket.estimatedDays,
+    }).catch((err) => app.log.error({ err }, "Complete notification failed"));
 
     return { success: true, data: updated };
   });

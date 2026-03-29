@@ -1,193 +1,369 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { repairsApi, type RepairTicket } from "@/lib/api";
-import {
-  Wrench,
-  Clock,
-  Cog,
-  PackageSearch,
-  CheckCircle2,
-  ChevronDown,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Clock3, Loader2, PackageSearch, Wrench, X } from "lucide-react";
+import { repairsApi, type RepairStatus, type RepairTicket } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const STATUS_LABELS: Record<string, { label: string; badgeClass: string }> = {
-  NOUVEAU: { label: "Nouveau", badgeClass: "badge badge-neon" },
-  DIAGNOSTIQUE: { label: "Diagnostique", badgeClass: "badge badge-muted" },
-  DEVIS_ENVOYE: { label: "Devis envoye", badgeClass: "badge badge-warning" },
-  DEVIS_ACCEPTE: { label: "Devis accepte", badgeClass: "badge badge-neon" },
-  EN_REPARATION: { label: "En reparation", badgeClass: "badge badge-muted" },
-  EN_ATTENTE_PIECE: { label: "Attente piece", badgeClass: "badge badge-warning" },
-  TERMINE: { label: "Termine", badgeClass: "badge badge-neon" },
-  LIVRE: { label: "Livre", badgeClass: "badge badge-neon" },
-  REFUS_CLIENT: { label: "Refuse", badgeClass: "badge badge-danger" },
-  IRREPARABLE: { label: "Irreparable", badgeClass: "badge badge-muted" },
+const STATUS_LABELS: Record<RepairStatus, string> = {
+  RECU: "Recu",
+  DIAGNOSTIC: "Diagnostic",
+  DEVIS_ENVOYE: "Devis envoye",
+  DEVIS_ACCEPTE: "Devis accepte",
+  EN_REPARATION: "En reparation",
+  EN_ATTENTE_PIECE: "Attente piece",
+  PRET: "Pret",
+  RECUPERE: "Recupere",
+  REFUS_CLIENT: "Refuse",
+  IRREPARABLE: "Irreparable",
 };
 
-const PRIORITY_CONFIG: Record<string, { color: string; dotClass: string }> = {
-  LOW: { color: "text-text-dim", dotClass: "bg-text-dim" },
-  NORMAL: { color: "text-text-muted", dotClass: "bg-text-muted" },
-  HIGH: { color: "text-warning", dotClass: "bg-warning" },
-  URGENT: { color: "text-danger font-bold", dotClass: "bg-danger animate-neon-pulse" },
+const STATUS_TRANSITIONS: Record<RepairStatus, RepairStatus[]> = {
+  RECU: ["DIAGNOSTIC", "IRREPARABLE"],
+  DIAGNOSTIC: ["DEVIS_ENVOYE", "EN_REPARATION", "IRREPARABLE"],
+  DEVIS_ENVOYE: ["DEVIS_ACCEPTE", "REFUS_CLIENT"],
+  DEVIS_ACCEPTE: ["EN_REPARATION"],
+  EN_REPARATION: ["EN_ATTENTE_PIECE", "PRET"],
+  EN_ATTENTE_PIECE: ["EN_REPARATION"],
+  PRET: ["RECUPERE"],
+  RECUPERE: [],
+  REFUS_CLIENT: [],
+  IRREPARABLE: [],
 };
+
+const KANBAN_COLUMNS: Array<{ key: RepairStatus; title: string }> = [
+  { key: "RECU", title: "Recus" },
+  { key: "DIAGNOSTIC", title: "Diagnostic" },
+  { key: "DEVIS_ENVOYE", title: "Devis" },
+  { key: "DEVIS_ACCEPTE", title: "Valides" },
+  { key: "EN_REPARATION", title: "Atelier" },
+  { key: "EN_ATTENTE_PIECE", title: "Pieces" },
+  { key: "PRET", title: "Prets" },
+  { key: "RECUPERE", title: "Recuperes" },
+];
+
+const PRIORITY_CLASS: Record<string, string> = {
+  LOW: "text-text-dim",
+  NORMAL: "text-text-muted",
+  HIGH: "text-warning",
+  URGENT: "text-danger",
+};
+
+function formatDate(iso: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(new Date(iso));
+}
 
 export default function AdminSavPage() {
   const [tickets, setTickets] = useState<RepairTicket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [error, setError] = useState("");
+
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<RepairTicket | null>(null);
+  const [loadingTicket, setLoadingTicket] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<RepairStatus | "">("");
+  const [note, setNote] = useState("");
+
+  async function loadTickets() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await repairsApi.list({ page: 1, limit: 100, sort: "priority" });
+      setTickets(res.data || []);
+    } catch {
+      setError("Impossible de charger les tickets SAV.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const res = await repairsApi.list({ status: statusFilter || undefined, page: 1 });
-        setTickets(res.data || []);
-      } catch { /* SAV non connecte */ }
-      finally { setLoading(false); }
-    }
-    load();
-  }, [statusFilter]);
+    void loadTickets();
+  }, []);
 
-  const STAT_CARDS = [
-    {
-      label: "Ouverts",
-      count: tickets.filter((t) => !["LIVRE", "REFUS_CLIENT", "IRREPARABLE"].includes(t.status)).length,
-      icon: Clock,
-    },
-    {
-      label: "En reparation",
-      count: tickets.filter((t) => t.status === "EN_REPARATION").length,
-      icon: Cog,
-    },
-    {
-      label: "Attente piece",
-      count: tickets.filter((t) => t.status === "EN_ATTENTE_PIECE").length,
-      icon: PackageSearch,
-    },
-    {
-      label: "Termines",
-      count: tickets.filter((t) => ["TERMINE", "LIVRE"].includes(t.status)).length,
-      icon: CheckCircle2,
-    },
-  ];
+  useEffect(() => {
+    if (!selectedTicketId) {
+      setSelectedTicket(null);
+      setTargetStatus("");
+      setNote("");
+      return;
+    }
+    const ticketId = selectedTicketId;
+
+    async function loadTicket() {
+      setLoadingTicket(true);
+      try {
+        const res = await repairsApi.getById(ticketId);
+        setSelectedTicket(res.data);
+        const allowed = STATUS_TRANSITIONS[res.data.status as RepairStatus] ?? [];
+        setTargetStatus(allowed[0] ?? "");
+      } catch {
+        setError("Impossible de charger le detail ticket.");
+      } finally {
+        setLoadingTicket(false);
+      }
+    }
+
+    void loadTicket();
+  }, [selectedTicketId]);
+
+  const stats = useMemo(() => {
+    const openCount = tickets.filter((t) => !["RECUPERE", "REFUS_CLIENT", "IRREPARABLE"].includes(t.status)).length;
+    const repairCount = tickets.filter((t) => t.status === "EN_REPARATION").length;
+    const waitingParts = tickets.filter((t) => t.status === "EN_ATTENTE_PIECE").length;
+    const closedCount = tickets.filter((t) => ["RECUPERE", "REFUS_CLIENT", "IRREPARABLE"].includes(t.status)).length;
+    return { openCount, repairCount, waitingParts, closedCount };
+  }, [tickets]);
+
+  async function handleSaveStatus() {
+    if (!selectedTicket || !targetStatus) return;
+    setSaving(true);
+    setError("");
+    try {
+      await repairsApi.updateStatus(selectedTicket.id, {
+        status: targetStatus,
+        note: note.trim() || undefined,
+      });
+      await loadTickets();
+      const res = await repairsApi.getById(selectedTicket.id);
+      setSelectedTicket(res.data);
+      const allowed = STATUS_TRANSITIONS[res.data.status as RepairStatus] ?? [];
+      setTargetStatus(allowed[0] ?? "");
+      setNote("");
+    } catch {
+      setError("Transition impossible pour ce ticket.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="heading-lg">TICKETS SAV</h1>
-          <p className="font-mono text-sm text-text-muted mt-1">Suivi des reparations et du service apres-vente</p>
+          <h1 className="heading-lg">KANBAN SAV</h1>
+          <p className="font-mono text-sm text-text-muted mt-1">
+            Pilotage des tickets avec transitions, journal et photos.
+          </p>
         </div>
-        <div className="relative">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="input-dark appearance-none pl-4 pr-10 py-2.5 cursor-pointer"
-          >
-            <option value="">Tous les statuts</option>
-            {Object.entries(STATUS_LABELS).map(([key, val]) => (
-              <option key={key} value={key}>{val.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-dim pointer-events-none" />
-        </div>
+        <button onClick={() => void loadTickets()} className="btn-outline">
+          Rafraichir
+        </button>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {STAT_CARDS.map((s) => {
-          const Icon = s.icon;
-          return (
-            <div key={s.label} className="bg-surface border border-border p-4 hover:border-neon/30 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center bg-neon-dim">
-                  <Icon className="h-5 w-5 text-neon" />
-                </div>
-                <div>
-                  <p className="spec-label">{s.label}</p>
-                  <p className="font-mono text-2xl font-bold text-neon">{s.count}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={Clock3} label="Ouverts" value={stats.openCount} />
+        <StatCard icon={Wrench} label="Atelier" value={stats.repairCount} />
+        <StatCard icon={PackageSearch} label="Attente piece" value={stats.waitingParts} />
+        <StatCard icon={CheckCircle2} label="Clotures" value={stats.closedCount} />
       </div>
 
-      {/* Table */}
-      <div className="bg-surface border border-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-surface-2">
-              <th className="text-left px-6 py-3.5 spec-label">N&deg; Ticket</th>
-              <th className="text-left px-6 py-3.5 spec-label">Modele</th>
-              <th className="text-left px-6 py-3.5 spec-label">Type</th>
-              <th className="text-left px-6 py-3.5 spec-label">Priorite</th>
-              <th className="text-left px-6 py-3.5 spec-label">Statut</th>
-              <th className="text-right px-6 py-3.5 spec-label">Cout est.</th>
-              <th className="text-left px-6 py-3.5 spec-label">Date</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}>
-                  <td colSpan={7} className="px-6 py-4">
-                    <div className="h-4 bg-surface-2 animate-pulse" />
-                  </td>
-                </tr>
-              ))
-            ) : tickets.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-6 py-16 text-center">
-                  <Wrench className="h-10 w-10 text-text-dim mx-auto mb-3" />
-                  <p className="font-mono text-text-muted">Aucun ticket SAV</p>
-                </td>
-              </tr>
-            ) : (
-              tickets.map((ticket) => {
-                const status = STATUS_LABELS[ticket.status] || { label: ticket.status, badgeClass: "badge badge-muted" };
-                const priority = PRIORITY_CONFIG[ticket.priority] || { color: "text-text-dim", dotClass: "bg-text-dim" };
+      {error ? (
+        <div className="border border-danger/40 bg-danger/10 p-3 font-mono text-xs text-danger">{error}</div>
+      ) : null}
 
-                return (
-                  <tr key={ticket.id} className="hover:bg-surface-2/50 cursor-pointer transition-colors">
-                    <td className="px-6 py-4">
-                      <span className="font-mono font-bold text-neon">
+      {loading ? (
+        <div className="h-40 flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-neon" />
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+          {KANBAN_COLUMNS.map((column) => {
+            const columnTickets = tickets.filter((ticket) => ticket.status === column.key);
+            return (
+              <section key={column.key} className="bg-surface border border-border min-h-56 flex flex-col">
+                <header className="px-3 py-2 border-b border-border bg-surface-2">
+                  <p className="spec-label">{column.title}</p>
+                  <p className="font-mono text-[11px] text-text-dim mt-1">{columnTickets.length} ticket(s)</p>
+                </header>
+                <div className="p-2 space-y-2 overflow-auto">
+                  {columnTickets.map((ticket) => (
+                    <button
+                      key={ticket.id}
+                      onClick={() => setSelectedTicketId(ticket.id)}
+                      className={cn(
+                        "w-full text-left border p-2 transition-colors",
+                        selectedTicketId === ticket.id
+                          ? "border-neon bg-neon-dim/30"
+                          : "border-border hover:border-neon/40",
+                      )}
+                    >
+                      <p className="font-mono text-[11px] text-neon font-bold">
                         SAV-{String(ticket.ticketNumber).padStart(4, "0")}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-sm text-text">{ticket.productModel}</td>
-                    <td className="px-6 py-4 font-mono text-xs text-text-muted">{ticket.type}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("h-2.5 w-2.5 flex-shrink-0", priority.dotClass)} />
-                        <span className={cn("font-mono text-xs", priority.color)}>
+                      </p>
+                      <p className="font-mono text-xs text-text mt-1 line-clamp-2">{ticket.productModel}</p>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <span className={cn("font-mono text-[10px] uppercase", PRIORITY_CLASS[ticket.priority] || "text-text-dim")}>
                           {ticket.priority}
                         </span>
+                        <span className="font-mono text-[10px] text-text-dim">
+                          {new Date(ticket.createdAt).toLocaleDateString("fr-FR")}
+                        </span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={status.badgeClass}>
-                        {status.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-mono text-sm font-bold text-neon">
-                      {ticket.estimatedCost ? `${parseFloat(ticket.estimatedCost).toFixed(2)} \u20AC` : "\u2014"}
-                    </td>
-                    <td className="px-6 py-4 font-mono text-xs text-text-muted">
-                      {new Date(ticket.createdAt).toLocaleDateString("fr-FR", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                  </tr>
-                );
-              })
+                    </button>
+                  ))}
+                  {columnTickets.length === 0 ? (
+                    <p className="font-mono text-[11px] text-text-dim px-1 py-2">Aucun ticket</p>
+                  ) : null}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedTicketId ? (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4 md:p-8 overflow-auto">
+          <div className="mx-auto w-full max-w-4xl border border-border bg-surface">
+            <div className="flex items-start justify-between gap-4 border-b border-border p-4">
+              <div>
+                <p className="spec-label mb-1">DETAIL TICKET</p>
+                <h2 className="heading-sm">SAV-{String(selectedTicket?.ticketNumber ?? 0).padStart(4, "0")}</h2>
+                <p className="font-mono text-xs text-text-muted mt-1">{selectedTicket?.productModel ?? "Chargement..."}</p>
+              </div>
+              <button
+                onClick={() => setSelectedTicketId(null)}
+                className="h-9 w-9 flex items-center justify-center border border-border hover:border-neon"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {loadingTicket || !selectedTicket ? (
+              <div className="h-44 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-neon" />
+              </div>
+            ) : (
+              <div className="grid lg:grid-cols-2 gap-6 p-4">
+                <section className="space-y-4">
+                  <div className="border border-border p-3">
+                    <p className="spec-label mb-2">Transition statut</p>
+                    <div className="grid gap-3">
+                      <div>
+                        <label className="font-mono text-xs text-text-muted block mb-1">Statut actuel</label>
+                        <p className="font-mono text-sm text-neon">
+                          {STATUS_LABELS[selectedTicket.status as RepairStatus] || selectedTicket.status}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="font-mono text-xs text-text-muted block mb-1">Nouveau statut</label>
+                        <select
+                          value={targetStatus}
+                          onChange={(event) => setTargetStatus(event.target.value as RepairStatus)}
+                          className="input-dark w-full"
+                          disabled={(STATUS_TRANSITIONS[selectedTicket.status as RepairStatus] ?? []).length === 0}
+                        >
+                          {(STATUS_TRANSITIONS[selectedTicket.status as RepairStatus] ?? []).map((status) => (
+                            <option key={status} value={status}>
+                              {STATUS_LABELS[status]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="font-mono text-xs text-text-muted block mb-1">Note journal (optionnel)</label>
+                        <textarea
+                          rows={3}
+                          value={note}
+                          onChange={(event) => setNote(event.target.value)}
+                          className="input-dark w-full resize-none"
+                          placeholder="Ex: client informe, piece commandee..."
+                        />
+                      </div>
+                      <button
+                        onClick={() => void handleSaveStatus()}
+                        disabled={!targetStatus || saving}
+                        className="btn-neon disabled:opacity-50"
+                      >
+                        {saving ? "Mise a jour..." : "Valider transition"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border border-border p-3">
+                    <p className="spec-label mb-2">Infos client</p>
+                    <div className="space-y-1 font-mono text-xs text-text-muted">
+                      <p>Nom: <span className="text-text">{selectedTicket.customerName || "—"}</span></p>
+                      <p>Email: <span className="text-text">{selectedTicket.customerEmail || "—"}</span></p>
+                      <p>Telephone: <span className="text-text">{selectedTicket.customerPhone || "—"}</span></p>
+                      <p>Type: <span className="text-text">{selectedTicket.type}</span></p>
+                    </div>
+                  </div>
+
+                  <div className="border border-border p-3">
+                    <p className="spec-label mb-2">Description panne</p>
+                    <p className="font-mono text-xs text-text-muted whitespace-pre-wrap">{selectedTicket.issueDescription}</p>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div className="border border-border p-3">
+                    <p className="spec-label mb-2">Photos</p>
+                    {(selectedTicket.photosUrls?.length ?? 0) === 0 ? (
+                      <p className="font-mono text-xs text-text-dim">Aucune photo jointe.</p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedTicket.photosUrls?.map((url) => (
+                          <a key={url} href={url} target="_blank" rel="noreferrer" className="block border border-border hover:border-neon">
+                            <img src={url} alt="Photo ticket SAV" className="w-full h-28 object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border border-border p-3">
+                    <p className="spec-label mb-2">Journal d'intervention</p>
+                    <div className="space-y-2 max-h-80 overflow-auto pr-1">
+                      {(selectedTicket.statusLog ?? []).length === 0 ? (
+                        <p className="font-mono text-xs text-text-dim">Aucun evenement.</p>
+                      ) : (
+                        [...(selectedTicket.statusLog ?? [])].reverse().map((entry, index) => (
+                          <div key={`${entry.createdAt}-${index}`} className="border border-border p-2">
+                            <p className="font-mono text-[11px] text-neon">
+                              {entry.fromStatus || "INIT"} -&gt; {entry.toStatus}
+                            </p>
+                            <p className="font-mono text-[11px] text-text-dim mt-1">{formatDate(entry.createdAt)}</p>
+                            {entry.note ? <p className="font-mono text-xs text-text mt-2">{entry.note}</p> : null}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </section>
+              </div>
             )}
-          </tbody>
-        </table>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="bg-surface border border-border p-4">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center bg-neon-dim">
+          <Icon className="h-5 w-5 text-neon" />
+        </div>
+        <div>
+          <p className="spec-label">{label}</p>
+          <p className="font-mono text-2xl font-bold text-neon">{value}</p>
+        </div>
       </div>
     </div>
   );

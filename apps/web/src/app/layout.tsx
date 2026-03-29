@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const allowedThemes = THEME_PROFILES.map((item) => item.id);
 
   return (
-    <html lang="fr">
+    <html lang="fr" data-theme={DEFAULT_THEME} suppressHydrationWarning>
       <head>
         <StructuredData />
       </head>
