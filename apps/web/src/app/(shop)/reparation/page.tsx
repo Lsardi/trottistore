@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   FileText,
   Search,
@@ -28,15 +30,40 @@ const STEPS = [
   { icon: Wrench, title: "Reparation" },
 ];
 
-export default function ReparationPage() {
+export default function ReparationPageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-neon" /></div>}>
+      <ReparationPage />
+    </Suspense>
+  );
+}
+
+function ReparationPage() {
+  const searchParams = useSearchParams();
+
+  // Diagnostic data passed from /diagnostic
+  const diagInfo = {
+    issue: searchParams.get("issue") || "",
+    diagnosis: searchParams.get("diag") || "",
+    cost: searchParams.get("cost") || "",
+    duration: searchParams.get("duration") || "",
+    category: searchParams.get("category") || "",
+  };
+  const hasDiag = !!diagInfo.diagnosis;
+
   const [formData, setFormData] = useState({
+    customerName: "",
+    customerEmail: "",
+    customerPhone: "",
     productModel: "",
     serialNumber: "",
     type: "REPARATION",
-    issueDescription: "",
+    issueDescription: diagInfo.issue
+      ? `${diagInfo.issue}${diagInfo.diagnosis ? ` — Diagnostic en ligne : ${diagInfo.diagnosis}` : ""}`
+      : "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<{ ticketNumber: number } | null>(null);
+  const [success, setSuccess] = useState<{ ticketNumber: number; trackingUrl?: string } | null>(null);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -46,8 +73,16 @@ export default function ReparationPage() {
 
     try {
       const res = await repairsApi.create(formData);
-      setSuccess({ ticketNumber: res.data.ticketNumber });
-      setFormData({ productModel: "", serialNumber: "", type: "REPARATION", issueDescription: "" });
+      setSuccess({ ticketNumber: res.data.ticketNumber, trackingUrl: res.data.trackingUrl });
+      setFormData({
+        customerName: "",
+        customerEmail: "",
+        customerPhone: "",
+        productModel: "",
+        serialNumber: "",
+        type: "REPARATION",
+        issueDescription: "",
+      });
     } catch {
       setError("Erreur lors de la soumission. Veuillez reessayer ou nous contacter directement.");
     } finally {
@@ -86,6 +121,39 @@ export default function ReparationPage() {
         ))}
       </div>
 
+      {/* Diagnostic summary banner */}
+      {hasDiag && !success && (
+        <div className="mb-8 border border-neon/30 bg-neon-dim/50 overflow-hidden">
+          <div className="px-5 py-3 bg-neon/10 border-b border-neon/20 flex items-center gap-2">
+            <Search className="w-4 h-4 text-neon" />
+            <span className="font-display font-bold text-neon text-sm uppercase">Diagnostic en ligne</span>
+          </div>
+          <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="spec-label mb-1">Symptome</p>
+              <p className="font-mono text-sm text-text">{diagInfo.issue}</p>
+            </div>
+            <div>
+              <p className="spec-label mb-1">Diagnostic</p>
+              <p className="font-mono text-sm text-text">{diagInfo.diagnosis}</p>
+            </div>
+            <div>
+              <p className="spec-label mb-1">Cout estime</p>
+              <p className="font-mono text-sm font-bold text-neon">{diagInfo.cost}</p>
+            </div>
+            <div>
+              <p className="spec-label mb-1">Duree estimee</p>
+              <p className="font-mono text-sm text-text">{diagInfo.duration}</p>
+            </div>
+          </div>
+          <div className="px-5 pb-3">
+            <p className="font-mono text-xs text-text-dim">
+              Prix indicatif. Le devis final sera etabli apres examen en atelier.
+            </p>
+          </div>
+        </div>
+      )}
+
       {success ? (
         <div className="bg-surface border border-border p-10 text-center">
           <div className="w-16 h-16 mx-auto mb-5 flex items-center justify-center">
@@ -100,6 +168,14 @@ export default function ReparationPage() {
               SAV-{String(success.ticketNumber).padStart(4, "0")}
             </span>
           </p>
+          {success.trackingUrl ? (
+            <p className="font-mono text-xs text-text mb-6">
+              Suivi en temps reel :{" "}
+              <Link href={success.trackingUrl} className="text-neon hover:underline">
+                ouvrir le suivi
+              </Link>
+            </p>
+          ) : null}
           <p className="font-mono text-xs text-text-dim mb-6">
             Nous vous contacterons sous 24-48h pour le diagnostic.
           </p>
@@ -112,6 +188,48 @@ export default function ReparationPage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="spec-label block mb-2">
+                Nom complet <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Nom Prénom"
+                value={formData.customerName}
+                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                className="input-dark w-full"
+              />
+            </div>
+            <div>
+              <label className="spec-label block mb-2">
+                Telephone <span className="text-danger">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                placeholder="06 XX XX XX XX"
+                value={formData.customerPhone}
+                onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+                className="input-dark w-full"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="spec-label block mb-2">
+              Email <span className="text-text-dim font-normal">(optionnel)</span>
+            </label>
+            <input
+              type="email"
+              placeholder="votre@email.fr"
+              value={formData.customerEmail}
+              onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
+              className="input-dark w-full"
+            />
+          </div>
+
           {/* Product model */}
           <div>
             <label className="spec-label block mb-2">
