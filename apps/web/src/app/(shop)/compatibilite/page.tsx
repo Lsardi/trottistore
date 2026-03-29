@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, ChevronRight, Check, Zap } from "lucide-react";
+import Image from "next/image";
+import { Search, ChevronRight, Check, Zap, Bike } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productsApi, type Product } from "@/lib/api";
+import { addScooterToGarage, getGarageScooters } from "@/lib/garage";
 
 const SCOOTER_BRANDS = [
   { name: "Dualtron", models: ["Thunder 2", "Mini", "Victor", "Storm", "Eagle Pro", "Spider 2", "Compact", "Ultra 2"] },
@@ -26,6 +28,7 @@ export default function CompatibilitePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchBrand, setSearchBrand] = useState("");
+  const [savedToGarage, setSavedToGarage] = useState(false);
 
   const currentBrand = SCOOTER_BRANDS.find((b) => b.name === selectedBrand);
   const filteredBrands = searchBrand
@@ -158,7 +161,7 @@ export default function CompatibilitePage() {
         {/* Step: Results */}
         {step === "results" && (
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
                 <button onClick={reset} className="font-mono text-sm text-neon hover:underline mb-2 flex items-center gap-1">
                   &larr; Nouvelle recherche
@@ -170,6 +173,25 @@ export default function CompatibilitePage() {
                   {loading ? "Recherche..." : `${products.length} piece${products.length !== 1 ? "s" : ""} trouvee${products.length !== 1 ? "s" : ""}`}
                 </p>
               </div>
+              {!savedToGarage && !getGarageScooters().some(
+                (s) => s.brand.toLowerCase() === selectedBrand.toLowerCase() && s.model.toLowerCase() === selectedModel.toLowerCase()
+              ) ? (
+                <button
+                  onClick={() => {
+                    addScooterToGarage(selectedBrand, selectedModel);
+                    setSavedToGarage(true);
+                  }}
+                  className="btn-outline text-xs flex items-center gap-2"
+                >
+                  <Bike className="w-4 h-4" />
+                  SAUVEGARDER DANS MON GARAGE
+                </button>
+              ) : (
+                <span className="font-mono text-xs text-neon flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Dans votre garage
+                </span>
+              )}
             </div>
 
             {loading ? (
@@ -209,7 +231,7 @@ export default function CompatibilitePage() {
                     >
                       <div className="product-card-image">
                         {image && (
-                          <img src={image.url} alt={product.name} className="w-full h-full object-contain p-2" loading="lazy" />
+                          <Image src={image.url} alt={product.name} fill sizes="(max-width: 768px) 50vw, 33vw" style={{ objectFit: "contain", padding: "8px" }} />
                         )}
                       </div>
                       <div className="product-card-body">

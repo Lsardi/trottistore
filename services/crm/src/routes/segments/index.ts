@@ -1,47 +1,56 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+
+const segmentCriteriaSchema = z.object({
+  loyaltyTier: z.enum(["BRONZE", "SILVER", "GOLD"]).optional(),
+  minSpent: z.number().optional(),
+  maxSpent: z.number().optional(),
+  minOrders: z.number().int().optional(),
+  tags: z.array(z.string()).optional(),
+  lastOrderDaysAgo: z.number().int().optional(),
+});
 
 const createSegmentSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().optional(),
-  criteria: z.object({
-    loyaltyTier: z.enum(["BRONZE", "SILVER", "GOLD"]).optional(),
-    minSpent: z.number().optional(),
-    maxSpent: z.number().optional(),
-    minOrders: z.number().int().optional(),
-    tags: z.array(z.string()).optional(),
-    lastOrderDaysAgo: z.number().int().optional(),
-  }),
+  criteria: segmentCriteriaSchema,
 });
 
 /**
  * Build a Prisma where clause for CustomerProfile from segment criteria JSON.
  */
-function buildProfileWhere(criteria: Record<string, unknown>): Prisma.CustomerProfileWhereInput {
-  const where: Prisma.CustomerProfileWhereInput = {};
+type SegmentCriteria = z.infer<typeof segmentCriteriaSchema>;
+
+function buildProfileWhere(criteria: SegmentCriteria) {
+  const where: {
+    loyaltyTier?: "BRONZE" | "SILVER" | "GOLD";
+    totalSpent?: { gte?: number; lte?: number };
+    totalOrders?: { gte: number };
+    tags?: { hasSome: string[] };
+    lastOrderAt?: { gte: Date };
+  } = {};
 
   if (criteria.loyaltyTier) {
-    where.loyaltyTier = criteria.loyaltyTier as string;
+    where.loyaltyTier = criteria.loyaltyTier;
   }
 
   if (criteria.minSpent !== undefined || criteria.maxSpent !== undefined) {
     where.totalSpent = {};
-    if (criteria.minSpent !== undefined) where.totalSpent.gte = criteria.minSpent as number;
-    if (criteria.maxSpent !== undefined) where.totalSpent.lte = criteria.maxSpent as number;
+    if (criteria.minSpent !== undefined) where.totalSpent.gte = criteria.minSpent;
+    if (criteria.maxSpent !== undefined) where.totalSpent.lte = criteria.maxSpent;
   }
 
   if (criteria.minOrders !== undefined) {
-    where.totalOrders = { gte: criteria.minOrders as number };
+    where.totalOrders = { gte: criteria.minOrders };
   }
 
   if (Array.isArray(criteria.tags) && criteria.tags.length > 0) {
-    where.tags = { hasSome: criteria.tags as string[] };
+    where.tags = { hasSome: criteria.tags };
   }
 
   if (criteria.lastOrderDaysAgo !== undefined) {
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - (criteria.lastOrderDaysAgo as number));
+    cutoff.setDate(cutoff.getDate() - criteria.lastOrderDaysAgo);
     where.lastOrderAt = { gte: cutoff };
   }
 
@@ -67,14 +76,14 @@ export async function segmentRoutes(app: FastifyInstance) {
     const body = createSegmentSchema.parse(request.body);
 
     // Initial count evaluation
-    const where = buildProfileWhere(body.criteria as Record<string, unknown>);
+    const where = buildProfileWhere(body.criteria);
     const count = await app.prisma.customerProfile.count({ where });
 
     const segment = await app.prisma.customerSegment.create({
       data: {
         name: body.name,
         description: body.description ?? null,
-        criteria: body.criteria as Prisma.JsonObject,
+        criteria: body.criteria,
         count,
         isAutomatic: true,
       },
@@ -100,7 +109,18 @@ export async function segmentRoutes(app: FastifyInstance) {
       });
     }
 
-    const criteria = segment.criteria as Record<string, unknown>;
+    const parsedCriteria = segmentCriteriaSchema.safeParse(segment.criteria);
+    if (!parsedCriteria.success) {
+      return reply.status(500).send({
+        success: false,
+        error: {
+          code: "INVALID_SEGMENT_CRITERIA",
+          message: "Le segment contient des critères invalides",
+        },
+      });
+    }
+
+    const criteria = parsedCriteria.data;
     const where = buildProfileWhere(criteria);
     const count = await app.prisma.customerProfile.count({ where });
 

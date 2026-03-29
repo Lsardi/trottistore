@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -28,15 +28,38 @@ const updateItemSchema = z.object({
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-function getCartKey(request: any): string {
-  const user = (request as any).user;
-  if (user?.id) return `cart:${user.id}`;
+interface RequestUser {
+  id: string;
+  userId: string;
+}
+
+function getRequestUser(request: FastifyRequest): RequestUser | null {
+  const maybeUser = request.user as Partial<RequestUser> | undefined;
+  if (!maybeUser) return null;
+  if (typeof maybeUser.id !== "string" || typeof maybeUser.userId !== "string") {
+    return null;
+  }
+  return { id: maybeUser.id, userId: maybeUser.userId };
+}
+
+function getCartKey(request: FastifyRequest): string {
+  const user = getRequestUser(request);
+  const userId = user?.id ?? user?.userId;
+  if (userId) return `cart:${userId}`;
   // Fallback to session-based cart for unauthenticated users
+  const sessionHeader = request.headers["x-session-id"];
   const sessionId =
-    (request.headers["x-session-id"] as string) ??
-    (request.cookies?.sessionId as string | undefined);
+    typeof sessionHeader === "string"
+      ? sessionHeader
+      : Array.isArray(sessionHeader) && typeof sessionHeader[0] === "string"
+        ? sessionHeader[0]
+        : request.cookies?.sessionId;
   if (!sessionId) {
-    throw { statusCode: 400, message: "Missing session identifier" };
+    throw {
+      statusCode: 400,
+      code: "MISSING_SESSION_ID",
+      message: "Missing session identifier",
+    };
   }
   return `cart:session:${sessionId}`;
 }

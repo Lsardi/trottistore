@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+
 
 const periodQuerySchema = z.object({
   period: z.enum(["7d", "30d", "90d", "365d"]).default("30d"),
@@ -27,7 +27,7 @@ interface TopCustomerRow {
   first_name: string;
   last_name: string;
   email: string;
-  total_spent: Prisma.Decimal | number;
+  total_spent: number;
   total_orders: number;
   loyalty_tier: string;
 }

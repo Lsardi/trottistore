@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -58,7 +57,15 @@ export async function customerRoutes(app: FastifyInstance) {
     const skip = (page - 1) * limit;
 
     // Build CustomerProfile where clause
-    const profileWhere: Prisma.CustomerProfileWhereInput = {};
+    const profileWhere: {
+      loyaltyTier?: "BRONZE" | "SILVER" | "GOLD";
+      source?: string;
+      totalSpent?: {
+        gte?: number;
+        lte?: number;
+      };
+      tags?: { hasSome: string[] };
+    } = {};
     if (loyaltyTier) profileWhere.loyaltyTier = loyaltyTier;
     if (source) profileWhere.source = source;
     if (minSpent !== undefined || maxSpent !== undefined) {
@@ -74,7 +81,15 @@ export async function customerRoutes(app: FastifyInstance) {
     }
 
     // Build User where clause — search across name/email
-    const userWhere: Prisma.UserWhereInput = {
+    const userWhere: {
+      customerProfile: typeof profileWhere;
+      OR?: Array<{
+        email?: { contains: string; mode: "insensitive" };
+        firstName?: { contains: string; mode: "insensitive" };
+        lastName?: { contains: string; mode: "insensitive" };
+        phone?: { contains: string; mode: "insensitive" };
+      }>;
+    } = {
       customerProfile: profileWhere,
     };
 
@@ -88,7 +103,12 @@ export async function customerRoutes(app: FastifyInstance) {
     }
 
     // Build orderBy — some sorts are on the profile relation
-    let orderBy: Prisma.UserOrderByWithRelationInput;
+    let orderBy:
+      | { lastName: "asc" }
+      | { customerProfile: { loyaltyPoints: "desc" } }
+      | { lastLoginAt: "desc" }
+      | { customerProfile: { totalSpent: "desc" } }
+      | { createdAt: "desc" };
     switch (sort) {
       case "name":
         orderBy = { lastName: "asc" };
@@ -232,7 +252,10 @@ export async function customerRoutes(app: FastifyInstance) {
       });
     }
 
-    const where: Prisma.CustomerInteractionWhereInput = { customerId: id };
+    const where: {
+      customerId: string;
+      type?: "EMAIL" | "CALL" | "VISIT" | "SMS" | "NOTE" | "ORDER" | "SAV";
+    } = { customerId: id };
     if (type) where.type = type;
 
     const [interactions, total] = await Promise.all([
