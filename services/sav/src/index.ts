@@ -49,6 +49,7 @@ async function start() {
 
   app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0];
+    const hasAuthorizationHeader = typeof request.headers.authorization === "string" && request.headers.authorization.length > 0;
     const isHealth =
       path === "/health" ||
       path === "/ready" ||
@@ -62,14 +63,16 @@ async function start() {
     const isPublicAppointmentBooking = request.method === "POST" && (path === "/api/v1/appointments" || path === "/appointments");
     const isPublicQuoteAccept = request.method === "PUT" && path.endsWith("/quote/accept-client");
 
-    if (
-      isHealth ||
-      isPublicSavIntake ||
-      isPublicTracking ||
-      isPublicSlots ||
-      isPublicAppointmentBooking ||
-      isPublicQuoteAccept
-    ) {
+    if (isHealth || isPublicTracking || isPublicSlots || isPublicAppointmentBooking || isPublicQuoteAccept) {
+      return;
+    }
+
+    // Intake stays public for guests, but if a token is provided we authenticate
+    // so the ticket can be linked to the connected customer account.
+    if (isPublicSavIntake) {
+      if (hasAuthorizationHeader) {
+        await app.authenticate(request, reply);
+      }
       return;
     }
     await app.authenticate(request, reply);
