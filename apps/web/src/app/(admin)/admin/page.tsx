@@ -131,7 +131,7 @@ export default function AdminDashboard() {
           </div>
           <p className="font-mono text-xs text-text-muted mt-2">Prioriser les tickets bloquants</p>
         </a>
-        <a href="/admin/stock" className="group bg-surface border border-border p-5 hover:border-neon/40 transition-all">
+        <a href="/admin/produits" className="group bg-surface border border-border p-5 hover:border-neon/40 transition-all">
           <div className="flex items-center justify-between">
             <p className="font-display font-bold text-text">Stock critique</p>
             <ArrowRight className="h-4 w-4 text-text-dim group-hover:text-neon transition-colors" />

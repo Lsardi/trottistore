@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock3, Loader2, PackageSearch, Wrench, X } from "lucide-react";
-import { repairsApi, triggersApi, type RepairStatus, type RepairTicket, type TriggerRunResult } from "@/lib/api";
+import { repairsApi, type RepairStatus, type RepairTicket } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<RepairStatus, string> = {
@@ -68,10 +68,6 @@ export default function AdminSavPage() {
   const [saving, setSaving] = useState(false);
   const [targetStatus, setTargetStatus] = useState<RepairStatus | "">("");
   const [note, setNote] = useState("");
-  const [runningTriggers, setRunningTriggers] = useState(false);
-  const [triggerDryRun, setTriggerDryRun] = useState(true);
-  const [triggerResult, setTriggerResult] = useState<TriggerRunResult | null>(null);
-  const [triggerMessage, setTriggerMessage] = useState("");
 
   async function loadTickets() {
     setLoading(true);
@@ -146,22 +142,6 @@ export default function AdminSavPage() {
     }
   }
 
-  async function handleRunTriggers() {
-    setRunningTriggers(true);
-    setTriggerMessage("");
-    try {
-      const res = await triggersApi.run({ dryRun: triggerDryRun });
-      if (res.data) {
-        setTriggerResult(res.data);
-      }
-      setTriggerMessage(res.message ?? (triggerDryRun ? "Dry-run termine." : "Relances declenchees."));
-    } catch {
-      setTriggerMessage("Impossible de lancer les relances automatiques.");
-    } finally {
-      setRunningTriggers(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -186,36 +166,6 @@ export default function AdminSavPage() {
       {error ? (
         <div className="border border-danger/40 bg-danger/10 p-3 font-mono text-xs text-danger">{error}</div>
       ) : null}
-
-      <section className="bg-surface border border-border p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-display font-bold text-text">Relances automatiques (J+3 / devis 48h / avis)</h2>
-            <p className="font-mono text-xs text-text-dim mt-1">S2-7: execution manuelle des triggers de notification.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 font-mono text-xs text-text-muted">
-              <input
-                type="checkbox"
-                checked={triggerDryRun}
-                onChange={(e) => setTriggerDryRun(e.target.checked)}
-                className="h-4 w-4 accent-neon"
-              />
-              Dry-run
-            </label>
-            <button onClick={() => void handleRunTriggers()} disabled={runningTriggers} className="btn-outline inline-flex items-center gap-2">
-              {runningTriggers ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Lancer
-            </button>
-          </div>
-        </div>
-        {triggerMessage ? <p className="font-mono text-xs text-text-muted mt-3">{triggerMessage}</p> : null}
-        {triggerResult ? (
-          <pre className="mt-3 bg-surface-2 border border-border p-3 text-[11px] text-text-muted overflow-auto">
-            {JSON.stringify(triggerResult, null, 2)}
-          </pre>
-        ) : null}
-      </section>
 
       {loading ? (
         <div className="h-40 flex items-center justify-center">
