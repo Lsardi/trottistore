@@ -47,11 +47,15 @@ async function start() {
 
   app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0];
+    const isPublicFunnelEventIngest =
+      request.method === "POST" &&
+      (path === "/api/v1/analytics/events/public" || path === "/analytics/events/public");
     if (
       path === "/health" ||
       path === "/ready" ||
       path.startsWith("/api/v1/health") ||
-      path.startsWith("/api/v1/ready")
+      path.startsWith("/api/v1/ready") ||
+      isPublicFunnelEventIngest
     ) {
       return;
     }

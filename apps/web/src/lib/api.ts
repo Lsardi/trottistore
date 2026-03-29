@@ -336,6 +336,23 @@ export const analyticsApi = {
 
   sales: (params?: { period?: string; group?: string }) =>
     apiFetch<{ success: boolean; data: SalesDataPoint[] }>('analytics', '/analytics/sales', { params }),
+
+  trackFunnel: (
+    type:
+      | "diagnostic_category_selected"
+      | "diagnostic_result_viewed"
+      | "diagnostic_ticket_cta_clicked"
+      | "urgence_slots_loaded"
+      | "urgence_ticket_created"
+      | "repair_tracking_viewed",
+    properties?: Record<string, string | number | boolean | null>,
+  ) =>
+    apiFetch<{ accepted: number; message: string }>('analytics', '/analytics/events/public', {
+      method: "POST",
+      body: JSON.stringify({
+        events: [{ type, properties }],
+      }),
+    }),
 };
 
 // ─── TYPES ────────────────────────────────────────────────
