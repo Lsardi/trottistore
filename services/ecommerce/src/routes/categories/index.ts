@@ -101,7 +101,11 @@ export async function categoryRoutes(app: FastifyInstance) {
     }
 
     // Sort
-    let orderBy: Record<string, string>;
+    let orderBy:
+      | { priceHt: "asc" }
+      | { priceHt: "desc" }
+      | { name: "asc" }
+      | { createdAt: "desc" };
     switch (sort) {
       case "price_asc":
         orderBy = { priceHt: "asc" };
@@ -148,7 +152,7 @@ export async function categoryRoutes(app: FastifyInstance) {
             },
           },
         },
-        orderBy: orderBy as any,
+        orderBy,
         skip,
         take: limit,
       }),

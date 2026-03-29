@@ -1,20 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Search, ShoppingCart, User, Menu, X } from "lucide-react";
+import { brand } from "@/lib/brand";
+import ThemeSwitcher from "@/components/ThemeSwitcher";
+import { cartApi } from "@/lib/api";
 
 const NAV_ITEMS = [
-  { label: "TROTTINETTES", href: "/produits?categorySlug=trottinettes-electriques" },
-  { label: "PIÈCES", href: "/produits?categorySlug=pieces-detachees" },
-  { label: "SAV", href: "/reparation" },
-  { label: "DIAGNOSTIC", href: "/diagnostic" },
-  { label: "COMPATIBILITÉ", href: "/compatibilite" },
+  { label: "Urgence", href: "/urgence" },
+  { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
+  { label: brand.nav.parts, href: `/produits?categorySlug=${brand.nav.partsSlug}` },
+  { label: "QUIZ", href: "/quiz" },
+  { label: brand.nav.repair, href: "/reparation" },
+  { label: brand.nav.diagnostic, href: "/diagnostic" },
+  { label: brand.nav.compatibility, href: "/compatibilite" },
+  { label: "ATELIER", href: "/atelier" },
+  { label: "PRO", href: "/pro" },
 ] as const;
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const cartCount = 0;
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function refreshCart() {
+      try {
+        const res = await cartApi.get();
+        if (!mounted) return;
+        setCartCount(res.data.itemCount ?? 0);
+      } catch {
+        if (!mounted) return;
+        setCartCount(0);
+      }
+    }
+
+    refreshCart();
+    window.addEventListener("focus", refreshCart);
+    window.addEventListener("trottistore:cart-updated", refreshCart);
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", refreshCart);
+      window.removeEventListener("trottistore:cart-updated", refreshCart);
+    };
+  }, []);
 
   return (
     <header>
@@ -23,8 +54,8 @@ export default function Header() {
         className="hidden md:block"
         style={{
           height: 32,
-          backgroundColor: "#141414",
-          borderBottom: "1px solid #2A2A2A",
+          backgroundColor: "var(--color-surface)",
+          borderBottom: "1px solid var(--color-border)",
         }}
       >
         <div
@@ -44,10 +75,10 @@ export default function Header() {
               fontSize: "0.65rem",
               textTransform: "uppercase",
               letterSpacing: "0.12em",
-              color: "#555",
+              color: "var(--color-text-dim)",
             }}
           >
-            TROTTISTORE.FR
+            {brand.domain.toUpperCase()}
           </span>
           <div
             className="font-mono"
@@ -59,12 +90,12 @@ export default function Header() {
               letterSpacing: "0.06em",
             }}
           >
-            <a href="tel:+33604463055" style={{ color: "#888" }}>
-              06 04 46 30 55
+            <a href={`tel:${brand.phoneIntl}`} style={{ color: "var(--color-text-muted)" }}>
+              {brand.phone}
             </a>
-            <span style={{ color: "#333" }}>&middot;</span>
-            <span style={{ color: "#555", textTransform: "uppercase" }}>
-              L&apos;ÎLE-SAINT-DENIS
+            <span style={{ color: "var(--color-border-light)" }}>&middot;</span>
+            <span style={{ color: "var(--color-text-dim)", textTransform: "uppercase" }}>
+              {brand.address.cityShort}
             </span>
           </div>
         </div>
@@ -74,7 +105,7 @@ export default function Header() {
       <div
         style={{
           height: 56,
-          backgroundColor: "#0A0A0A",
+          backgroundColor: "var(--color-void)",
           position: "sticky",
           top: 0,
           zIndex: 100,
@@ -97,9 +128,9 @@ export default function Header() {
               style={{
                 width: 6,
                 height: 6,
-                backgroundColor: "#00FFD1",
+                backgroundColor: "var(--color-neon)",
                 display: "inline-block",
-                boxShadow: "0 0 8px rgba(0,255,209,0.6)",
+                boxShadow: "0 0 8px var(--color-neon-glow, rgba(0,255,209,0.6))",
               }}
             />
             <span
@@ -110,13 +141,16 @@ export default function Header() {
                 letterSpacing: "-0.02em",
               }}
             >
-              <span style={{ color: "#00FFD1" }}>TROTTI</span>
-              <span style={{ color: "#E8E8E8" }}>STORE</span>
+              <span style={{ color: "var(--color-neon)" }}>{brand.nameParts[0]}</span>
+              <span style={{ color: "var(--color-text)" }}>{brand.nameParts[1]}</span>
             </span>
           </Link>
 
           {/* Right: Icons */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div className="hidden md:block mr-2">
+              <ThemeSwitcher />
+            </div>
             <Link
               href="/produits"
               style={{
@@ -125,7 +159,7 @@ export default function Header() {
                 justifyContent: "center",
                 width: 40,
                 height: 40,
-                color: "#888",
+                color: "var(--color-text-muted)",
                 transition: "color 150ms",
               }}
               className="header-icon"
@@ -142,7 +176,7 @@ export default function Header() {
                 justifyContent: "center",
                 width: 40,
                 height: 40,
-                color: "#888",
+                color: "var(--color-text-muted)",
                 transition: "color 150ms",
                 position: "relative",
               }}
@@ -159,8 +193,8 @@ export default function Header() {
                     right: 2,
                     width: 16,
                     height: 16,
-                    backgroundColor: "#00FFD1",
-                    color: "#0A0A0A",
+                    backgroundColor: "var(--color-neon)",
+                    color: "var(--color-void)",
                     fontSize: "0.55rem",
                     fontWeight: 700,
                     display: "flex",
@@ -182,7 +216,7 @@ export default function Header() {
                 justifyContent: "center",
                 width: 40,
                 height: 40,
-                color: "#888",
+                color: "var(--color-text-muted)",
                 transition: "color 150ms",
               }}
               aria-label="Mon compte"
@@ -200,7 +234,7 @@ export default function Header() {
                 justifyContent: "center",
                 width: 40,
                 height: 40,
-                color: "#888",
+                color: "var(--color-text-muted)",
                 background: "none",
                 border: "none",
                 cursor: "pointer",
@@ -221,8 +255,8 @@ export default function Header() {
       <nav
         className="hidden lg:block"
         style={{
-          backgroundColor: "#0A0A0A",
-          borderTop: "1px solid #2A2A2A",
+          backgroundColor: "var(--color-void)",
+          borderTop: "1px solid var(--color-border)",
           padding: "10px 0",
         }}
       >
@@ -241,7 +275,7 @@ export default function Header() {
               {i > 0 && (
                 <span
                   className="font-mono"
-                  style={{ color: "#333", margin: "0 16px", fontSize: "0.7rem" }}
+                  style={{ color: "var(--color-border-light)", margin: "0 16px", fontSize: "0.7rem" }}
                 >
                   &middot;
                 </span>
@@ -253,7 +287,7 @@ export default function Header() {
                   fontSize: "0.7rem",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
-                  color: "#555",
+                  color: "var(--color-text-dim)",
                   textDecoration: "none",
                   transition: "color 150ms",
                 }}
@@ -275,8 +309,8 @@ export default function Header() {
             bottom: 0,
             width: "100%",
             maxWidth: 320,
-            backgroundColor: "#0A0A0A",
-            borderLeft: "1px solid #2A2A2A",
+            backgroundColor: "var(--color-void)",
+            borderLeft: "1px solid var(--color-border)",
             zIndex: 200,
             display: "flex",
             flexDirection: "column",
@@ -289,16 +323,17 @@ export default function Header() {
               alignItems: "center",
               justifyContent: "space-between",
               padding: "16px 20px",
-              borderBottom: "1px solid #2A2A2A",
+              borderBottom: "1px solid var(--color-border)",
             }}
           >
             <span
               className="font-display"
               style={{ fontWeight: 800, fontSize: "1rem" }}
             >
-              <span style={{ color: "#00FFD1" }}>TROTTI</span>
-              <span style={{ color: "#E8E8E8" }}>STORE</span>
+              <span style={{ color: "var(--color-neon)" }}>{brand.nameParts[0]}</span>
+              <span style={{ color: "var(--color-text)" }}>{brand.nameParts[1]}</span>
             </span>
+            <ThemeSwitcher />
             <button
               onClick={() => setMenuOpen(false)}
               style={{
@@ -309,7 +344,7 @@ export default function Header() {
                 height: 36,
                 background: "none",
                 border: "none",
-                color: "#888",
+                color: "var(--color-text-muted)",
                 cursor: "pointer",
               }}
               aria-label="Fermer"
@@ -332,9 +367,9 @@ export default function Header() {
                   fontSize: "0.75rem",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
-                  color: "#888",
+                  color: "var(--color-text-muted)",
                   textDecoration: "none",
-                  borderBottom: "1px solid #1C1C1C",
+                  borderBottom: "1px solid var(--color-surface-2)",
                   transition: "color 150ms",
                 }}
               >
@@ -348,18 +383,18 @@ export default function Header() {
             className="font-mono"
             style={{
               padding: "20px",
-              borderTop: "1px solid #2A2A2A",
+              borderTop: "1px solid var(--color-border)",
               fontSize: "0.65rem",
-              color: "#555",
+              color: "var(--color-text-dim)",
             }}
           >
             <a
-              href="tel:+33604463055"
-              style={{ color: "#888", display: "block", marginBottom: 8 }}
+              href={`tel:${brand.phoneIntl}`}
+              style={{ color: "var(--color-text-muted)", display: "block", marginBottom: 8 }}
             >
-              06 04 46 30 55
+              {brand.phone}
             </a>
-            <span>L&apos;ÎLE-SAINT-DENIS</span>
+            <span>{brand.address.cityShort}</span>
           </div>
         </div>
       )}

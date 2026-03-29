@@ -7,17 +7,36 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "bash dev.sh",
+    "agent:init": "bash scripts/git-agent-worktree.sh init",
+    "agent:hooks": "bash scripts/git-agent-worktree.sh install-hooks",
+    "agent:status": "bash scripts/git-agent-status.sh",
     "build": "turbo build",
     "lint": "turbo lint",
-    "test": "turbo test",
+    "test": "vitest run",
+    "test:smoke": "vitest run services/ecommerce/src/routes/smoke/smoke.test.ts services/crm/src/routes/smoke/authz.smoke.test.ts services/sav/src/routes/smoke/authz.smoke.test.ts services/analytics/src/routes/smoke/authz.smoke.test.ts",
+    "test:watch": "vitest",
+    "test:integration": "vitest run integration",
+    "test:load": "tsx tests/load/load-test.ts",
     "db:push": "pnpm --filter @trottistore/database db:push",
     "db:migrate": "pnpm --filter @trottistore/database db:migrate",
+    "db:deploy": "pnpm --filter @trottistore/database db:deploy",
     "db:studio": "pnpm --filter @trottistore/database studio",
+    "db:seed:demo": "pnpm --filter @trottistore/scripts seed:demo",
     "db:seed": "pnpm --filter @trottistore/scripts seed",
     "crawl": "pnpm --filter @trottistore/scripts crawl"
   },
   "devDependencies": {
-    "pino-pretty": "^13.1.3"
+    "@types/autocannon": "^7.12.7",
+    "@types/bcryptjs": "^2.4.6",
+    "@vitest/coverage-v8": "^4.1.2",
+    "autocannon": "^8.0.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^17.3.1",
+    "pino-pretty": "^13.1.3",
+    "tsx": "^4.21.0",
+    "turbo": "^2.8.20",
+    "vitest": "^4.1.2",
+    "zod": "^3.25.76"
   }
 }

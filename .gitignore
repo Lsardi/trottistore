@@ -10,6 +10,7 @@ node_modules/
 dist/
 .next/
 .turbo/
+*.tsbuildinfo
 
 # Prisma
 packages/database/prisma/generated/
@@ -38,6 +39,7 @@ data/crawl/raw-html/
 
 # Claude Code
 .claude/
+/.worktrees/
 
 # OS
 Thumbs.db

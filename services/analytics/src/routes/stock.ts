@@ -1,11 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { Prisma } from "@prisma/client";
+
 
 const CACHE_KEY = "analytics:stock:overview";
 const CACHE_TTL = 300; // 5 minutes
 
 interface StockOverviewRow {
-  total_value: Prisma.Decimal | number;
+  total_value: number;
   in_stock: bigint;
   out_of_stock: bigint;
   low_stock: bigint;

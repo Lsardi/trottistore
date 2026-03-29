@@ -1,22 +1,27 @@
 import Link from "next/link";
+import { brand } from "@/lib/brand";
 
 const NAV_LINKS = [
-  { label: "Trottinettes", href: "/produits?categorySlug=trottinettes-electriques" },
-  { label: "Pièces détachées", href: "/produits?categorySlug=pieces-detachees" },
+  { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
+  { label: brand.nav.parts, href: `/produits?categorySlug=${brand.nav.partsSlug}` },
   { label: "Catalogue", href: "/produits" },
   { label: "Mon compte", href: "/mon-compte" },
 ];
 
 const SERVICE_LINKS = [
+  { label: "SOS Urgence", href: "/urgence" },
   { label: "Réparation SAV", href: "/reparation" },
+  { label: "Atelier", href: "/atelier" },
   { label: "Diagnostic", href: "/diagnostic" },
   { label: "Compatibilité", href: "/compatibilite" },
+  { label: "Avis clients", href: "/avis" },
+  { label: "Offre Pro", href: "/pro" },
   { label: "Suivi commande", href: "/mon-compte" },
 ];
 
 export default function Footer() {
   return (
-    <footer style={{ backgroundColor: "#0A0A0A" }}>
+    <footer style={{ backgroundColor: "var(--color-void)" }}>
       {/* Neon divider at top */}
       <div className="divider-neon" />
 
@@ -42,21 +47,21 @@ export default function Footer() {
                 className="font-display"
                 style={{ fontWeight: 800, fontSize: "1.1rem" }}
               >
-                <span style={{ color: "#00FFD1" }}>TROTTI</span>
-                <span style={{ color: "#E8E8E8" }}>STORE</span>
+                <span style={{ color: "var(--color-neon)" }}>{brand.nameParts[0]}</span>
+                <span style={{ color: "var(--color-text)" }}>{brand.nameParts[1]}</span>
               </span>
             </div>
             <p
               className="font-mono"
               style={{
                 fontSize: "0.7rem",
-                color: "#555",
+                color: "var(--color-text-dim)",
                 lineHeight: 1.6,
                 fontStyle: "italic",
                 maxWidth: 240,
               }}
             >
-              Spécialiste trottinettes électriques depuis 2019
+              {brand.footerTagline}
             </p>
           </div>
 
@@ -76,7 +81,7 @@ export default function Footer() {
                     className="font-mono footer-link"
                     style={{
                       fontSize: "0.75rem",
-                      color: "#888",
+                      color: "var(--color-text-muted)",
                       textDecoration: "none",
                       transition: "color 150ms",
                     }}
@@ -104,7 +109,7 @@ export default function Footer() {
                     className="font-mono footer-link"
                     style={{
                       fontSize: "0.75rem",
-                      color: "#888",
+                      color: "var(--color-text-muted)",
                       textDecoration: "none",
                       transition: "color 150ms",
                     }}
@@ -124,20 +129,20 @@ export default function Footer() {
             >
               ATELIER
             </h4>
-            <div className="font-mono" style={{ fontSize: "0.75rem", color: "#888", lineHeight: 1.7 }}>
+            <div className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.7 }}>
               <p style={{ margin: "0 0 8px" }}>
-                18 bis Rue Mechin
+                {brand.address.street}
                 <br />
-                93450 L&apos;Île-Saint-Denis
+                {brand.address.postalCode} {brand.address.city}
               </p>
               <p style={{ margin: "0 0 4px" }}>
-                <a href="tel:+33604463055" style={{ color: "#888", textDecoration: "none" }}>
-                  06 04 46 30 55
+                <a href={`tel:${brand.phoneIntl}`} style={{ color: "var(--color-text-muted)", textDecoration: "none" }}>
+                  {brand.phone}
                 </a>
               </p>
               <p style={{ margin: 0 }}>
-                <a href="mailto:contact@trottistore.fr" style={{ color: "#888", textDecoration: "none" }}>
-                  contact@trottistore.fr
+                <a href={`mailto:${brand.email}`} style={{ color: "var(--color-text-muted)", textDecoration: "none" }}>
+                  {brand.email}
                 </a>
               </p>
             </div>
@@ -149,7 +154,7 @@ export default function Footer() {
           style={{
             marginTop: 40,
             paddingTop: 20,
-            borderTop: "1px solid #2A2A2A",
+            borderTop: "1px solid var(--color-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -159,13 +164,13 @@ export default function Footer() {
         >
           <span
             className="font-mono"
-            style={{ fontSize: "0.65rem", color: "#555", letterSpacing: "0.06em" }}
+            style={{ fontSize: "0.65rem", color: "var(--color-text-dim)", letterSpacing: "0.06em" }}
           >
-            &copy; 2026 TROTTISTORE
+            &copy; {new Date().getFullYear()} {brand.name}
           </span>
           <span
             className="font-mono"
-            style={{ fontSize: "0.65rem", color: "#555" }}
+            style={{ fontSize: "0.65rem", color: "var(--color-text-dim)" }}
           >
             CB &middot; APPLE PAY &middot; GOOGLE PAY &middot; VIREMENT &middot; 2X 3X 4X SANS FRAIS
           </span>
