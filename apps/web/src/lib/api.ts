@@ -293,6 +293,12 @@ export const repairsApi = {
   getTracking: (token: string) =>
     apiFetch<{ success: boolean; data: RepairTracking }>('sav', `/repairs/tracking/${token}`),
 
+  updateStatus: (id: string, body: { status: RepairStatus; note?: string }) =>
+    apiFetch<{ success: boolean; data: RepairTicket }>('sav', `/repairs/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
   acceptQuoteClient: (id: string, trackingToken?: string) =>
     apiFetch<{ success: boolean; data: RepairTicket }>('sav', `/repairs/${id}/quote/accept-client`, {
       method: 'PUT',
@@ -504,6 +510,7 @@ export interface RepairTicket {
   customerEmail?: string;
   customerPhone?: string;
   issueDescription: string;
+  photosUrls?: string[];
   diagnosis?: string;
   estimatedCost?: string;
   quoteAcceptedAt?: string;
@@ -515,7 +522,20 @@ export interface RepairTicket {
   }>;
   appointments?: RepairAppointment[];
   createdAt: string;
+  updatedAt?: string;
 }
+
+export type RepairStatus =
+  | "RECU"
+  | "DIAGNOSTIC"
+  | "DEVIS_ENVOYE"
+  | "DEVIS_ACCEPTE"
+  | "EN_REPARATION"
+  | "EN_ATTENTE_PIECE"
+  | "PRET"
+  | "RECUPERE"
+  | "REFUS_CLIENT"
+  | "IRREPARABLE";
 
 export interface RepairAppointment {
   id: string;
