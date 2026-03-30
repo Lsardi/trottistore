@@ -317,7 +317,7 @@ model Payment {
   id           String    @id @default(uuid()) @db.Uuid
   orderId      String    @map("order_id") @db.Uuid
   provider     String    @db.VarChar(30) // stripe, internal
-  providerRef  String?   @map("provider_ref") @db.VarChar(255)
+  providerRef  String?   @unique @map("provider_ref") @db.VarChar(255)
   amount       Decimal   @db.Decimal(10, 2)
   method       String    @db.VarChar(30)
   status       String    @default("PENDING") @db.VarChar(20) // PENDING, CONFIRMED, FAILED, REFUNDED
