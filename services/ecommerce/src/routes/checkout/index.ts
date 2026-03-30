@@ -7,6 +7,7 @@ import { z } from "zod";
 const createPaymentIntentSchema = z.object({
   orderId: z.string().uuid().optional(),
   paymentMethod: z.enum(["CARD", "APPLE_PAY", "GOOGLE_PAY", "LINK"]),
+  shippingMethod: z.enum(["DELIVERY", "STORE_PICKUP"]).optional().default("DELIVERY"),
 });
 
 // --- Types ---
@@ -65,36 +66,62 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
     const body = createPaymentIntentSchema.parse(request.body);
 
-    // Get cart from Redis
-    const cartKey = `cart:${user.userId}`;
-    const cartData = await app.redis.get(cartKey);
-    if (!cartData) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: "EMPTY_CART", message: "Le panier est vide" },
+    let totalTtc: number;
+    let amountCents: number;
+
+    if (body.orderId) {
+      // Order-first flow: read amount from existing order
+      const order = await app.prisma.order.findUnique({
+        where: { id: body.orderId },
+        select: { totalTtc: true, customerId: true, status: true },
       });
-    }
 
-    const cart = JSON.parse(cartData);
-    if (!cart.items || cart.items.length === 0) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: "EMPTY_CART", message: "Le panier est vide" },
-      });
-    }
+      if (!order) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "ORDER_NOT_FOUND", message: "Commande introuvable" },
+        });
+      }
 
-    // Calculate total from cart items
-    let totalHt = 0;
-    for (const item of cart.items) {
-      totalHt += (item.unitPriceHt || 0) * (item.quantity || 1);
-    }
-    const tvaRate = 0.20;
-    const tvaAmount = Math.round(totalHt * tvaRate * 100) / 100;
-    const shippingCost = totalHt >= 100 ? 0 : 6.90;
-    const totalTtc = totalHt + tvaAmount + shippingCost;
+      if (order.customerId !== user.userId) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
+        });
+      }
 
-    // Amount in cents for Stripe
-    const amountCents = Math.round(totalTtc * 100);
+      totalTtc = Number(order.totalTtc);
+      amountCents = Math.round(totalTtc * 100);
+    } else {
+      // Cart-first flow: calculate from Redis cart
+      const cartKey = `cart:${user.userId}`;
+      const cartData = await app.redis.get(cartKey);
+      if (!cartData) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "EMPTY_CART", message: "Le panier est vide" },
+        });
+      }
+
+      const cart = JSON.parse(cartData);
+      if (!cart.items || cart.items.length === 0) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "EMPTY_CART", message: "Le panier est vide" },
+        });
+      }
+
+      let totalHt = 0;
+      for (const item of cart.items) {
+        totalHt += (item.unitPriceHt || 0) * (item.quantity || 1);
+      }
+      const tvaRate = 0.20;
+      const tvaAmount = Math.round(totalHt * tvaRate * 100) / 100;
+      // Store pickup = free shipping
+      const shippingCost = body.shippingMethod === "STORE_PICKUP" ? 0 : (totalHt >= 100 ? 0 : 6.90);
+      totalTtc = totalHt + tvaAmount + shippingCost;
+      amountCents = Math.round(totalTtc * 100);
+    }
 
     if (amountCents < 50) {
       return reply.status(400).send({

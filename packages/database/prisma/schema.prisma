@@ -257,10 +257,13 @@ model Order {
   tvaAmount       Decimal  @map("tva_amount") @db.Decimal(10, 2)
   shippingCost    Decimal  @default(0) @map("shipping_cost") @db.Decimal(10, 2)
   totalTtc        Decimal  @map("total_ttc") @db.Decimal(10, 2)
-  notes           String?  @db.Text
-  trackingNumber  String?  @map("tracking_number") @db.VarChar(100)
-  shippedAt       DateTime? @map("shipped_at") @db.Timestamptz()
-  deliveredAt     DateTime? @map("delivered_at") @db.Timestamptz()
+  shippingMethod    String   @default("DELIVERY") @map("shipping_method") @db.VarChar(20) // DELIVERY, STORE_PICKUP
+  notes             String?  @db.Text
+  trackingNumber    String?  @map("tracking_number") @db.VarChar(100)
+  pickupReadyAt     DateTime? @map("pickup_ready_at") @db.Timestamptz()
+  pickupCollectedAt DateTime? @map("pickup_collected_at") @db.Timestamptz()
+  shippedAt         DateTime? @map("shipped_at") @db.Timestamptz()
+  deliveredAt       DateTime? @map("delivered_at") @db.Timestamptz()
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
