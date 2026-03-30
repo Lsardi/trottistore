@@ -135,7 +135,13 @@ export const cartApi = {
 };
 
 export const ordersApi = {
-  create: (body: { shippingAddressId: string; billingAddressId?: string; paymentMethod: string; notes?: string }) =>
+  create: (body: {
+    shippingAddressId: string;
+    billingAddressId?: string;
+    paymentMethod: string;
+    notes?: string;
+    shippingMethod?: "DELIVERY" | "STORE_PICKUP";
+  }) =>
     apiFetch<{ success: boolean; data: Order }>('ecommerce', '/orders', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -155,7 +161,11 @@ export const checkoutApi = {
       "/checkout/config",
     ),
 
-  createPaymentIntent: (body: { orderId?: string; paymentMethod: "CARD" | "APPLE_PAY" | "GOOGLE_PAY" | "LINK" }) =>
+  createPaymentIntent: (body: {
+    orderId?: string;
+    paymentMethod: "CARD" | "APPLE_PAY" | "GOOGLE_PAY" | "LINK";
+    shippingMethod?: "DELIVERY" | "STORE_PICKUP";
+  }) =>
     apiFetch<{
       success: boolean;
       data: {
