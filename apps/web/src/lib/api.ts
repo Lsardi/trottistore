@@ -144,6 +144,40 @@ export const ordersApi = {
     apiFetch<{ success: boolean; data: Order }>('ecommerce', `/orders/${id}`),
 };
 
+export const leadsApi = {
+  createPro: (body: {
+    company: string;
+    contact: string;
+    email: string;
+    phone?: string;
+    fleetSize?: string;
+    message?: string;
+  }) =>
+    apiFetch<{ success: boolean; data: { id: string; createdAt: string } }>('ecommerce', '/leads/pro', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+};
+
+export const stockAlertsApi = {
+  create: (body: { productId: string; variantId?: string; email: string }) =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        id: string;
+        productId: string;
+        variantId: string | null;
+        email: string;
+        status: string;
+        createdAt: string;
+        updatedAt: string;
+      };
+    }>('ecommerce', '/stock-alerts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+};
+
 // ─── ADMIN PRODUCTS ──────────────────────────────────────────
 
 export interface AdminProductPayload {
