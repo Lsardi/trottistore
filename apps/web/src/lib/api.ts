@@ -148,6 +148,29 @@ export const ordersApi = {
     apiFetch<{ success: boolean; data: Order }>('ecommerce', `/orders/${id}`),
 };
 
+export const checkoutApi = {
+  config: () =>
+    apiFetch<{ success: boolean; data: { publishableKey: string; supportedMethods: string[] } }>(
+      "ecommerce",
+      "/checkout/config",
+    ),
+
+  createPaymentIntent: (body: { orderId?: string; paymentMethod: "CARD" | "APPLE_PAY" | "GOOGLE_PAY" | "LINK" }) =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        clientSecret: string;
+        paymentIntentId: string;
+        amount: number;
+        amountCents: number;
+        currency: string;
+      };
+    }>("ecommerce", "/checkout/payment-intent", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+};
+
 // ─── ADMIN PRODUCTS ──────────────────────────────────────────
 
 export interface AdminProductPayload {

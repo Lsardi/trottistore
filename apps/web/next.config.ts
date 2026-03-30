@@ -26,6 +26,8 @@ const nextConfig: NextConfig = {
       { source: "/api/v1/auth/:path*", destination: `${ecommerce}/api/v1/auth/:path*` },
       { source: "/api/v1/admin/:path*", destination: `${ecommerce}/api/v1/admin/:path*` },
       { source: "/api/v1/stock/:path*", destination: `${ecommerce}/api/v1/stock/:path*` },
+      { source: "/api/v1/checkout/:path*", destination: `${ecommerce}/api/v1/checkout/:path*` },
+      { source: "/api/v1/checkout/:path*", destination: `${ecommerce}/api/v1/checkout/:path*` },
       // CRM
       { source: "/api/v1/customers/:path*", destination: `${crm}/api/v1/customers/:path*` },
       { source: "/api/v1/campaigns/:path*", destination: `${crm}/api/v1/campaigns/:path*` },

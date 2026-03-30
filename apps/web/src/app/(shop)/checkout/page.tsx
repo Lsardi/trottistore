@@ -3,14 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { ApiError, authApi, cartApi, ordersApi, type CartItem, type User } from "@/lib/api";
+import { ApiError, authApi, cartApi, checkoutApi, ordersApi, type CartItem, type User } from "@/lib/api";
 
 const PAYMENT_METHODS = [
-  { value: "APPLE_PAY", label: "Apple Pay" },
-  { value: "GOOGLE_PAY", label: "Google Pay" },
-  { value: "CARD", label: "Carte bancaire" },
+  { value: "CARD", label: "Carte bancaire (Stripe)" },
+  { value: "APPLE_PAY", label: "Apple Pay (Stripe)" },
+  { value: "GOOGLE_PAY", label: "Google Pay (Stripe)" },
   { value: "INSTALLMENT_3X", label: "Paiement en 3x sans frais" },
   { value: "BANK_TRANSFER", label: "Virement bancaire" },
+] as const;
+
+const DELIVERY_MODES = [
+  { value: "STANDARD", label: "Livraison standard" },
+  { value: "PICKUP_1H", label: "Retrait boutique en 1h" },
 ] as const;
 
 function formatPrice(amount: number): string {
@@ -25,9 +30,11 @@ export default function CheckoutPage() {
   const [shippingAddressId, setShippingAddressId] = useState("");
   const [billingAddressId, setBillingAddressId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]["value"]>("APPLE_PAY");
+  const [deliveryMode, setDeliveryMode] = useState<(typeof DELIVERY_MODES)[number]["value"]>("STANDARD");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [successOrderId, setSuccessOrderId] = useState("");
+  const [stripeReady, setStripeReady] = useState(false);
 
   useEffect(() => {
     async function loadCheckout() {
@@ -40,6 +47,10 @@ export default function CheckoutPage() {
           setShippingAddressId(defaultAddress.id);
           setBillingAddressId(defaultAddress.id);
         }
+
+        // Optional capability check for Stripe express.
+        const stripeConfig = await checkoutApi.config().catch(() => null);
+        setStripeReady(Boolean(stripeConfig?.success));
       } catch (err) {
         const status = err instanceof ApiError ? err.status : 500;
         if (status === 401) {
@@ -67,11 +78,19 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setError("");
     try {
+      const normalizedNotes = [
+        deliveryMode === "PICKUP_1H" ? "[RETRAIT_1H] Client souhaite retrait boutique sous 1h." : null,
+        notes || null,
+      ]
+        .filter(Boolean)
+        .join("\n")
+        .slice(0, 1000);
+
       const res = await ordersApi.create({
         shippingAddressId,
         billingAddressId: billingAddressId || undefined,
         paymentMethod,
-        notes: notes || undefined,
+        notes: normalizedNotes || undefined,
       });
       setSuccessOrderId(res.data.id);
       setItems([]);
@@ -153,6 +172,26 @@ export default function CheckoutPage() {
           </div>
 
           <div>
+            <p className="spec-label mb-2">Mode de retrait</p>
+            <select
+              value={deliveryMode}
+              onChange={(e) => setDeliveryMode(e.target.value as (typeof DELIVERY_MODES)[number]["value"])}
+              className="input-dark w-full"
+            >
+              {DELIVERY_MODES.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+            {deliveryMode === "PICKUP_1H" ? (
+              <p className="font-mono text-xs text-neon mt-2">
+                Retrait express sélectionné: une confirmation sera envoyée dès que la commande est prête.
+              </p>
+            ) : null}
+          </div>
+
+          <div>
             <p className="spec-label mb-2">Paiement</p>
             <select
               value={paymentMethod}
@@ -165,6 +204,9 @@ export default function CheckoutPage() {
                 </option>
               ))}
             </select>
+            <p className="font-mono text-xs mt-2 text-text-dim">
+              {stripeReady ? "Stripe checkout prêt (mode test)." : "Stripe non disponible, fallback sur flux standard."}
+            </p>
           </div>
 
           <div>
