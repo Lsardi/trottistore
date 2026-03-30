@@ -18,6 +18,7 @@ import { authRoutes } from "./routes/auth/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
 import { stockRoutes } from "./routes/stock/index.js";
 import { checkoutRoutes } from "./routes/checkout/index.js";
+import { merchantRoutes } from "./routes/merchant/index.js";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV } from "@trottistore/shared";
 
@@ -130,6 +131,7 @@ async function start() {
   await app.register(adminRoutes, { prefix: "/api/v1" });
   await app.register(stockRoutes, { prefix: "/api/v1" });
   await app.register(checkoutRoutes, { prefix: "/api/v1" });
+  await app.register(merchantRoutes, { prefix: "/api/v1" });
 
   // Démarrage
   try {
