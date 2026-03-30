@@ -140,3 +140,45 @@ Fichier: `infra/alerting-rules.yml`
 - Tech Lead: go/no-go release, validation finale
 - Dev owner PR: préparation notes + validation fonctionnelle
 - Ops/Infra owner: déploiement et monitoring runtime
+
+## 10. Go-Live Readiness (Sprint 3)
+
+### A. Stripe (obligatoire avant prod)
+
+- [ ] `FEATURE_CHECKOUT_EXPRESS=true` sur `service-ecommerce`
+- [ ] `STRIPE_SECRET_KEY` configurée (clé live, pas test)
+- [ ] `STRIPE_PUBLISHABLE_KEY` configurée (clé live, pas test)
+- [ ] `STRIPE_WEBHOOK_SECRET` configurée et vérifiée
+- [ ] Webhook Stripe actif vers `POST /api/v1/checkout/webhook`
+- [ ] Event Stripe validé: `payment_intent.succeeded`
+- [ ] Event Stripe validé: `payment_intent.payment_failed`
+- [ ] Paiement carte live 1€ validé en prod
+- [ ] Payment status passe à `PAID` après succès
+- [ ] Stock décrémenté après confirmation paiement
+
+### B. Checkout & Retrait 1h
+
+- [ ] Checkout standard `DELIVERY` passe de bout en bout
+- [ ] Checkout `STORE_PICKUP` passe de bout en bout
+- [ ] Frais de port = `0` en mode retrait
+- [ ] Note `[RETRAIT_1H]` visible sur la commande
+- [ ] Commande visible dans espace client
+- [ ] Commande visible dans admin
+- [ ] Aucun `EMPTY_CART` en flow order-first
+
+### C. Merchant Feed
+
+- [ ] `GET /api/v1/merchant/feed` retourne `200`
+- [ ] `GET /api/v1/merchant/local-inventory` retourne `200`
+- [ ] Feed contient uniquement des produits actifs
+- [ ] Prix TTC cohérents avec catalogue
+- [ ] Disponibilité locale cohérente avec le stock
+- [ ] URLs publiques valides dans le feed (images/produits)
+
+### D. Go/No-Go final
+
+- [ ] Build, lint, unit, e2e, smoke verts sur commit de release
+- [ ] Runbook rollback validé par l'équipe
+- [ ] Sauvegarde DB datée < 24h disponible
+- [ ] Monitoring `health/ready` actif après déploiement
+- [ ] Validation métier signée (gérant)
