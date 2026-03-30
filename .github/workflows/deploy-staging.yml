@@ -7,12 +7,14 @@ on:
         description: "Service to deploy (all, web, ecommerce, crm, sav, analytics)"
         required: false
         default: "all"
-  push:
-    branches: [main]
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".github/ISSUE_TEMPLATE/**"
+  # DISABLED: auto-deploy needs Railway services configured first
+  # Re-enable when staging environment is ready
+  # push:
+  #   branches: [main]
+  #   paths-ignore:
+  #     - "**.md"
+  #     - "docs/**"
+  #     - ".github/ISSUE_TEMPLATE/**"
 
 env:
   RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

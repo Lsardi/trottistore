@@ -1,9 +1,10 @@
 name: Cron — Run CRM Triggers
 
 on:
-  schedule:
-    # Every hour at minute 5
-    - cron: "5 * * * *"
+  # DISABLED: cron triggers need a running staging/prod environment
+  # Re-enable when TRIGGERS_RUN_URL is configured in GitHub vars
+  # schedule:
+  #   - cron: "5 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
