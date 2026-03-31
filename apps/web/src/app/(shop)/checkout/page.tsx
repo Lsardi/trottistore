@@ -2,131 +2,113 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
-import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
-import { ApiError, authApi, cartApi, checkoutApi, ordersApi, type CartItem, type User } from "@/lib/api";
+import {
+  ApiError,
+  addressesApi,
+  authApi,
+  cartApi,
+  ordersApi,
+  type Address,
+  type CartItem,
+} from "@/lib/api";
 
 const PAYMENT_METHODS = [
-  { value: "CARD", label: "Carte bancaire (Stripe)" },
-  { value: "APPLE_PAY", label: "Apple Pay (Stripe)" },
-  { value: "GOOGLE_PAY", label: "Google Pay (Stripe)" },
-  { value: "LINK", label: "Link (Stripe)" },
+  { value: "CARD", label: "Carte bancaire" },
+  { value: "APPLE_PAY", label: "Apple Pay" },
+  { value: "GOOGLE_PAY", label: "Google Pay" },
+  { value: "LINK", label: "Link" },
   { value: "INSTALLMENT_3X", label: "Paiement en 3x sans frais" },
   { value: "BANK_TRANSFER", label: "Virement bancaire" },
 ] as const;
 
-const DELIVERY_MODES = [
-  { value: "STANDARD", label: "Livraison standard" },
-  { value: "PICKUP_1H", label: "Retrait boutique en 1h" },
+const SHIPPING_METHODS = [
+  { value: "DELIVERY", label: "Livraison" },
+  { value: "STORE_PICKUP", label: "Retrait boutique" },
 ] as const;
 
-type StripePaymentMethod = "CARD" | "APPLE_PAY" | "GOOGLE_PAY" | "LINK";
+type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
+type ShippingMethod = (typeof SHIPPING_METHODS)[number]["value"];
 
-function isStripePaymentMethod(method: (typeof PAYMENT_METHODS)[number]["value"]): method is StripePaymentMethod {
-  return method === "CARD" || method === "APPLE_PAY" || method === "GOOGLE_PAY" || method === "LINK";
-}
+type AddressForm = {
+  firstName: string;
+  lastName: string;
+  street: string;
+  street2: string;
+  postalCode: string;
+  city: string;
+  phone: string;
+  label: string;
+};
+
+const EMPTY_ADDRESS_FORM: AddressForm = {
+  firstName: "",
+  lastName: "",
+  street: "",
+  street2: "",
+  postalCode: "",
+  city: "",
+  phone: "",
+  label: "",
+};
 
 function formatPrice(amount: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 }
 
-interface StripeConfirmationFormProps {
-  orderId: string;
-  onSuccess: () => void;
-  onError: (message: string) => void;
-}
-
-function StripeConfirmationForm({ orderId, onSuccess, onError }: StripeConfirmationFormProps) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [confirming, setConfirming] = useState(false);
-
-  async function handleConfirm(e: React.FormEvent) {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-
-    setConfirming(true);
-    onError("");
-
-    const result = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/mon-compte?commande=${orderId}`,
-      },
-      redirect: "if_required",
-    });
-
-    setConfirming(false);
-
-    if (result.error) {
-      onError(result.error.message || "Le paiement a échoué.");
-      return;
-    }
-
-    if (result.paymentIntent?.status === "succeeded" || result.paymentIntent?.status === "processing") {
-      onSuccess();
-      return;
-    }
-
-    onError("Paiement en attente. Vérifie ton historique de commande.");
-  }
-
-  return (
-    <form onSubmit={handleConfirm} className="space-y-4">
-      <PaymentElement />
-      <button type="submit" disabled={confirming || !stripe || !elements} className="btn-neon w-full disabled:opacity-50">
-        {confirming ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            CONFIRMATION...
-          </>
-        ) : (
-          "PAYER MAINTENANT"
-        )}
-      </button>
-    </form>
-  );
+function validateAddress(form: AddressForm): Partial<Record<keyof AddressForm, string>> {
+  const errors: Partial<Record<keyof AddressForm, string>> = {};
+  if (!form.firstName.trim()) errors.firstName = "Le prénom est requis.";
+  if (!form.lastName.trim()) errors.lastName = "Le nom est requis.";
+  if (!form.street.trim()) errors.street = "L'adresse est requise.";
+  if (!form.postalCode.trim()) errors.postalCode = "Le code postal est requis.";
+  if (!form.city.trim()) errors.city = "La ville est requise.";
+  if (!form.phone.trim()) errors.phone = "Le téléphone est requis.";
+  return errors;
 }
 
 export default function CheckoutPage() {
+  const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [items, setItems] = useState<CartItem[]>([]);
-  const [user, setUser] = useState<User | null>(null);
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [shippingAddressId, setShippingAddressId] = useState("");
   const [billingAddressId, setBillingAddressId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]["value"]>("CARD");
-  const [deliveryMode, setDeliveryMode] = useState<(typeof DELIVERY_MODES)[number]["value"]>("STANDARD");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CARD");
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("DELIVERY");
   const [notes, setNotes] = useState("");
+
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const [addressForm, setAddressForm] = useState<AddressForm>(EMPTY_ADDRESS_FORM);
+  const [addressErrors, setAddressErrors] = useState<Partial<Record<keyof AddressForm, string>>>({});
+
   const [error, setError] = useState("");
-  const [successOrderId, setSuccessOrderId] = useState("");
-  const [stripePublishableKey, setStripePublishableKey] = useState<string | null>(null);
-  const [pendingStripeCheckout, setPendingStripeCheckout] = useState<{
-    orderId: string;
-    clientSecret: string;
-  } | null>(null);
 
   useEffect(() => {
     async function loadCheckout() {
       try {
-        const [cartRes, meRes] = await Promise.all([cartApi.get(), authApi.me()]);
-        setItems(cartRes.data.items);
-        setUser(meRes.data);
+        await authApi.me();
+        const [cartRes, addressesRes] = await Promise.all([cartApi.get(), addressesApi.list()]);
+        setItems(cartRes.data.items || []);
 
-        const defaultAddress = meRes.data.addresses?.find((a) => a.isDefault) ?? meRes.data.addresses?.[0];
-        if (defaultAddress) {
-          setShippingAddressId(defaultAddress.id);
-          setBillingAddressId(defaultAddress.id);
+        const saved = addressesRes.data || [];
+        setAddresses(saved);
+        const defaultShipping = saved.find((a) => a.type === "SHIPPING" && a.isDefault) ?? saved[0];
+        if (defaultShipping) {
+          setShippingAddressId(defaultShipping.id);
+          setBillingAddressId(defaultShipping.id);
         }
 
-        const stripeConfig = await checkoutApi.config().catch(() => null);
-        if (stripeConfig?.success) {
-          setStripePublishableKey(stripeConfig.data.publishableKey);
+        if (saved.length === 0) {
+          setShowNewAddressForm(true);
+          setSaveAddress(false);
         }
       } catch (err) {
-        const status = err instanceof ApiError ? err.status : 500;
-        if (status === 401) {
+        if (err instanceof ApiError && err.status === 401) {
           window.location.href = "/mon-compte?next=/checkout";
           return;
         }
@@ -139,74 +121,89 @@ export default function CheckoutPage() {
     loadCheckout();
   }, []);
 
-  const totalTtc = useMemo(() => items.reduce((sum, item) => sum + item.lineTotalHt * 1.2, 0), [items]);
+  const subtotalTtc = useMemo(() => items.reduce((sum, item) => sum + item.lineTotalHt * 1.2, 0), [items]);
 
-  const stripePromise = useMemo(
-    () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
-    [stripePublishableKey],
-  );
+  function updateAddressField<K extends keyof AddressForm>(field: K, value: AddressForm[K]) {
+    setAddressForm((prev) => ({ ...prev, [field]: value }));
+    if (addressErrors[field]) {
+      setAddressErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  }
 
-  const stripeElementsOptions = useMemo<StripeElementsOptions | undefined>(
-    () =>
-      pendingStripeCheckout
-        ? {
-            clientSecret: pendingStripeCheckout.clientSecret,
-            appearance: {
-              theme: "night",
-            },
-          }
-        : undefined,
-    [pendingStripeCheckout],
-  );
+  async function createInlineAddress(): Promise<{ id: string; temporary: boolean } | null> {
+    const errors = validateAddress(addressForm);
+    setAddressErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError("Merci de corriger les champs d'adresse en rouge.");
+      return null;
+    }
 
-  const shippingMethod = deliveryMode === "PICKUP_1H" ? "STORE_PICKUP" : "DELIVERY";
-  const isStripeFlow = isStripePaymentMethod(paymentMethod);
-  const stripeAvailable = Boolean(stripePublishableKey && stripePromise);
+    const created = await addressesApi.create({
+      type: "SHIPPING",
+      firstName: addressForm.firstName.trim(),
+      lastName: addressForm.lastName.trim(),
+      street: addressForm.street.trim(),
+      street2: addressForm.street2.trim() || undefined,
+      city: addressForm.city.trim(),
+      postalCode: addressForm.postalCode.trim(),
+      country: "FR",
+      phone: addressForm.phone.trim(),
+      label: addressForm.label.trim() || undefined,
+      isDefault: saveAddress,
+    });
+
+    if (saveAddress) {
+      setAddresses((prev) => [created.data, ...prev.filter((a) => a.id !== created.data.id)]);
+      setShippingAddressId(created.data.id);
+      setBillingAddressId(created.data.id);
+      setShowNewAddressForm(false);
+      setAddressForm(EMPTY_ADDRESS_FORM);
+      return { id: created.data.id, temporary: false };
+    }
+
+    return { id: created.data.id, temporary: true };
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!shippingAddressId) {
-      setError("Sélectionne une adresse de livraison.");
-      return;
-    }
-
     setSubmitting(true);
     setError("");
 
+    let tempAddressId: string | null = null;
+
     try {
-      const normalizedNotes = [
-        deliveryMode === "PICKUP_1H" ? "[RETRAIT_1H] Client souhaite retrait boutique sous 1h." : null,
-        notes || null,
-      ]
-        .filter(Boolean)
-        .join("\n")
-        .slice(0, 1000);
+      let selectedShippingId = shippingAddressId;
 
-      const orderRes = await ordersApi.create({
-        shippingAddressId,
-        billingAddressId: billingAddressId || undefined,
-        paymentMethod,
-        notes: normalizedNotes || undefined,
-        shippingMethod,
-      });
-
-      if (isStripeFlow && stripeAvailable) {
-        const paymentIntentRes = await checkoutApi.createPaymentIntent({
-          orderId: orderRes.data.id,
-          paymentMethod,
-          shippingMethod,
-        });
-
-        setPendingStripeCheckout({
-          orderId: orderRes.data.id,
-          clientSecret: paymentIntentRes.data.clientSecret,
-        });
-        return;
+      if (showNewAddressForm || !selectedShippingId) {
+        const inlineAddress = await createInlineAddress();
+        if (!inlineAddress) {
+          setSubmitting(false);
+          return;
+        }
+        selectedShippingId = inlineAddress.id;
+        if (inlineAddress.temporary) tempAddressId = inlineAddress.id;
       }
 
-      setSuccessOrderId(orderRes.data.id);
+      const orderRes = await ordersApi.create({
+        shippingAddressId: selectedShippingId,
+        billingAddressId: billingAddressId || selectedShippingId,
+        paymentMethod,
+        shippingMethod,
+        notes: notes.trim() || undefined,
+      });
+
+      if (tempAddressId) {
+        await addressesApi.delete(tempAddressId).catch(() => null);
+      }
+
       setItems([]);
+      window.dispatchEvent(new Event("trottistore:cart-updated"));
+      router.push(`/checkout/confirmation?orderId=${orderRes.data.id}&orderNumber=${orderRes.data.orderNumber}`);
     } catch (err) {
+      if (tempAddressId) {
+        await addressesApi.delete(tempAddressId).catch(() => null);
+      }
+
       if (err instanceof ApiError) {
         const payload = err.data as { error?: { message?: string } } | null;
         setError(payload?.error?.message || "La commande a échoué.");
@@ -227,88 +224,174 @@ export default function CheckoutPage() {
     );
   }
 
-  if (successOrderId) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <p className="spec-label mb-3">COMMANDE VALIDEE</p>
-        <h1 className="heading-lg mb-4">Merci, votre commande est enregistrée</h1>
-        <p className="font-mono text-sm text-text-muted mb-8">Référence: {successOrderId}</p>
-        <Link href="/mon-compte" className="btn-neon">
-          VOIR MON COMPTE
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8 md:py-12 pb-28 md:pb-12">
       <Link href="/panier" className="font-mono text-xs uppercase tracking-wider text-text-muted inline-flex items-center gap-2 mb-6">
         <ArrowLeft className="w-4 h-4" />
         Retour panier
       </Link>
-      <h1 className="heading-lg mb-8">CHECKOUT</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <form onSubmit={handleSubmit} className="lg:col-span-2 bg-surface border border-border p-6 space-y-5">
-          <div>
-            <p className="spec-label mb-2">Adresse de livraison</p>
-            <select
-              value={shippingAddressId}
-              onChange={(e) => setShippingAddressId(e.target.value)}
-              className="input-dark w-full"
-              required
-            >
-              <option value="">Sélectionner une adresse</option>
-              {user?.addresses?.map((address) => (
-                <option key={address.id} value={address.id}>
-                  {address.label || `${address.firstName} ${address.lastName}`} — {address.street}, {address.postalCode} {address.city}
-                </option>
-              ))}
-            </select>
-          </div>
+      <h1 className="heading-lg mb-6">CHECKOUT</h1>
 
-          <div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <form onSubmit={handleSubmit} className="lg:col-span-2 bg-surface border border-border p-4 sm:p-6 space-y-5">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="spec-label">Adresse de livraison</p>
+              <button
+                type="button"
+                onClick={() => setShowNewAddressForm((prev) => !prev)}
+                className="font-mono text-xs text-neon hover:underline"
+              >
+                {showNewAddressForm ? "Utiliser une adresse existante" : "Nouvelle adresse"}
+              </button>
+            </div>
+
+            {!showNewAddressForm && addresses.length > 0 ? (
+              <select
+                value={shippingAddressId}
+                onChange={(e) => setShippingAddressId(e.target.value)}
+                className="input-dark w-full"
+              >
+                {addresses.map((address) => (
+                  <option key={address.id} value={address.id}>
+                    {(address.label || `${address.firstName} ${address.lastName}`)} - {address.street}, {address.postalCode} {address.city}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="spec-label block mb-2">Prénom</label>
+                  <input
+                    value={addressForm.firstName}
+                    onChange={(e) => updateAddressField("firstName", e.target.value)}
+                    className={`input-dark w-full ${addressErrors.firstName ? "border-danger" : ""}`}
+                    autoComplete="given-name"
+                  />
+                  {addressErrors.firstName ? <p className="text-danger font-mono text-xs mt-1">{addressErrors.firstName}</p> : null}
+                </div>
+
+                <div>
+                  <label className="spec-label block mb-2">Nom</label>
+                  <input
+                    value={addressForm.lastName}
+                    onChange={(e) => updateAddressField("lastName", e.target.value)}
+                    className={`input-dark w-full ${addressErrors.lastName ? "border-danger" : ""}`}
+                    autoComplete="family-name"
+                  />
+                  {addressErrors.lastName ? <p className="text-danger font-mono text-xs mt-1">{addressErrors.lastName}</p> : null}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="spec-label block mb-2">Adresse</label>
+                  <input
+                    value={addressForm.street}
+                    onChange={(e) => updateAddressField("street", e.target.value)}
+                    className={`input-dark w-full ${addressErrors.street ? "border-danger" : ""}`}
+                    autoComplete="address-line1"
+                  />
+                  {addressErrors.street ? <p className="text-danger font-mono text-xs mt-1">{addressErrors.street}</p> : null}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="spec-label block mb-2">Complément</label>
+                  <input
+                    value={addressForm.street2}
+                    onChange={(e) => updateAddressField("street2", e.target.value)}
+                    className="input-dark w-full"
+                    autoComplete="address-line2"
+                  />
+                </div>
+
+                <div>
+                  <label className="spec-label block mb-2">Code postal</label>
+                  <input
+                    value={addressForm.postalCode}
+                    onChange={(e) => updateAddressField("postalCode", e.target.value)}
+                    className={`input-dark w-full ${addressErrors.postalCode ? "border-danger" : ""}`}
+                    autoComplete="postal-code"
+                  />
+                  {addressErrors.postalCode ? <p className="text-danger font-mono text-xs mt-1">{addressErrors.postalCode}</p> : null}
+                </div>
+
+                <div>
+                  <label className="spec-label block mb-2">Ville</label>
+                  <input
+                    value={addressForm.city}
+                    onChange={(e) => updateAddressField("city", e.target.value)}
+                    className={`input-dark w-full ${addressErrors.city ? "border-danger" : ""}`}
+                    autoComplete="address-level2"
+                  />
+                  {addressErrors.city ? <p className="text-danger font-mono text-xs mt-1">{addressErrors.city}</p> : null}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="spec-label block mb-2">Téléphone</label>
+                  <input
+                    value={addressForm.phone}
+                    onChange={(e) => updateAddressField("phone", e.target.value)}
+                    className={`input-dark w-full ${addressErrors.phone ? "border-danger" : ""}`}
+                    autoComplete="tel"
+                  />
+                  {addressErrors.phone ? <p className="text-danger font-mono text-xs mt-1">{addressErrors.phone}</p> : null}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="spec-label block mb-2">Label (optionnel)</label>
+                  <input
+                    value={addressForm.label}
+                    onChange={(e) => updateAddressField("label", e.target.value)}
+                    className="input-dark w-full"
+                    placeholder="Maison, Bureau..."
+                  />
+                </div>
+
+                <label className="sm:col-span-2 inline-flex items-center gap-2 font-mono text-xs text-text-muted">
+                  <input
+                    type="checkbox"
+                    checked={saveAddress}
+                    onChange={(e) => setSaveAddress(e.target.checked)}
+                  />
+                  Sauvegarder cette adresse
+                </label>
+              </div>
+            )}
+          </section>
+
+          <section>
             <p className="spec-label mb-2">Adresse de facturation</p>
             <select value={billingAddressId} onChange={(e) => setBillingAddressId(e.target.value)} className="input-dark w-full">
               <option value="">Identique à la livraison</option>
-              {user?.addresses?.map((address) => (
+              {addresses.map((address) => (
                 <option key={address.id} value={address.id}>
-                  {address.label || `${address.firstName} ${address.lastName}`} — {address.street}, {address.postalCode} {address.city}
+                  {(address.label || `${address.firstName} ${address.lastName}`)} - {address.street}, {address.postalCode} {address.city}
                 </option>
               ))}
             </select>
-          </div>
+          </section>
 
-          <div>
-            <p className="spec-label mb-2">Mode de retrait</p>
+          <section>
+            <p className="spec-label mb-2">Mode de livraison</p>
             <select
-              value={deliveryMode}
-              onChange={(e) => setDeliveryMode(e.target.value as (typeof DELIVERY_MODES)[number]["value"])}
+              value={shippingMethod}
+              onChange={(e) => setShippingMethod(e.target.value as ShippingMethod)}
               className="input-dark w-full"
             >
-              {DELIVERY_MODES.map((mode) => (
-                <option key={mode.value} value={mode.value}>
-                  {mode.label}
+              {SHIPPING_METHODS.map((method) => (
+                <option key={method.value} value={method.value}>
+                  {method.label}
                 </option>
               ))}
             </select>
-            {deliveryMode === "PICKUP_1H" ? (
-              <p className="font-mono text-xs text-neon mt-2">
-                Retrait express sélectionné: une confirmation sera envoyée dès que la commande est prête.
-              </p>
-            ) : null}
-          </div>
+          </section>
 
-          <div>
-            <p className="spec-label mb-2">Paiement</p>
+          <section>
+            <p className="spec-label mb-2">Mode de paiement</p>
             <select
               value={paymentMethod}
-              onChange={(e) => {
-                setPaymentMethod(e.target.value as (typeof PAYMENT_METHODS)[number]["value"]);
-                setPendingStripeCheckout(null);
-              }}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
               className="input-dark w-full"
-              disabled={Boolean(pendingStripeCheckout)}
             >
               {PAYMENT_METHODS.map((method) => (
                 <option key={method.value} value={method.value}>
@@ -316,70 +399,37 @@ export default function CheckoutPage() {
                 </option>
               ))}
             </select>
-            <p className="font-mono text-xs mt-2 text-text-dim">
-              {isStripeFlow
-                ? stripeAvailable
-                  ? "Paiement Stripe prêt (mode test)."
-                  : "Stripe non disponible, fallback sur flux standard."
-                : "Méthode hors Stripe: la commande sera finalisée immédiatement."}
-            </p>
-          </div>
+          </section>
 
-          <div>
+          <section>
             <p className="spec-label mb-2">Notes (optionnel)</p>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="input-dark w-full min-h-24"
-              placeholder="Instruction de livraison ou remarque"
-              disabled={Boolean(pendingStripeCheckout)}
+              placeholder="Instructions de livraison"
             />
-          </div>
+          </section>
 
-          {pendingStripeCheckout && stripePromise && stripeElementsOptions ? (
-            <div className="space-y-3 border border-border p-4">
-              <p className="spec-label">Paiement sécurisé Stripe</p>
-              <Elements stripe={stripePromise} options={stripeElementsOptions}>
-                <StripeConfirmationForm
-                  orderId={pendingStripeCheckout.orderId}
-                  onSuccess={() => {
-                    setSuccessOrderId(pendingStripeCheckout.orderId);
-                    setItems([]);
-                  }}
-                  onError={(message) => setError(message)}
-                />
-              </Elements>
-              <button
-                type="button"
-                className="font-mono text-xs text-text-muted underline"
-                onClick={() => setPendingStripeCheckout(null)}
-              >
-                Changer de mode de paiement
-              </button>
-            </div>
+          {error ? (
+            <div className="border border-danger/40 bg-danger/10 px-4 py-3 font-mono text-sm text-danger">{error}</div>
           ) : null}
 
-          {error && <div className="border border-danger/40 bg-danger/10 px-4 py-3 font-mono text-sm text-danger">{error}</div>}
-
-          {!pendingStripeCheckout ? (
-            <button type="submit" disabled={submitting || items.length === 0} className="btn-neon w-full disabled:opacity-50">
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  VALIDATION...
-                </>
-              ) : isStripeFlow && stripeAvailable ? (
-                "CONTINUER VERS PAIEMENT"
-              ) : (
-                "PASSER LA COMMANDE"
-              )}
-            </button>
-          ) : null}
+          <button type="submit" disabled={submitting || items.length === 0} className="btn-neon w-full disabled:opacity-50">
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                VALIDATION...
+              </>
+            ) : (
+              "PASSER LA COMMANDE"
+            )}
+          </button>
         </form>
 
-        <aside className="bg-surface border border-border p-6 h-fit sticky top-24">
+        <aside className="bg-surface border border-border p-5 h-fit lg:sticky lg:top-24">
           <p className="spec-label mb-4">Récapitulatif</p>
-          <div className="space-y-3 mb-4">
+          <div className="space-y-3 mb-4 max-h-[45vh] overflow-auto pr-1">
             {items.map((item) => (
               <div key={`${item.productId}-${item.variantId ?? "default"}`} className="flex items-start justify-between gap-2">
                 <div>
@@ -393,8 +443,8 @@ export default function CheckoutPage() {
           <div className="divider mb-3" />
           <div className="flex justify-between items-center">
             <span className="font-mono text-sm text-text-muted">Total TTC</span>
-            <span className="price-main" style={{ fontSize: "1.4rem" }}>
-              {formatPrice(totalTtc)}
+            <span className="price-main" style={{ fontSize: "1.3rem" }}>
+              {formatPrice(subtotalTtc)}
             </span>
           </div>
         </aside>
