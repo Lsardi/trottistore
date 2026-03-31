@@ -37,6 +37,7 @@ const checkoutSchema = z.object({
   shippingAddressId: z.string().uuid(),
   billingAddressId: z.string().uuid().optional(),
   paymentMethod: z.enum(PAYMENT_METHODS),
+  shippingMethod: z.enum(["DELIVERY", "STORE_PICKUP"]).optional().default("DELIVERY"),
   notes: z.string().max(1000).optional(),
 });
 
@@ -180,7 +181,7 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    const { shippingAddressId, billingAddressId, paymentMethod, notes } =
+    const { shippingAddressId, billingAddressId, paymentMethod, shippingMethod, notes } =
       parsed.data;
 
     // 1. Get cart from Redis
@@ -366,6 +367,7 @@ export async function orderRoutes(app: FastifyInstance) {
           status: "PENDING",
           paymentMethod,
           paymentStatus,
+          shippingMethod,
           shippingAddress: shippingAddressJson,
           billingAddress: billingAddressJson,
           subtotalHt,

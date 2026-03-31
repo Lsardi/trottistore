@@ -154,6 +154,54 @@ export const ordersApi = {
     apiFetch<{ success: boolean; data: Order }>('ecommerce', `/orders/${id}`),
 };
 
+export const addressesApi = {
+  list: () =>
+    apiFetch<{ success: boolean; data: Address[] }>('ecommerce', '/addresses'),
+
+  create: (body: {
+    firstName: string;
+    lastName: string;
+    street: string;
+    street2?: string;
+    city: string;
+    postalCode: string;
+    country?: string;
+    phone?: string;
+    company?: string;
+    label?: string;
+    type?: 'SHIPPING' | 'BILLING';
+    isDefault?: boolean;
+  }) =>
+    apiFetch<{ success: boolean; data: Address }>('ecommerce', '/addresses', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  update: (id: string, body: Partial<{
+    firstName: string;
+    lastName: string;
+    street: string;
+    street2: string;
+    city: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+    company: string;
+    label: string;
+    type: 'SHIPPING' | 'BILLING';
+    isDefault: boolean;
+  }>) =>
+    apiFetch<{ success: boolean; data: Address }>('ecommerce', `/addresses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean }>('ecommerce', `/addresses/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
 export const leadsApi = {
   createPro: (body: {
     company: string;
