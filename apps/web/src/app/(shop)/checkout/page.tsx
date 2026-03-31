@@ -22,6 +22,7 @@ const PAYMENT_METHODS = [
   { value: "INSTALLMENT_3X", label: "Paiement en 3x sans frais" },
   { value: "BANK_TRANSFER", label: "Virement bancaire" },
 ] as const;
+// TODO(checkout): réintégrer le flux Stripe PaymentElement une fois le tunnel de conversion stabilisé.
 
 const SHIPPING_METHODS = [
   { value: "DELIVERY", label: "Livraison" },
@@ -121,7 +122,10 @@ export default function CheckoutPage() {
     loadCheckout();
   }, []);
 
-  const subtotalTtc = useMemo(() => items.reduce((sum, item) => sum + item.lineTotalHt * 1.2, 0), [items]);
+  const subtotalHt = useMemo(() => items.reduce((sum, item) => sum + item.lineTotalHt, 0), [items]);
+  const subtotalTtc = useMemo(() => subtotalHt * 1.2, [subtotalHt]);
+  const shippingCost = useMemo(() => (subtotalHt >= 100 ? 0 : 6.9), [subtotalHt]);
+  const totalTtc = useMemo(() => subtotalTtc + shippingCost, [subtotalTtc, shippingCost]);
 
   function updateAddressField<K extends keyof AddressForm>(field: K, value: AddressForm[K]) {
     setAddressForm((prev) => ({ ...prev, [field]: value }));
@@ -262,8 +266,10 @@ export default function CheckoutPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="spec-label block mb-2">Prénom</label>
+                  <label htmlFor="checkout-first-name" className="spec-label block mb-2">Prénom</label>
                   <input
+                    id="checkout-first-name"
+                    name="shipping_firstName"
                     value={addressForm.firstName}
                     onChange={(e) => updateAddressField("firstName", e.target.value)}
                     className={`input-dark w-full ${addressErrors.firstName ? "border-danger" : ""}`}
@@ -273,8 +279,10 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="spec-label block mb-2">Nom</label>
+                  <label htmlFor="checkout-last-name" className="spec-label block mb-2">Nom</label>
                   <input
+                    id="checkout-last-name"
+                    name="shipping_lastName"
                     value={addressForm.lastName}
                     onChange={(e) => updateAddressField("lastName", e.target.value)}
                     className={`input-dark w-full ${addressErrors.lastName ? "border-danger" : ""}`}
@@ -284,8 +292,10 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="spec-label block mb-2">Adresse</label>
+                  <label htmlFor="checkout-street" className="spec-label block mb-2">Adresse</label>
                   <input
+                    id="checkout-street"
+                    name="shipping_street"
                     value={addressForm.street}
                     onChange={(e) => updateAddressField("street", e.target.value)}
                     className={`input-dark w-full ${addressErrors.street ? "border-danger" : ""}`}
@@ -295,8 +305,10 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="spec-label block mb-2">Complément</label>
+                  <label htmlFor="checkout-street2" className="spec-label block mb-2">Complément</label>
                   <input
+                    id="checkout-street2"
+                    name="shipping_street2"
                     value={addressForm.street2}
                     onChange={(e) => updateAddressField("street2", e.target.value)}
                     className="input-dark w-full"
@@ -305,8 +317,10 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="spec-label block mb-2">Code postal</label>
+                  <label htmlFor="checkout-postal-code" className="spec-label block mb-2">Code postal</label>
                   <input
+                    id="checkout-postal-code"
+                    name="shipping_postalCode"
                     value={addressForm.postalCode}
                     onChange={(e) => updateAddressField("postalCode", e.target.value)}
                     className={`input-dark w-full ${addressErrors.postalCode ? "border-danger" : ""}`}
@@ -316,8 +330,10 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className="spec-label block mb-2">Ville</label>
+                  <label htmlFor="checkout-city" className="spec-label block mb-2">Ville</label>
                   <input
+                    id="checkout-city"
+                    name="shipping_city"
                     value={addressForm.city}
                     onChange={(e) => updateAddressField("city", e.target.value)}
                     className={`input-dark w-full ${addressErrors.city ? "border-danger" : ""}`}
@@ -327,8 +343,10 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="spec-label block mb-2">Téléphone</label>
+                  <label htmlFor="checkout-phone" className="spec-label block mb-2">Téléphone</label>
                   <input
+                    id="checkout-phone"
+                    name="shipping_phone"
                     value={addressForm.phone}
                     onChange={(e) => updateAddressField("phone", e.target.value)}
                     className={`input-dark w-full ${addressErrors.phone ? "border-danger" : ""}`}
@@ -338,8 +356,10 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="spec-label block mb-2">Label (optionnel)</label>
+                  <label htmlFor="checkout-label" className="spec-label block mb-2">Label (optionnel)</label>
                   <input
+                    id="checkout-label"
+                    name="shipping_label"
                     value={addressForm.label}
                     onChange={(e) => updateAddressField("label", e.target.value)}
                     className="input-dark w-full"
@@ -441,11 +461,24 @@ export default function CheckoutPage() {
             ))}
           </div>
           <div className="divider mb-3" />
-          <div className="flex justify-between items-center">
-            <span className="font-mono text-sm text-text-muted">Total TTC</span>
-            <span className="price-main" style={{ fontSize: "1.3rem" }}>
-              {formatPrice(subtotalTtc)}
-            </span>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="font-mono text-sm text-text-muted">Sous-total TTC</span>
+              <span className="font-mono text-sm text-text">{formatPrice(subtotalTtc)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="font-mono text-sm text-text-muted">Livraison</span>
+              <span className="font-mono text-sm text-text">
+                {shippingCost === 0 ? "Gratuit" : formatPrice(shippingCost)}
+              </span>
+            </div>
+            <div className="divider" />
+            <div className="flex justify-between items-center">
+              <span className="font-mono text-sm text-text-muted">Total</span>
+              <span className="price-main" style={{ fontSize: "1.3rem" }}>
+                {formatPrice(totalTtc)}
+              </span>
+            </div>
           </div>
         </aside>
       </div>

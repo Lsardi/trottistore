@@ -76,6 +76,30 @@ test.describe("Critical Flows", () => {
       });
     });
 
+    await page.route("**/api/v1/addresses", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: "10000000-0000-0000-0000-000000000001",
+              type: "SHIPPING",
+              label: "Maison",
+              firstName: "Test",
+              lastName: "User",
+              street: "1 rue du Test",
+              city: "Paris",
+              postalCode: "75001",
+              country: "FR",
+              isDefault: true,
+            },
+          ],
+        }),
+      });
+    });
+
     await page.route("**/api/v1/orders", async (route) => {
       if (route.request().method() === "POST") {
         await route.fulfill({
@@ -146,6 +170,17 @@ test.describe("Critical Flows", () => {
               },
             },
           },
+        }),
+      });
+    });
+
+    await page.route("**/api/v1/addresses", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: [],
         }),
       });
     });

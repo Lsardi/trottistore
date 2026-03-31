@@ -333,12 +333,12 @@ test.describe("Purchase Flow", () => {
     await page.getByRole("link", { name: /commander/i }).click();
 
     await expect(page.getByRole("heading", { name: /checkout/i })).toBeVisible();
-    await page.getByText("Prénom").locator("..").getByRole("textbox").fill("Lyes");
-    await page.getByText("Nom").locator("..").getByRole("textbox").fill("Sardi");
-    await page.getByText("Adresse").locator("..").getByRole("textbox").fill("10 Rue de Paris");
-    await page.getByText("Code postal").locator("..").getByRole("textbox").fill("75001");
-    await page.getByText("Ville").locator("..").getByRole("textbox").fill("Paris");
-    await page.getByText("Téléphone").locator("..").getByRole("textbox").fill("0612345678");
+    await page.getByLabel("Prénom").fill("Lyes");
+    await page.getByLabel("Nom").fill("Sardi");
+    await page.getByLabel("Adresse").fill("10 Rue de Paris");
+    await page.getByLabel("Code postal").fill("75001");
+    await page.getByLabel("Ville").fill("Paris");
+    await page.getByLabel("Téléphone").fill("0612345678");
 
     await page.getByRole("button", { name: /passer la commande/i }).click();
 
