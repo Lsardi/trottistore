@@ -154,6 +154,42 @@ export const ordersApi = {
     apiFetch<{ success: boolean; data: Order }>('ecommerce', `/orders/${id}`),
 };
 
+export interface AddressPayload {
+  type?: "SHIPPING" | "BILLING";
+  label?: string;
+  firstName: string;
+  lastName: string;
+  company?: string;
+  street: string;
+  street2?: string;
+  city: string;
+  postalCode: string;
+  country?: "FR";
+  phone?: string;
+  isDefault?: boolean;
+}
+
+export const addressesApi = {
+  list: () => apiFetch<{ success: boolean; data: Address[] }>("ecommerce", "/addresses"),
+
+  create: (body: AddressPayload) =>
+    apiFetch<{ success: boolean; data: Address }>("ecommerce", "/addresses", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  update: (id: string, body: Partial<AddressPayload>) =>
+    apiFetch<{ success: boolean; data: Address }>("ecommerce", `/addresses/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean; data: { id: string } }>("ecommerce", `/addresses/${id}`, {
+      method: "DELETE",
+    }),
+};
+
 export const leadsApi = {
   createPro: (body: {
     company: string;
@@ -605,21 +641,7 @@ export interface User {
   lastLoginAt?: string | null;
   loginCount?: number;
   createdAt?: string;
-  addresses?: Array<{
-    id: string;
-    type: string;
-    label?: string | null;
-    firstName: string;
-    lastName: string;
-    company?: string | null;
-    street: string;
-    street2?: string | null;
-    city: string;
-    postalCode: string;
-    country: string;
-    phone?: string | null;
-    isDefault: boolean;
-  }>;
+  addresses?: Address[];
   customerProfile?: {
     loyaltyTier: string;
     loyaltyPoints: number;
@@ -627,6 +649,23 @@ export interface User {
     totalSpent: string;
     lastOrderAt?: string | null;
   } | null;
+}
+
+export interface Address {
+  id: string;
+  type: "SHIPPING" | "BILLING";
+  label?: string | null;
+  firstName: string;
+  lastName: string;
+  company?: string | null;
+  street: string;
+  street2?: string | null;
+  city: string;
+  postalCode: string;
+  country: string;
+  phone?: string | null;
+  isDefault: boolean;
+  createdAt?: string;
 }
 
 export interface RepairTicket {

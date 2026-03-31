@@ -9,14 +9,42 @@ import GarageSection from "@/components/GarageSection";
 import LoyaltyCard from "@/components/LoyaltyCard";
 import {
   ApiError,
+  addressesApi,
   authApi,
   ordersApi,
   repairsApi,
+  type Address,
   type Order,
   type RepairTicket,
   type User,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+type AddressFormState = {
+  firstName: string;
+  lastName: string;
+  street: string;
+  street2: string;
+  postalCode: string;
+  city: string;
+  phone: string;
+  label: string;
+  type: "SHIPPING" | "BILLING";
+  isDefault: boolean;
+};
+
+const EMPTY_ADDRESS_FORM: AddressFormState = {
+  firstName: "",
+  lastName: "",
+  street: "",
+  street2: "",
+  postalCode: "",
+  city: "",
+  phone: "",
+  label: "",
+  type: "SHIPPING",
+  isDefault: false,
+};
 
 export default function MonCompteWrapper() {
   return (
@@ -42,6 +70,12 @@ function formatPrice(amount: string | number): string {
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<RepairTicket[]>([]);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressFormOpen, setAddressFormOpen] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressForm, setAddressForm] = useState<AddressFormState>(EMPTY_ADDRESS_FORM);
+  const [addressError, setAddressError] = useState("");
+  const [addressSaving, setAddressSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
@@ -72,7 +106,7 @@ function formatPrice(amount: string | number): string {
         }
 
         if (currentUser.role === "CLIENT") {
-          const [ordersRes, repairsRes] = await Promise.all([
+          const [ordersRes, repairsRes, addressesRes] = await Promise.all([
             ordersApi.list({ page: 1 }),
             repairsApi.list({
               page: 1,
@@ -80,10 +114,12 @@ function formatPrice(amount: string | number): string {
               customerId: currentUser.id,
               sort: "newest",
             }),
+            addressesApi.list(),
           ]);
 
           setOrders(ordersRes.data || []);
           setTickets(repairsRes.data || []);
+          setAddresses(addressesRes.data || []);
         }
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
@@ -136,6 +172,121 @@ function formatPrice(amount: string | number): string {
   function handleLogout() {
     localStorage.removeItem("accessToken");
     window.location.href = "/mon-compte";
+  }
+
+  function resetAddressForm() {
+    setAddressForm(EMPTY_ADDRESS_FORM);
+    setEditingAddressId(null);
+    setAddressError("");
+  }
+
+  function openCreateAddressForm() {
+    resetAddressForm();
+    setAddressFormOpen(true);
+  }
+
+  function startEditAddress(address: Address) {
+    setAddressForm({
+      firstName: address.firstName || "",
+      lastName: address.lastName || "",
+      street: address.street || "",
+      street2: address.street2 || "",
+      postalCode: address.postalCode || "",
+      city: address.city || "",
+      phone: address.phone || "",
+      label: address.label || "",
+      type: address.type,
+      isDefault: address.isDefault,
+    });
+    setEditingAddressId(address.id);
+    setAddressError("");
+    setAddressFormOpen(true);
+  }
+
+  async function submitAddress(e: React.FormEvent) {
+    e.preventDefault();
+    setAddressSaving(true);
+    setAddressError("");
+
+    if (
+      !addressForm.firstName.trim() ||
+      !addressForm.lastName.trim() ||
+      !addressForm.street.trim() ||
+      !addressForm.postalCode.trim() ||
+      !addressForm.city.trim()
+    ) {
+      setAddressError("Merci de remplir tous les champs obligatoires.");
+      setAddressSaving(false);
+      return;
+    }
+
+    try {
+      if (editingAddressId) {
+        const updated = await addressesApi.update(editingAddressId, {
+          firstName: addressForm.firstName.trim(),
+          lastName: addressForm.lastName.trim(),
+          street: addressForm.street.trim(),
+          street2: addressForm.street2.trim() || undefined,
+          postalCode: addressForm.postalCode.trim(),
+          city: addressForm.city.trim(),
+          phone: addressForm.phone.trim() || undefined,
+          label: addressForm.label.trim() || undefined,
+          type: addressForm.type,
+          isDefault: addressForm.isDefault,
+          country: "FR",
+        });
+        setAddresses((prev) => prev.map((a) => (a.id === updated.data.id ? updated.data : a)));
+      } else {
+        const created = await addressesApi.create({
+          firstName: addressForm.firstName.trim(),
+          lastName: addressForm.lastName.trim(),
+          street: addressForm.street.trim(),
+          street2: addressForm.street2.trim() || undefined,
+          postalCode: addressForm.postalCode.trim(),
+          city: addressForm.city.trim(),
+          phone: addressForm.phone.trim() || undefined,
+          label: addressForm.label.trim() || undefined,
+          type: addressForm.type,
+          isDefault: addressForm.isDefault,
+          country: "FR",
+        });
+        setAddresses((prev) => [created.data, ...prev]);
+      }
+
+      resetAddressForm();
+      setAddressFormOpen(false);
+    } catch {
+      setAddressError("Impossible d'enregistrer l'adresse.");
+    } finally {
+      setAddressSaving(false);
+    }
+  }
+
+  async function deleteAddress(id: string) {
+    try {
+      await addressesApi.delete(id);
+      setAddresses((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      setAddressError("Impossible de supprimer l'adresse.");
+    }
+  }
+
+  async function markAddressAsDefault(address: Address) {
+    try {
+      const updated = await addressesApi.update(address.id, {
+        isDefault: true,
+        type: address.type,
+      });
+      setAddresses((prev) =>
+        prev.map((item) => {
+          if (item.type !== updated.data.type) return item;
+          if (item.id === updated.data.id) return { ...item, isDefault: true };
+          return { ...item, isDefault: false };
+        }),
+      );
+    } catch {
+      setAddressError("Impossible de mettre cette adresse par défaut.");
+    }
   }
 
   if (booting) {
@@ -239,24 +390,161 @@ function formatPrice(amount: string | number): string {
         </div>
 
         <section className="bg-surface border border-border p-5 mt-6">
-          <p className="spec-label mb-4">Adresses</p>
-          {!user.addresses || user.addresses.length === 0 ? (
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <p className="spec-label">Mes adresses</p>
+            <button type="button" className="btn-outline" onClick={openCreateAddressForm}>
+              Ajouter une adresse
+            </button>
+          </div>
+
+          {addressError ? (
+            <div className="border border-danger/30 bg-danger/10 text-danger px-3 py-2 font-mono text-xs mb-4">
+              {addressError}
+            </div>
+          ) : null}
+
+          {addressFormOpen ? (
+            <form onSubmit={submitAddress} className="border border-border p-4 mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="spec-label block mb-2">Prénom</label>
+                <input
+                  className="input-dark w-full"
+                  value={addressForm.firstName}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="spec-label block mb-2">Nom</label>
+                <input
+                  className="input-dark w-full"
+                  value={addressForm.lastName}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="spec-label block mb-2">Adresse</label>
+                <input
+                  className="input-dark w-full"
+                  value={addressForm.street}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, street: e.target.value }))}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="spec-label block mb-2">Complément</label>
+                <input
+                  className="input-dark w-full"
+                  value={addressForm.street2}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, street2: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="spec-label block mb-2">Code postal</label>
+                <input
+                  className="input-dark w-full"
+                  value={addressForm.postalCode}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, postalCode: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="spec-label block mb-2">Ville</label>
+                <input
+                  className="input-dark w-full"
+                  value={addressForm.city}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, city: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="spec-label block mb-2">Téléphone</label>
+                <input
+                  className="input-dark w-full"
+                  value={addressForm.phone}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="spec-label block mb-2">Label</label>
+                <input
+                  className="input-dark w-full"
+                  value={addressForm.label}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, label: e.target.value }))}
+                  placeholder="Maison, Bureau..."
+                />
+              </div>
+              <div>
+                <label className="spec-label block mb-2">Type</label>
+                <select
+                  className="input-dark w-full"
+                  value={addressForm.type}
+                  onChange={(e) =>
+                    setAddressForm((prev) => ({
+                      ...prev,
+                      type: e.target.value as "SHIPPING" | "BILLING",
+                    }))
+                  }
+                >
+                  <option value="SHIPPING">Livraison</option>
+                  <option value="BILLING">Facturation</option>
+                </select>
+              </div>
+              <label className="inline-flex items-center gap-2 font-mono text-xs text-text-muted">
+                <input
+                  type="checkbox"
+                  checked={addressForm.isDefault}
+                  onChange={(e) => setAddressForm((prev) => ({ ...prev, isDefault: e.target.checked }))}
+                />
+                Adresse par défaut
+              </label>
+              <div className="md:col-span-2 flex flex-wrap gap-2">
+                <button type="submit" disabled={addressSaving} className="btn-neon disabled:opacity-50">
+                  {addressSaving ? "ENREGISTREMENT..." : editingAddressId ? "Mettre à jour" : "Ajouter"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => {
+                    resetAddressForm();
+                    setAddressFormOpen(false);
+                  }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {addresses.length === 0 ? (
             <p className="font-mono text-sm text-text-muted">Aucune adresse enregistrée.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {user.addresses.map((address) => (
+              {addresses.map((address) => (
                 <div key={address.id} className="border border-border p-4">
-                  <p className="font-mono text-xs text-text mb-1">
-                    {address.firstName} {address.lastName}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="font-mono text-xs text-text">
+                      {address.firstName} {address.lastName}
+                    </p>
+                    {address.isDefault ? (
+                      <span className="font-mono text-[10px] px-2 py-1 border border-neon text-neon">PAR DÉFAUT</span>
+                    ) : null}
+                  </div>
                   <p className="font-mono text-xs text-text-dim">{address.street}</p>
-                  {address.street2 ? (
-                    <p className="font-mono text-xs text-text-dim">{address.street2}</p>
-                  ) : null}
+                  {address.street2 ? <p className="font-mono text-xs text-text-dim">{address.street2}</p> : null}
                   <p className="font-mono text-xs text-text-dim">
                     {address.postalCode} {address.city}
                   </p>
-                  <p className="font-mono text-xs text-text-dim">{address.country}</p>
+                  <p className="font-mono text-xs text-text-dim mb-3">{address.country}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="btn-outline" onClick={() => startEditAddress(address)}>
+                      Modifier
+                    </button>
+                    <button type="button" className="btn-outline" onClick={() => deleteAddress(address.id)}>
+                      Supprimer
+                    </button>
+                    {!address.isDefault ? (
+                      <button type="button" className="btn-outline" onClick={() => markAddressAsDefault(address)}>
+                        Mettre par défaut
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

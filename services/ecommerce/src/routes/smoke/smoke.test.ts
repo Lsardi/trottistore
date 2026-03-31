@@ -6,6 +6,7 @@ import { authRoutes } from "../auth/index.js";
 import { productRoutes } from "../products/index.js";
 import { cartRoutes } from "../cart/index.js";
 import { orderRoutes } from "../orders/index.js";
+import { addressRoutes } from "../addresses/index.js";
 
 function buildApp(): FastifyInstance {
   process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "test-secret";
@@ -39,6 +40,15 @@ function buildApp(): FastifyInstance {
     },
     address: {
       findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockImplementation(async ({ data }: any) => ({
+        id: "10000000-0000-0000-0000-000000000001",
+        ...data,
+        createdAt: new Date().toISOString(),
+      })),
+      update: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      delete: vi.fn().mockResolvedValue(null),
     },
     user: {
       findUnique: vi.fn().mockResolvedValue(null),
@@ -112,6 +122,7 @@ describe("E-commerce smoke suite", () => {
     await app.register(productRoutes, { prefix: "/api/v1" });
     await app.register(cartRoutes, { prefix: "/api/v1" });
     await app.register(orderRoutes, { prefix: "/api/v1" });
+    await app.register(addressRoutes, { prefix: "/api/v1" });
     await app.ready();
   });
 
@@ -161,5 +172,53 @@ describe("E-commerce smoke suite", () => {
     });
     expect(res.statusCode).toBe(401);
     expect(res.json().success).toBe(false);
+  });
+
+  it("smoke/addresses: POST /api/v1/addresses without auth returns 401", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/addresses",
+      payload: {
+        firstName: "Jean",
+        lastName: "Dupont",
+        street: "1 rue de Paris",
+        city: "Paris",
+        postalCode: "75001",
+        country: "FR",
+        type: "SHIPPING",
+      },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().success).toBe(false);
+  });
+
+  it("smoke/addresses: POST /api/v1/addresses with auth returns 201", async () => {
+    const token = app.jwt.sign({
+      sub: "00000000-0000-0000-0000-000000000001",
+      email: "smoke@test.fr",
+      role: "CLIENT",
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/addresses",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+      payload: {
+        firstName: "Jean",
+        lastName: "Dupont",
+        street: "1 rue de Paris",
+        city: "Paris",
+        postalCode: "75001",
+        country: "FR",
+        type: "SHIPPING",
+        isDefault: true,
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().success).toBe(true);
   });
 });
