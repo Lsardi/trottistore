@@ -1,12 +1,15 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { orderRoutes } from "./index.js";
+import { authPlugin } from "../../plugins/auth.js";
 
 // ---------------------------------------------------------------------------
 // Test helper
 // ---------------------------------------------------------------------------
 
 function buildTestApp(): FastifyInstance {
+  process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "test-secret";
+  process.env.COOKIE_SECRET = process.env.COOKIE_SECRET || "test-cookie-secret";
   const app = Fastify({ logger: false });
 
   // Mock prisma
@@ -69,6 +72,7 @@ describe("Orders integration tests", () => {
 
   beforeAll(async () => {
     app = buildTestApp();
+    await app.register(authPlugin);
     await app.register(orderRoutes, { prefix: "/api/v1" });
     await app.ready();
   });
@@ -109,26 +113,20 @@ describe("Orders integration tests", () => {
   });
 
   it("POST /api/v1/orders with missing body returns 400 (when authenticated)", async () => {
-    // Build a separate app that injects a fake user via onRequest hook
     const authApp = buildTestApp();
-    authApp.decorateRequest("user", null);
-
-    // Simulate authentication by injecting user on every request
-    authApp.addHook("onRequest", async (request) => {
-      (request as FastifyRequest & { user: unknown }).user = {
-        id: "user-123",
-        userId: "user-123",
-        email: "test@test.com",
-        role: "CLIENT",
-      };
-    });
-
+    await authApp.register(authPlugin);
     await authApp.register(orderRoutes, { prefix: "/api/v1" });
     await authApp.ready();
+    const token = authApp.jwt.sign({
+      sub: "00000000-0000-0000-0000-000000000123",
+      email: "test@test.com",
+      role: "CLIENT",
+    });
 
     const res = await authApp.inject({
       method: "POST",
       url: "/api/v1/orders",
+      headers: { authorization: `Bearer ${token}` },
       payload: {},
     });
 
@@ -143,23 +141,19 @@ describe("Orders integration tests", () => {
 
   it("POST /api/v1/orders with empty cart returns 400 (when authenticated)", async () => {
     const authApp = buildTestApp();
-    authApp.decorateRequest("user", null);
-
-    authApp.addHook("onRequest", async (request) => {
-      (request as FastifyRequest & { user: unknown }).user = {
-        id: "user-123",
-        userId: "user-123",
-        email: "test@test.com",
-        role: "CLIENT",
-      };
-    });
-
+    await authApp.register(authPlugin);
     await authApp.register(orderRoutes, { prefix: "/api/v1" });
     await authApp.ready();
+    const token = authApp.jwt.sign({
+      sub: "00000000-0000-0000-0000-000000000123",
+      email: "test@test.com",
+      role: "CLIENT",
+    });
 
     const res = await authApp.inject({
       method: "POST",
       url: "/api/v1/orders",
+      headers: { authorization: `Bearer ${token}` },
       payload: {
         shippingAddressId: "00000000-0000-0000-0000-000000000001",
         paymentMethod: "CARD",

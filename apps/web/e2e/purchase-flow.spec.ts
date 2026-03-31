@@ -308,11 +308,11 @@ test.describe("Purchase Flow", () => {
     await page.goto("/mon-compte");
 
     await page.getByRole("button", { name: "INSCRIPTION" }).click();
-    await page.getByLabel("Prenom").fill("Lyes");
-    await page.getByLabel("Nom").fill("Sardi");
-    await page.getByLabel("Email").fill("purchase.flow@test.fr");
-    await page.getByLabel("Telephone").fill("0612345678");
-    await page.getByLabel("Mot de passe").fill("demo12345");
+    await page.getByPlaceholder("Jean").fill("Lyes");
+    await page.getByPlaceholder("Dupont").fill("Sardi");
+    await page.getByPlaceholder("votre@email.fr").fill("purchase.flow@test.fr");
+    await page.getByPlaceholder("06 12 34 56 78").fill("0612345678");
+    await page.getByPlaceholder("Minimum 8 caracteres").fill("demo12345");
     await page.getByRole("button", { name: "CREER MON COMPTE" }).click();
 
     await expect(page.getByText(/espace client/i)).toBeVisible();
@@ -333,12 +333,12 @@ test.describe("Purchase Flow", () => {
     await page.getByRole("link", { name: /commander/i }).click();
 
     await expect(page.getByRole("heading", { name: /checkout/i })).toBeVisible();
-    await page.getByLabel("Prénom").fill("Lyes");
-    await page.getByLabel("Nom").fill("Sardi");
-    await page.getByLabel("Adresse").fill("10 Rue de Paris");
-    await page.getByLabel("Code postal").fill("75001");
-    await page.getByLabel("Ville").fill("Paris");
-    await page.getByLabel("Téléphone").fill("0612345678");
+    await page.getByText("Prénom").locator("..").getByRole("textbox").fill("Lyes");
+    await page.getByText("Nom").locator("..").getByRole("textbox").fill("Sardi");
+    await page.getByText("Adresse").locator("..").getByRole("textbox").fill("10 Rue de Paris");
+    await page.getByText("Code postal").locator("..").getByRole("textbox").fill("75001");
+    await page.getByText("Ville").locator("..").getByRole("textbox").fill("Paris");
+    await page.getByText("Téléphone").locator("..").getByRole("textbox").fill("0612345678");
 
     await page.getByRole("button", { name: /passer la commande/i }).click();
 

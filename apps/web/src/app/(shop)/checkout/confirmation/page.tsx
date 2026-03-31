@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-export default function CheckoutConfirmationPage() {
+function ConfirmationContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId") || "-";
   const orderNumber = searchParams.get("orderNumber");
@@ -25,5 +26,19 @@ export default function CheckoutConfirmationPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutConfirmationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <p className="font-mono text-sm text-text-muted">Chargement de la confirmation...</p>
+        </div>
+      }
+    >
+      <ConfirmationContent />
+    </Suspense>
   );
 }
