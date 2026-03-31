@@ -16,6 +16,7 @@ import { orderRoutes } from "./routes/orders/index.js";
 import { categoryRoutes } from "./routes/categories/index.js";
 import { authRoutes } from "./routes/auth/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
+import { leadRoutes } from "./routes/leads/index.js";
 import { stockRoutes } from "./routes/stock/index.js";
 import { checkoutRoutes } from "./routes/checkout/index.js";
 import { merchantRoutes } from "./routes/merchant/index.js";
@@ -129,6 +130,7 @@ async function start() {
   await app.register(categoryRoutes, { prefix: "/api/v1" });
   await app.register(authRoutes, { prefix: "/api/v1" });
   await app.register(adminRoutes, { prefix: "/api/v1" });
+  await app.register(leadRoutes, { prefix: "/api/v1" });
   await app.register(stockRoutes, { prefix: "/api/v1" });
   await app.register(checkoutRoutes, { prefix: "/api/v1" });
   await app.register(merchantRoutes, { prefix: "/api/v1" });

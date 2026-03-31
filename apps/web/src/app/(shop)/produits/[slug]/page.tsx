@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Minus, Plus, ImageOff, ArrowLeft, MapPin, Clock, Bell } from "lucide-react";
-import { productsApi, cartApi, type Product } from "@/lib/api";
+import { productsApi, cartApi, stockAlertsApi, type Product } from "@/lib/api";
 import { formatPriceTTC, priceTTC } from "@/lib/utils";
 import ProductCard from "@/components/ProductCard";
 
@@ -30,6 +30,8 @@ export default function ProductPage() {
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [alertEmail, setAlertEmail] = useState("");
   const [alertSent, setAlertSent] = useState(false);
+  const [alertSubmitting, setAlertSubmitting] = useState(false);
+  const [alertError, setAlertError] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -432,10 +434,23 @@ export default function ProductPage() {
                   </div>
                 ) : (
                   <form
-                    onSubmit={(e) => {
+                    onSubmit={async (e) => {
                       e.preventDefault();
-                      // TODO: POST to stock alert API when backend supports it
-                      setAlertSent(true);
+                      if (!product) return;
+                      setAlertError("");
+                      setAlertSubmitting(true);
+                      try {
+                        await stockAlertsApi.create({
+                          productId: product.id,
+                          variantId: variant?.id,
+                          email: alertEmail,
+                        });
+                        setAlertSent(true);
+                      } catch {
+                        setAlertError("Impossible d'enregistrer l'alerte pour le moment.");
+                      } finally {
+                        setAlertSubmitting(false);
+                      }
                     }}
                     className="flex gap-0"
                   >
@@ -448,11 +463,21 @@ export default function ProductPage() {
                       className="input-dark flex-1"
                       style={{ borderRight: "none" }}
                     />
-                    <button type="submit" className="btn-neon whitespace-nowrap" style={{ borderRadius: 0 }}>
+                    <button
+                      type="submit"
+                      disabled={alertSubmitting}
+                      className="btn-neon whitespace-nowrap disabled:opacity-60"
+                      style={{ borderRadius: 0 }}
+                    >
                       <Bell style={{ width: 14, height: 14 }} />
-                      ALERTEZ-MOI
+                      {alertSubmitting ? "ENVOI..." : "ALERTEZ-MOI"}
                     </button>
                   </form>
+                )}
+                {alertError && (
+                  <p className="font-mono text-xs mt-2" style={{ color: "var(--color-danger)" }}>
+                    {alertError}
+                  </p>
                 )}
               </div>
             )}

@@ -6,6 +6,7 @@ import {
   Wrench, Shield, Clock, BarChart3, Users, Check, Phone, Send, Loader2, Bike,
 } from "lucide-react";
 import { brand } from "@/lib/brand";
+import { leadsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const PLANS = [
@@ -91,15 +92,28 @@ export default function ProPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitError("");
     setSubmitting(true);
-    // TODO: POST to API when endpoint exists
-    setTimeout(() => {
-      setSubmitting(false);
+
+    try {
+      await leadsApi.createPro({
+        company: formData.company,
+        contact: formData.contact,
+        email: formData.email,
+        phone: formData.phone || undefined,
+        fleetSize: formData.fleetSize || undefined,
+        message: formData.message || undefined,
+      });
       setSubmitted(true);
-    }, 1000);
+    } catch {
+      setSubmitError("Impossible d'envoyer la demande. Reessayez dans un instant.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -286,6 +300,9 @@ export default function ProPage() {
                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
               />
             </div>
+            {submitError && (
+              <p className="font-mono text-xs text-danger">{submitError}</p>
+            )}
             <button type="submit" disabled={submitting} className="btn-neon w-full disabled:opacity-60">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               ENVOYER LA DEMANDE
