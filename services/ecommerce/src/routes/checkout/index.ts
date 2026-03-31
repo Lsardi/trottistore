@@ -32,9 +32,18 @@ function getStripe(): Stripe | null {
 // --- Routes ---
 
 export async function checkoutRoutes(app: FastifyInstance) {
-  // Auth required for checkout
+  // Register raw body parser for webhook route (Stripe signature requires exact raw body)
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "buffer" },
+    (_request, body, done) => {
+      // Store raw buffer for webhook signature verification
+      done(null, body);
+    },
+  );
+
+  // Auth required for checkout (except webhook)
   app.addHook("onRequest", async (request, reply) => {
-    // Webhook doesn't need auth
     if (request.url.includes("/checkout/webhook")) return;
     await app.authenticate(request, reply);
   });
@@ -182,28 +191,37 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
     let event: Stripe.Event;
     try {
-      // Fastify provides the raw body as a string/buffer on request.body for content-type application/json
-      const body = typeof request.body === "string" ? request.body : JSON.stringify(request.body);
-      event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+      // request.body is a raw Buffer thanks to our custom content type parser
+      const rawBody = Buffer.isBuffer(request.body)
+        ? request.body
+        : typeof request.body === "string"
+          ? request.body
+          : Buffer.from(JSON.stringify(request.body));
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     } catch (err) {
       app.log.error({ err }, "Webhook signature verification failed");
       return reply.status(400).send({ error: "Invalid signature" });
     }
 
-    // Handle events
-    switch (event.type) {
-      case "payment_intent.succeeded": {
-        const pi = event.data.object as Stripe.PaymentIntent;
-        await handlePaymentSuccess(app, pi);
-        break;
+    // Handle events — wrap in try/catch so Stripe retries on failure
+    try {
+      switch (event.type) {
+        case "payment_intent.succeeded": {
+          const pi = event.data.object as Stripe.PaymentIntent;
+          await handlePaymentSuccess(app, pi);
+          break;
+        }
+        case "payment_intent.payment_failed": {
+          const pi = event.data.object as Stripe.PaymentIntent;
+          await handlePaymentFailure(app, pi);
+          break;
+        }
+        default:
+          app.log.info({ type: event.type }, "Unhandled Stripe event");
       }
-      case "payment_intent.payment_failed": {
-        const pi = event.data.object as Stripe.PaymentIntent;
-        await handlePaymentFailure(app, pi);
-        break;
-      }
-      default:
-        app.log.info({ type: event.type }, "Unhandled Stripe event");
+    } catch (err) {
+      app.log.error({ err, eventType: event.type }, "Webhook handler failed");
+      return reply.status(500).send({ error: "Webhook processing failed" });
     }
 
     return reply.status(200).send({ received: true });

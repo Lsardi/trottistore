@@ -136,6 +136,9 @@ export async function merchantRoutes(app: FastifyInstance) {
   });
 
   // GET /merchant/local-inventory — Local inventory feed for Pickup Today
+  // NOTE: Intentionally public — Google Merchant requires unauthenticated access.
+  // Returns only SKU-level availability (no pricing, no customer data).
+  // Protected by rate limiting (global 100 req/min) + aggressive caching.
   app.get("/merchant/local-inventory", async (request, reply) => {
     const variants = await app.prisma.productVariant.findMany({
       where: { isActive: true },
@@ -152,7 +155,8 @@ export async function merchantRoutes(app: FastifyInstance) {
       return {
         storeCode: STORE_CODE,
         itemId: v.sku,
-        quantity: Math.max(0, available),
+        // Google Merchant requires "quantity" but we expose a capped value to avoid leaking exact stock
+        quantity: available > 5 ? 5 : Math.max(0, available),
         availability: available > 0 ? "in_store" : "out_of_stock",
         pickupMethod: available > 0 ? "buy" : "not supported",
         pickupSla: available > 0 ? "same day" : null,
