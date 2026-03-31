@@ -36,6 +36,7 @@ miniodata/
 # Crawl data (large files)
 data/crawl/images/
 data/crawl/raw-html/
+data/crawl/crawl-checkpoint.json
 
 # Claude Code
 .claude/
@@ -44,3 +45,4 @@ data/crawl/raw-html/
 # OS
 Thumbs.db
 apps/web/test-results/
+apps/web/playwright-report/

@@ -138,9 +138,15 @@ export async function stockRoutes(app: FastifyInstance) {
     });
   });
 
-  // GET /stock/movements — List stock movements with filters
-  app.get("/stock/movements", async (request) => {
+  // GET /stock/movements — List stock movements with filters (staff only)
+  app.get("/stock/movements", async (request, reply) => {
     const user = getRequestUser(request);
+    if (!user || user.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Acces reserve au staff" },
+      });
+    }
     const query = listMovementsSchema.parse(request.query);
 
     const where: Record<string, unknown> = {};
@@ -174,8 +180,15 @@ export async function stockRoutes(app: FastifyInstance) {
     };
   });
 
-  // GET /stock/alerts — Products below low stock threshold
-  app.get("/stock/alerts", async (request) => {
+  // GET /stock/alerts — Products below low stock threshold (staff only)
+  app.get("/stock/alerts", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (!user || user.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Acces reserve au staff" },
+      });
+    }
     const query = alertsQuerySchema.parse(request.query);
 
     const alerts = await app.prisma.$queryRaw<
@@ -217,8 +230,15 @@ export async function stockRoutes(app: FastifyInstance) {
     };
   });
 
-  // GET /stock/movements/summary — Aggregated movement stats per variant
-  app.get("/stock/movements/summary", async (request) => {
+  // GET /stock/movements/summary — Aggregated movement stats per variant (staff only)
+  app.get("/stock/movements/summary", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (!user || user.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Acces reserve au staff" },
+      });
+    }
     const summary = await app.prisma.$queryRaw<
       Array<{
         variant_id: string;

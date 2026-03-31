@@ -157,6 +157,11 @@ function requireAuth(
 // ─── Routes ──────────────────────────────────────────────────
 
 export async function orderRoutes(app: FastifyInstance) {
+  // All order routes require authentication
+  app.addHook("onRequest", async (request, reply) => {
+    await app.authenticate(request, reply);
+  });
+
   // POST /orders — Checkout: create order from cart
   app.post("/orders", async (request, reply) => {
     if (!requireAuth(request, reply)) return;

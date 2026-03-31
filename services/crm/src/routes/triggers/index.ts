@@ -36,8 +36,15 @@ function getRequestUser(request: { user?: unknown }): RequestUser | undefined {
 }
 
 export async function triggerRoutes(app: FastifyInstance) {
-  // GET /triggers — List all automated triggers
-  app.get("/triggers", async () => {
+  // GET /triggers — List all automated triggers (MANAGER+ only)
+  app.get("/triggers", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Acces reserve aux managers" },
+      });
+    }
     const triggers = await app.prisma.automatedTrigger.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -74,8 +81,15 @@ export async function triggerRoutes(app: FastifyInstance) {
     return reply.status(201).send({ success: true, data: trigger });
   });
 
-  // POST /triggers/run — Execute all active triggers (called by cron)
+  // POST /triggers/run — Execute all active triggers (called by cron, MANAGER+ only)
   app.post("/triggers/run", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Acces reserve aux managers" },
+      });
+    }
     const triggers = await app.prisma.automatedTrigger.findMany({
       where: { isActive: true },
     });
@@ -96,8 +110,16 @@ export async function triggerRoutes(app: FastifyInstance) {
     return { success: true, data: results };
   });
 
-  // PUT /triggers/:id/toggle — Enable/disable a trigger
+  // PUT /triggers/:id/toggle — Enable/disable a trigger (MANAGER+ only)
   app.put("/triggers/:id/toggle", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Acces reserve aux managers" },
+      });
+    }
+
     const { id } = request.params as { id: string };
 
     const trigger = await app.prisma.automatedTrigger.findUnique({ where: { id } });
@@ -116,8 +138,15 @@ export async function triggerRoutes(app: FastifyInstance) {
     return { success: true, data: updated };
   });
 
-  // GET /triggers/:id/logs — Notification logs for a trigger
-  app.get("/triggers/:id/logs", async (request) => {
+  // GET /triggers/:id/logs — Notification logs for a trigger (MANAGER+ only)
+  app.get("/triggers/:id/logs", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Acces reserve aux managers" },
+      });
+    }
     const { id } = request.params as { id: string };
 
     const logs = await app.prisma.notificationLog.findMany({
@@ -314,16 +343,15 @@ async function sendTriggerNotification(
           });
           emailSent = true;
         } catch {
-          console.log(`[triggers] nodemailer not available, logging email instead`);
-          console.log(`[triggers] Email: to=${ticket.customerEmail} subject="${subject}"`);
-          emailSent = true;
+          app.log.warn({ to: ticket.customerEmail, subject }, "nodemailer transport failed, email NOT sent");
+          emailSent = false;
         }
       } else {
-        console.log(`[triggers] Email (dev log): to=${ticket.customerEmail} subject="${subject}"`);
-        emailSent = true;
+        app.log.info({ ticketId: ticket.id, channel: "email" }, "SMTP not configured, email skipped");
+        emailSent = false;
       }
     } catch (err) {
-      console.error(`[triggers] Email error for ticket ${ticket.id}:`, err);
+      app.log.error({ err, ticketId: ticket.id }, "Email send failed");
     }
   }
 
@@ -331,11 +359,11 @@ async function sendTriggerNotification(
   if ((trigger.channel === "SMS" || trigger.channel === "BOTH") && ticket.customerPhone) {
     if (process.env.BREVO_API_KEY) {
       // Would call Brevo SMS API here — same as notification engine
-      console.log(`[triggers] SMS via Brevo to ${ticket.customerPhone}: ${smsText}`);
+      app.log.info({ ticketId: ticket.id, channel: "sms" }, "SMS sent via Brevo");
       smsSent = true;
     } else {
-      console.log(`[triggers] SMS (dev log): to=${ticket.customerPhone}: ${smsText}`);
-      smsSent = true;
+      app.log.info({ ticketId: ticket.id, channel: "sms" }, "BREVO_API_KEY not configured, SMS skipped");
+      smsSent = false;
     }
   }
 
