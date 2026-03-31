@@ -24,11 +24,15 @@ describe("Analytics auth guard smoke", () => {
 
     app.addHook("onRequest", async (request, reply) => {
       const path = request.url.split("?")[0];
+      const isPublicFunnelEventIngest =
+        request.method === "POST" &&
+        (path === "/api/v1/analytics/events/public" || path === "/analytics/events/public");
       if (
         path === "/health" ||
         path === "/ready" ||
         path.startsWith("/api/v1/health") ||
-        path.startsWith("/api/v1/ready")
+        path.startsWith("/api/v1/ready") ||
+        isPublicFunnelEventIngest
       ) {
         return;
       }
@@ -48,6 +52,7 @@ describe("Analytics auth guard smoke", () => {
     });
 
     app.get("/api/v1/analytics/realtime", async () => ({ success: true, data: {} }));
+    app.post("/api/v1/analytics/events/public", async () => ({ accepted: 1 }));
     await app.ready();
   });
 
@@ -76,6 +81,15 @@ describe("Analytics auth guard smoke", () => {
       method: "GET",
       url: "/api/v1/analytics/realtime",
       headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("allows public funnel ingest without token", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/analytics/events/public",
+      payload: { events: [{ type: "diagnostic_result_viewed" }] },
     });
     expect(res.statusCode).toBe(200);
   });

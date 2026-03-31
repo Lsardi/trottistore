@@ -12,6 +12,13 @@ import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { analyticsRoutes } from "./routes/index.js";
 import { ZodError } from "zod";
+import { validateEnv, COMMON_ENV } from "@trottistore/shared";
+
+validateEnv("analytics", [
+  ...COMMON_ENV,
+  { name: "PORT_ANALYTICS", required: false },
+  { name: "CLICKHOUSE_URL", required: false },
+]);
 
 const PORT = parseInt(process.env.PORT_ANALYTICS || "3003", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -47,11 +54,15 @@ async function start() {
 
   app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0];
+    const isPublicFunnelEventIngest =
+      request.method === "POST" &&
+      (path === "/api/v1/analytics/events/public" || path === "/analytics/events/public");
     if (
       path === "/health" ||
       path === "/ready" ||
       path.startsWith("/api/v1/health") ||
-      path.startsWith("/api/v1/ready")
+      path.startsWith("/api/v1/ready") ||
+      isPublicFunnelEventIngest
     ) {
       return;
     }

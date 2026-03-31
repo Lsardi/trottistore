@@ -85,8 +85,100 @@ Ce runbook couvre:
 - ETA de stabilisation
 - Responsable technique
 
-## 7. Ownership
+## 7. Database Backup & Restore
+
+### Backup (quotidien)
+
+```bash
+# Via le script existant
+bash infra/backup-db.sh
+
+# Ou manuellement
+pg_dump -h localhost -U trottistore -d trottistore_dev \
+  --format=custom --compress=9 \
+  -f backup_$(date +%Y%m%d_%H%M%S).dump
+```
+
+### Restore
+
+```bash
+# Stopper les services
+podman compose -f docker-compose.dev.yml stop
+
+# Restaurer
+pg_restore -h localhost -U trottistore -d trottistore_dev \
+  --clean --if-exists backup_YYYYMMDD_HHMMSS.dump
+
+# Relancer et vérifier
+podman compose -f docker-compose.dev.yml start
+pnpm db:push  # réaligner le schema si nécessaire
+curl http://localhost:3001/ready
+curl http://localhost:3002/ready
+curl http://localhost:3003/ready
+curl http://localhost:3004/ready
+```
+
+### Validation post-restore
+
+- [ ] /ready retourne 200 sur les 4 services
+- [ ] Données métier cohérentes (compter tickets, commandes, clients)
+- [ ] Pas de migration en attente
+
+## 8. Alerting (Prometheus)
+
+Fichier: `infra/alerting-rules.yml`
+
+| Alerte | Seuil | Sévérité |
+|--------|-------|----------|
+| ServiceDown | /health KO pendant 2min | critical |
+| HighErrorRate | >5% de 5xx pendant 5min | warning |
+| HighLatency | p95 >2s pendant 5min | warning |
+| DatabaseUnhealthy | /ready KO pendant 1min | critical |
+
+## 9. Ownership
 
 - Tech Lead: go/no-go release, validation finale
 - Dev owner PR: préparation notes + validation fonctionnelle
 - Ops/Infra owner: déploiement et monitoring runtime
+
+## 10. Go-Live Readiness (Sprint 3)
+
+### A. Stripe (obligatoire avant prod)
+
+- [ ] `FEATURE_CHECKOUT_EXPRESS=true` sur `service-ecommerce`
+- [ ] `STRIPE_SECRET_KEY` configurée (clé live, pas test)
+- [ ] `STRIPE_PUBLISHABLE_KEY` configurée (clé live, pas test)
+- [ ] `STRIPE_WEBHOOK_SECRET` configurée et vérifiée
+- [ ] Webhook Stripe actif vers `POST /api/v1/checkout/webhook`
+- [ ] Event Stripe validé: `payment_intent.succeeded`
+- [ ] Event Stripe validé: `payment_intent.payment_failed`
+- [ ] Paiement carte live 1€ validé en prod
+- [ ] Payment status passe à `PAID` après succès
+- [ ] Stock décrémenté après confirmation paiement
+
+### B. Checkout & Retrait 1h
+
+- [ ] Checkout standard `DELIVERY` passe de bout en bout
+- [ ] Checkout `STORE_PICKUP` passe de bout en bout
+- [ ] Frais de port = `0` en mode retrait
+- [ ] Note `[RETRAIT_1H]` visible sur la commande
+- [ ] Commande visible dans espace client
+- [ ] Commande visible dans admin
+- [ ] Aucun `EMPTY_CART` en flow order-first
+
+### C. Merchant Feed
+
+- [ ] `GET /api/v1/merchant/feed` retourne `200`
+- [ ] `GET /api/v1/merchant/local-inventory` retourne `200`
+- [ ] Feed contient uniquement des produits actifs
+- [ ] Prix TTC cohérents avec catalogue
+- [ ] Disponibilité locale cohérente avec le stock
+- [ ] URLs publiques valides dans le feed (images/produits)
+
+### D. Go/No-Go final
+
+- [ ] Build, lint, unit, e2e, smoke verts sur commit de release
+- [ ] Runbook rollback validé par l'équipe
+- [ ] Sauvegarde DB datée < 24h disponible
+- [ ] Monitoring `health/ready` actif après déploiement
+- [ ] Validation métier signée (gérant)

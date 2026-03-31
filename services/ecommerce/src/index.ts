@@ -17,7 +17,19 @@ import { categoryRoutes } from "./routes/categories/index.js";
 import { authRoutes } from "./routes/auth/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
 import { leadRoutes } from "./routes/leads/index.js";
+import { stockRoutes } from "./routes/stock/index.js";
+import { checkoutRoutes } from "./routes/checkout/index.js";
+import { merchantRoutes } from "./routes/merchant/index.js";
 import { ZodError } from "zod";
+import { validateEnv, COMMON_ENV } from "@trottistore/shared";
+
+// Fail-fast if required env vars are missing
+validateEnv("ecommerce", [
+  ...COMMON_ENV,
+  { name: "PORT_ECOMMERCE", required: false },
+  { name: "STRIPE_SECRET_KEY", required: false },
+  { name: "STRIPE_WEBHOOK_SECRET", required: false },
+]);
 
 const PORT = parseInt(process.env.PORT_ECOMMERCE || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -119,6 +131,9 @@ async function start() {
   await app.register(authRoutes, { prefix: "/api/v1" });
   await app.register(adminRoutes, { prefix: "/api/v1" });
   await app.register(leadRoutes, { prefix: "/api/v1" });
+  await app.register(stockRoutes, { prefix: "/api/v1" });
+  await app.register(checkoutRoutes, { prefix: "/api/v1" });
+  await app.register(merchantRoutes, { prefix: "/api/v1" });
 
   // Démarrage
   try {

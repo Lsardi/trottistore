@@ -29,7 +29,7 @@ function buildTestApp(): FastifyInstance {
       count: vi.fn().mockResolvedValue(0),
       create: vi.fn().mockResolvedValue({
         id: "ticket-1",
-        status: "NOUVEAU",
+        status: "RECU",
         productModel: "Xiaomi Pro 2",
         type: "REPARATION",
         priority: "NORMAL",
@@ -39,6 +39,9 @@ function buildTestApp(): FastifyInstance {
       update: vi.fn().mockResolvedValue({}),
     },
     repairStatusLog: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+    repairActivityLog: {
       create: vi.fn().mockResolvedValue({}),
     },
     repairPartUsed: {
@@ -108,7 +111,7 @@ describe("SAV Tickets integration tests", () => {
   it("GET /api/v1/repairs supports filter params", async () => {
     const res = await app.inject({
       method: "GET",
-      url: "/api/v1/repairs?status=NOUVEAU&priority=HIGH&sort=priority",
+      url: "/api/v1/repairs?status=RECU&priority=HIGH&sort=priority",
     });
 
     expect(res.statusCode).toBe(200);

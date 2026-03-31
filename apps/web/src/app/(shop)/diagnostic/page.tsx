@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
+import { trackFunnelEvent } from "@/lib/funnel-tracking";
 
 const SYMPTOM_CATEGORIES = [
   {
@@ -138,7 +139,11 @@ export default function DiagnosticPage() {
               return (
                 <button
                   key={cat.id}
-                  onClick={() => { setSelectedCategory(cat.id); setStep("symptom"); }}
+                  onClick={() => {
+                    void trackFunnelEvent("diagnostic_category_selected", { category: cat.id });
+                    setSelectedCategory(cat.id);
+                    setStep("symptom");
+                  }}
                   className="bg-surface-2 p-6 text-center border border-border hover:border-neon transition-all group"
                 >
                   <div className="w-14 h-14 mx-auto bg-void border border-border flex items-center justify-center mb-3 group-hover:border-neon transition-colors">
@@ -169,7 +174,16 @@ export default function DiagnosticPage() {
                 return (
                   <button
                     key={sym.id}
-                    onClick={() => { setSelectedSymptom(sym.id); setStep("result"); }}
+                    onClick={() => {
+                      void trackFunnelEvent("diagnostic_result_viewed", {
+                        category: category.id,
+                        symptom: sym.id,
+                        severity: sym.severity,
+                        diy: SOLUTIONS[sym.id]?.diy ?? false,
+                      });
+                      setSelectedSymptom(sym.id);
+                      setStep("result");
+                    }}
                     className="w-full bg-surface p-5 text-left border border-border hover:border-neon transition-all group flex items-center justify-between"
                   >
                     <div>
@@ -257,6 +271,12 @@ export default function DiagnosticPage() {
                   <div className="flex gap-3">
                     <Link
                       href={`/reparation?issue=${encodeURIComponent(symptom.label)}&diag=${encodeURIComponent(solution.title)}&cost=${encodeURIComponent(solution.estimatedCost)}&duration=${encodeURIComponent(severityConfig.estimate)}&category=${encodeURIComponent(category?.label || "")}`}
+                      onClick={() => {
+                        void trackFunnelEvent("diagnostic_ticket_cta_clicked", {
+                          symptom: symptom.id,
+                          severity: symptom.severity,
+                        });
+                      }}
                       className="btn-neon flex-1"
                     >
                       <Wrench className="w-5 h-5" />

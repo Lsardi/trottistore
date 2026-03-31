@@ -31,6 +31,9 @@ function formatPrice(amount: string | number): string {
   const value = typeof amount === "string" ? Number(amount) : amount;
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(value);
 }
+  function isBackofficeRole(role?: string): boolean {
+    return role === "SUPERADMIN" || role === "MANAGER" || role === "TECHNICIAN";
+  }
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/mon-compte";
 
@@ -63,21 +66,29 @@ function formatPrice(amount: string | number): string {
         const currentUser = meRes.data;
         setUser(currentUser);
 
-        const [ordersRes, repairsRes] = await Promise.all([
-          ordersApi.list({ page: 1 }),
-          repairsApi.list({
-            page: 1,
-            limit: 10,
-            customerId: currentUser.id,
-            sort: "newest",
-          }),
-        ]);
+        if (isBackofficeRole(currentUser.role)) {
+          window.location.href = "/admin";
+          return;
+        }
 
-        setOrders(ordersRes.data || []);
-        setTickets(repairsRes.data || []);
+        if (currentUser.role === "CLIENT") {
+          const [ordersRes, repairsRes] = await Promise.all([
+            ordersApi.list({ page: 1 }),
+            repairsApi.list({
+              page: 1,
+              limit: 10,
+              customerId: currentUser.id,
+              sort: "newest",
+            }),
+          ]);
+
+          setOrders(ordersRes.data || []);
+          setTickets(repairsRes.data || []);
+        }
       } catch (err) {
-        localStorage.removeItem("accessToken");
-        if (err instanceof ApiError && err.status !== 401) {
+        if (err instanceof ApiError && err.status === 401) {
+          localStorage.removeItem("accessToken");
+        } else {
           setError("Impossible de charger votre espace client.");
         }
       } finally {
@@ -95,7 +106,7 @@ function formatPrice(amount: string | number): string {
     try {
       const res = await authApi.login(loginForm);
       localStorage.setItem("accessToken", res.accessToken);
-      window.location.href = nextPath;
+      window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
     } catch {
       setError("Email ou mot de passe incorrect");
     } finally {
@@ -114,7 +125,7 @@ function formatPrice(amount: string | number): string {
         password: registerForm.password,
       });
       localStorage.setItem("accessToken", res.accessToken);
-      window.location.href = nextPath;
+      window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
     } catch {
       setError("Erreur lors de l'inscription. Cet email est peut-etre deja utilise.");
     } finally {

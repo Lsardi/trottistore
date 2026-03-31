@@ -72,7 +72,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
       app.prisma.repairTicket.count({
         where: {
           status: {
-            notIn: ["TERMINE", "LIVRE", "REFUS_CLIENT", "IRREPARABLE"],
+            notIn: ["PRET", "RECUPERE", "REFUS_CLIENT", "IRREPARABLE"],
           },
         },
       }),

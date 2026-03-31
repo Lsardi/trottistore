@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { analyticsApi, type RealtimeKpis } from "@/lib/api";
+import { analyticsApi, type CockpitSnapshot } from "@/lib/api";
 import {
-  DollarSign,
-  ShoppingCart,
-  Wrench,
   AlertTriangle,
   ArrowRight,
+  CalendarDays,
+  DollarSign,
+  FlaskConical,
+  MessageSquare,
   Package,
-  BarChart3,
-  TrendingUp,
+  ShoppingCart,
+  Smartphone,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,178 +20,272 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 }
 
+function formatShortDate(input: string): string {
+  return new Date(input).toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+const SAV_STATUS_LABELS: Record<string, string> = {
+  RECU: "Recu",
+  EN_ATTENTE_PIECE: "Attente piece",
+};
+
 export default function AdminDashboard() {
-  const [kpis, setKpis] = useState<RealtimeKpis | null>(null);
+  const [cockpit, setCockpit] = useState<CockpitSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await analyticsApi.realtime();
-        setKpis(res.data);
+        const res = await analyticsApi.cockpit();
+        setCockpit(res.data);
       } catch {
-        // Services pas encore connectes
+        setCockpit(null);
       } finally {
         setLoading(false);
       }
     }
+
     load();
-    // Refresh toutes les 30 secondes
-    const interval = setInterval(load, 30_000);
+    const interval = setInterval(load, 60_000);
     return () => clearInterval(interval);
   }, []);
 
-  const KPI_CARDS = [
+  const kpiCards = [
     {
       label: "CA Aujourd'hui",
-      value: kpis ? formatCurrency(kpis.revenueToday) : "---",
-      comparison: kpis ? `Hier : ${formatCurrency(kpis.revenueYesterday)}` : "",
+      value: cockpit ? formatCurrency(cockpit.revenue.today) : "---",
+      comparison: cockpit ? `Hier: ${formatCurrency(cockpit.revenue.yesterday)}` : "",
       icon: DollarSign,
     },
     {
-      label: "Commandes aujourd'hui",
-      value: kpis ? String(kpis.ordersToday) : "---",
-      comparison: "",
+      label: "Commandes à préparer",
+      value: cockpit ? String(cockpit.ordersToPrepare.length) : "---",
+      comparison: "Statut CONFIRMED",
       icon: ShoppingCart,
     },
     {
-      label: "Tickets SAV ouverts",
-      value: kpis ? String(kpis.openSavTickets) : "---",
-      comparison: "",
+      label: "SAV en attente",
+      value: cockpit ? String(cockpit.savWaiting.length) : "---",
+      comparison: "Recu + attente piece",
       icon: Wrench,
     },
     {
-      label: "Alertes stock",
-      value: kpis ? String(kpis.lowStockAlerts) : "---",
-      comparison: "Produits sous seuil critique",
+      label: "Stock critique",
+      value: cockpit ? String(cockpit.lowStock.length) : "---",
+      comparison: "Sous seuil mini",
       icon: AlertTriangle,
       isDanger: true,
     },
   ];
 
-  const QUICK_ACTIONS = [
-    {
-      title: "Commandes",
-      description: "Gerer les commandes en cours",
-      href: "/admin/commandes",
-      icon: ShoppingCart,
-    },
-    {
-      title: "Tickets SAV",
-      description: "Suivre les reparations en cours",
-      href: "/admin/sav",
-      icon: Wrench,
-    },
-    {
-      title: "Catalogue",
-      description: "Gerer les produits et le stock",
-      href: "/admin/produits",
-      icon: Package,
-    },
-  ];
-
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="space-y-4 md:space-y-0">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
         <div>
           <h1 className="heading-lg">DASHBOARD</h1>
-          <p className="font-mono text-sm text-text-muted mt-1">Vue d&apos;ensemble de votre activite</p>
+          <p className="font-mono text-sm text-text-muted mt-1">Vue 360 du magasin: ventes, SAV, RDV, stock, CRM</p>
         </div>
-        <div className="flex items-center gap-2 bg-surface border border-border px-4 py-2">
-          <span
-            className={cn(
-              "h-2 w-2",
-              kpis ? "bg-neon animate-neon-pulse" : "bg-text-dim"
-            )}
-          />
+        <div className="inline-flex w-fit items-center gap-2 bg-surface border border-border px-3 py-2">
+          <span className={cn("h-2 w-2", cockpit ? "bg-neon animate-neon-pulse" : "bg-text-dim")} />
           <span className="font-mono text-xs text-text-muted">
-            {kpis ? "Temps reel" : "En attente..."}
+            {cockpit ? `Maj ${formatShortDate(cockpit.updatedAt)}` : "En attente..."}
           </span>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {KPI_CARDS.map((card) => {
+      <div className="md:hidden border border-border bg-surface p-3 mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Smartphone className="h-4 w-4 text-neon" />
+          <p className="font-mono text-xs text-text-muted">Actions rapides mobile</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <a href="/admin/sav" className="btn-outline text-center py-2">SAV</a>
+          <a href="/admin/stock" className="btn-outline text-center py-2">Stock</a>
+          <a href="/admin/commandes" className="btn-outline text-center py-2">Commandes</a>
+          <a href="/admin/clients" className="btn-outline text-center py-2">Clients</a>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+        {kpiCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div
-              key={card.label}
-              className="bg-surface border border-border p-6 hover:border-neon/30 transition-colors"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <p className="spec-label">{card.label}</p>
-                <div className={cn("flex h-10 w-10 items-center justify-center", card.isDanger ? "bg-danger/10" : "bg-neon-dim")}>
+            <div key={card.label} className="bg-surface border border-border p-4 md:p-6 hover:border-neon/30 transition-colors">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <p className="spec-label leading-tight">{card.label}</p>
+                <div className={cn("flex h-9 w-9 md:h-10 md:w-10 items-center justify-center", card.isDanger ? "bg-danger/10" : "bg-neon-dim")}>
                   <Icon className={cn("h-5 w-5", card.isDanger ? "text-danger" : "text-neon")} />
                 </div>
               </div>
-              <p className="font-mono text-3xl font-bold text-neon">
-                {loading ? (
-                  <span className="inline-block w-24 h-9 bg-surface-2 animate-pulse" />
-                ) : (
-                  card.value
-                )}
+              <p className="font-mono text-2xl md:text-3xl font-bold text-neon">
+                {loading ? <span className="inline-block w-20 h-8 bg-surface-2 animate-pulse" /> : card.value}
               </p>
-              {card.comparison && (
-                <p className="font-mono text-xs text-text-dim mt-2">{card.comparison}</p>
-              )}
+              <p className="font-mono text-[11px] md:text-xs text-text-dim mt-1.5 md:mt-2">{card.comparison}</p>
             </div>
           );
         })}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {QUICK_ACTIONS.map((action) => {
-          const Icon = action.icon;
-          return (
-            <a
-              key={action.title}
-              href={action.href}
-              className="group bg-surface border border-border p-6 hover:border-neon/40 transition-all"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex h-11 w-11 items-center justify-center bg-surface-2 border border-border group-hover:border-neon/30 transition-colors">
-                  <Icon className="h-5 w-5 text-text-dim group-hover:text-neon transition-colors" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-text-dim group-hover:text-neon transition-colors" />
-              </div>
-              <h3 className="font-display font-bold text-text mt-4 group-hover:text-neon transition-colors">
-                {action.title}
-              </h3>
-              <p className="font-mono text-xs text-text-muted mt-1">{action.description}</p>
-            </a>
-          );
-        })}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 md:mb-8">
+        <a href="/admin/commandes" className="group bg-surface border border-border p-5 hover:border-neon/40 transition-all">
+          <div className="flex items-center justify-between">
+            <p className="font-display font-bold text-text">Commandes à préparer</p>
+            <ArrowRight className="h-4 w-4 text-text-dim group-hover:text-neon transition-colors" />
+          </div>
+          <p className="font-mono text-xs text-text-muted mt-2">Voir et traiter les confirmations</p>
+        </a>
+        <a href="/admin/sav" className="group bg-surface border border-border p-5 hover:border-neon/40 transition-all">
+          <div className="flex items-center justify-between">
+            <p className="font-display font-bold text-text">SAV en attente</p>
+            <ArrowRight className="h-4 w-4 text-text-dim group-hover:text-neon transition-colors" />
+          </div>
+          <p className="font-mono text-xs text-text-muted mt-2">Prioriser les tickets bloquants</p>
+        </a>
+        <a href="/admin/stock" className="group bg-surface border border-border p-5 hover:border-neon/40 transition-all">
+          <div className="flex items-center justify-between">
+            <p className="font-display font-bold text-text">Stock critique</p>
+            <ArrowRight className="h-4 w-4 text-text-dim group-hover:text-neon transition-colors" />
+          </div>
+          <p className="font-mono text-xs text-text-muted mt-2">Réappro à déclencher</p>
+        </a>
       </div>
 
-      {/* Placeholder Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-surface border border-border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="h-5 w-5 text-neon" />
-            <h3 className="font-display font-bold text-text">Ventes cette semaine</h3>
-          </div>
-          <div className="h-48 flex items-center justify-center bg-surface-2 border border-border text-text-dim font-mono text-sm">
-            <div className="text-center">
-              <BarChart3 className="h-10 w-10 text-text-dim mx-auto mb-2" />
-              <p>Graphique disponible apres connexion aux services</p>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <div className="bg-surface border border-border p-6">
           <div className="flex items-center gap-2 mb-4">
             <ShoppingCart className="h-5 w-5 text-neon" />
-            <h3 className="font-display font-bold text-text">Dernieres commandes</h3>
+            <h3 className="font-display font-bold text-text">Commandes à préparer</h3>
           </div>
-          <div className="h-48 flex items-center justify-center bg-surface-2 border border-border text-text-dim font-mono text-sm">
-            <div className="text-center">
-              <Package className="h-10 w-10 text-text-dim mx-auto mb-2" />
-              <p>Liste des commandes recentes</p>
+          {cockpit?.ordersToPrepare.length ? (
+            <div className="space-y-3">
+              {cockpit.ordersToPrepare.slice(0, 4).map((order) => (
+                <div key={order.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
+                  <div>
+                    <p className="font-mono text-xs text-neon font-bold">#{order.orderNumber}</p>
+                    <p className="font-mono text-[11px] text-text-dim">{formatShortDate(order.createdAt)}</p>
+                  </div>
+                  <p className="font-mono text-xs text-text">{formatCurrency(parseFloat(order.totalTtc))}</p>
+                </div>
+              ))}
             </div>
-          </div>
+          ) : (
+            <p className="font-mono text-sm text-text-muted">Aucune commande à préparer</p>
+          )}
         </div>
+
+        <div className="bg-surface border border-border p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <CalendarDays className="h-5 w-5 text-neon" />
+            <h3 className="font-display font-bold text-text">RDV du jour</h3>
+          </div>
+          {cockpit?.appointmentsToday.length ? (
+            <div className="space-y-3">
+              {cockpit.appointmentsToday.slice(0, 4).map((rdv) => (
+                <div key={rdv.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
+                  <div>
+                    <p className="font-mono text-xs text-text">{rdv.customerName}</p>
+                    <p className="font-mono text-[11px] text-text-dim">
+                      {formatShortDate(rdv.startsAt)} - {rdv.serviceType}
+                    </p>
+                  </div>
+                  <span className={cn("font-mono text-[10px]", rdv.isExpress ? "text-warning" : "text-text-dim")}>
+                    {rdv.isExpress ? "EXPRESS" : rdv.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="font-mono text-sm text-text-muted">Aucun RDV aujourd'hui</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-surface border border-border p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Wrench className="h-5 w-5 text-neon" />
+            <h3 className="font-display font-bold text-text">SAV en attente</h3>
+          </div>
+          {cockpit?.savWaiting.length ? (
+            <div className="space-y-3">
+              {cockpit.savWaiting.slice(0, 4).map((ticket) => (
+                <div key={ticket.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
+                  <div>
+                    <p className="font-mono text-xs text-neon font-bold">SAV-{String(ticket.ticketNumber).padStart(4, "0")}</p>
+                    <p className="font-mono text-[11px] text-text-dim">{ticket.productModel}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-[11px] text-text">{SAV_STATUS_LABELS[ticket.status] ?? ticket.status}</p>
+                    <p className={cn("font-mono text-[10px]", ticket.priority === "URGENT" ? "text-danger" : "text-text-dim")}>
+                      {ticket.priority}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="font-mono text-sm text-text-muted">Aucun ticket en attente</p>
+          )}
+        </div>
+
+        <div className="bg-surface border border-border p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Package className="h-5 w-5 text-neon" />
+            <h3 className="font-display font-bold text-text">Stock critique</h3>
+          </div>
+          {cockpit?.lowStock.length ? (
+            <div className="space-y-3">
+              {cockpit.lowStock.slice(0, 4).map((variant) => (
+                <div key={variant.id} className="flex items-center justify-between border border-border bg-surface-2 px-3 py-2">
+                  <div>
+                    <p className="font-mono text-xs text-text">{variant.product.name}</p>
+                    <p className="font-mono text-[11px] text-text-dim">{variant.sku}</p>
+                  </div>
+                  <p className="font-mono text-xs text-warning">
+                    {variant.stockQuantity}/{variant.lowStockThreshold}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="font-mono text-sm text-text-muted">Aucun produit sous seuil</p>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-surface border border-border p-6 mt-4">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="h-5 w-5 text-neon" />
+          <h3 className="font-display font-bold text-text">Dernieres interactions CRM</h3>
+          <span className="md:hidden ml-auto inline-flex items-center gap-1 font-mono text-[10px] text-text-dim">
+            <FlaskConical className="h-3.5 w-3.5" />
+            Mobile
+          </span>
+        </div>
+        {cockpit?.crmInteractions.length ? (
+          <div className="space-y-3">
+            {cockpit.crmInteractions.slice(0, 8).map((interaction) => (
+              <div key={interaction.id} className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border border-border bg-surface-2 px-3 py-2">
+                <div>
+                  <p className="font-mono text-xs text-text">
+                    {interaction.customer.firstName} {interaction.customer.lastName}
+                  </p>
+                  <p className="font-mono text-[11px] text-text-dim">
+                    {interaction.type} · {interaction.channel} · {interaction.subject ?? "Sans sujet"}
+                  </p>
+                </div>
+                <p className="font-mono text-[11px] text-text-dim">{formatShortDate(interaction.createdAt)}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="font-mono text-sm text-text-muted">Aucune interaction CRM recente</p>
+        )}
       </div>
     </div>
   );

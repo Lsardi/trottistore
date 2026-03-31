@@ -38,6 +38,7 @@ model User {
   interactions    CustomerInteraction[] @relation("InteractionCustomer")
   handledInteractions CustomerInteraction[] @relation("InteractionAgent")
   assignedTickets RepairTicket[] @relation("AssignedTechnician")
+  receivedTickets RepairTicket[] @relation("ReceivedBy")
   repairAppointments RepairAppointment[]
   technician      Technician?
 
@@ -210,6 +211,7 @@ model ProductVariant {
   orderItems OrderItem[]
   repairParts RepairPartUsed[]
   stockAlerts StockAlert[]
+  stockMovements StockMovement[]
 
   @@index([productId])
   @@index([sku])
@@ -258,6 +260,30 @@ model StockAlert {
   @@schema("ecommerce")
 }
 
+model StockMovement {
+  id          String   @id @default(uuid()) @db.Uuid
+  variantId   String   @map("variant_id") @db.Uuid
+  type        String   @db.VarChar(30)
+  // IN_PURCHASE, IN_RETURN, IN_ADJUSTMENT, OUT_SALE, OUT_REPAIR, OUT_ADJUSTMENT, OUT_LOSS
+  quantity    Int      // Positif = entrée, négatif = sortie
+  reason      String?  @db.VarChar(500)
+  referenceId String?  @map("reference_id") @db.VarChar(100) // orderId, ticketId, etc.
+  referenceType String? @map("reference_type") @db.VarChar(30) // ORDER, REPAIR_TICKET, MANUAL
+  performedBy String?  @map("performed_by") @db.Uuid
+  stockBefore Int      @map("stock_before")
+  stockAfter  Int      @map("stock_after")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId])
+  @@index([type])
+  @@index([referenceId])
+  @@index([createdAt])
+  @@map("stock_movements")
+  @@schema("ecommerce")
+}
+
 model Order {
   id              String   @id @default(uuid()) @db.Uuid
   orderNumber     Int      @unique @default(autoincrement()) @map("order_number")
@@ -274,10 +300,13 @@ model Order {
   tvaAmount       Decimal  @map("tva_amount") @db.Decimal(10, 2)
   shippingCost    Decimal  @default(0) @map("shipping_cost") @db.Decimal(10, 2)
   totalTtc        Decimal  @map("total_ttc") @db.Decimal(10, 2)
-  notes           String?  @db.Text
-  trackingNumber  String?  @map("tracking_number") @db.VarChar(100)
-  shippedAt       DateTime? @map("shipped_at") @db.Timestamptz()
-  deliveredAt     DateTime? @map("delivered_at") @db.Timestamptz()
+  shippingMethod    String   @default("DELIVERY") @map("shipping_method") @db.VarChar(20) // DELIVERY, STORE_PICKUP
+  notes             String?  @db.Text
+  trackingNumber    String?  @map("tracking_number") @db.VarChar(100)
+  pickupReadyAt     DateTime? @map("pickup_ready_at") @db.Timestamptz()
+  pickupCollectedAt DateTime? @map("pickup_collected_at") @db.Timestamptz()
+  shippedAt         DateTime? @map("shipped_at") @db.Timestamptz()
+  deliveredAt       DateTime? @map("delivered_at") @db.Timestamptz()
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
@@ -334,7 +363,7 @@ model Payment {
   id           String    @id @default(uuid()) @db.Uuid
   orderId      String    @map("order_id") @db.Uuid
   provider     String    @db.VarChar(30) // stripe, internal
-  providerRef  String?   @map("provider_ref") @db.VarChar(255)
+  providerRef  String?   @unique @map("provider_ref") @db.VarChar(255)
   amount       Decimal   @db.Decimal(10, 2)
   method       String    @db.VarChar(30)
   status       String    @default("PENDING") @db.VarChar(20) // PENDING, CONFIRMED, FAILED, REFUNDED
@@ -497,6 +526,51 @@ model EmailCampaign {
   @@schema("crm")
 }
 
+model AutomatedTrigger {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        String    @db.VarChar(30)
+  // PICKUP_REMINDER (J+3 non récupéré), QUOTE_REMINDER (48h devis non répondu),
+  // POST_REPAIR_REVIEW (7j après récupération → demander avis Google)
+  delayHours  Int       @map("delay_hours")
+  channel     String    @default("EMAIL") @db.VarChar(10) // EMAIL, SMS, BOTH
+  templateId  String?   @map("template_id") @db.VarChar(100) // Brevo template ID
+  smsContent  String?   @map("sms_content") @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  lastRunAt   DateTime? @map("last_run_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  logs NotificationLog[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("automated_triggers")
+  @@schema("crm")
+}
+
+model NotificationLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  triggerId   String?  @map("trigger_id") @db.Uuid
+  ticketId    String?  @map("ticket_id") @db.Uuid
+  customerId  String?  @map("customer_id") @db.Uuid
+  channel     String   @db.VarChar(10) // EMAIL, SMS
+  recipient   String   @db.VarChar(255)
+  subject     String?  @db.VarChar(500)
+  content     String?  @db.Text
+  status      String   @default("SENT") @db.VarChar(20) // SENT, FAILED, SKIPPED
+  errorMessage String? @map("error_message") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  trigger AutomatedTrigger? @relation(fields: [triggerId], references: [id])
+
+  @@index([triggerId])
+  @@index([ticketId])
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("notification_logs")
+  @@schema("crm")
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SCHÉMA SAV — Tickets, diagnostics, pièces
 // ═══════════════════════════════════════════════════════════════
@@ -512,26 +586,32 @@ model RepairTicket {
   productModel      String    @map("product_model") @db.VarChar(200)
   serialNumber      String?   @map("serial_number") @db.VarChar(100)
   type              String    @db.VarChar(30) // GARANTIE, REPARATION, RETOUR, RECLAMATION
-  status            String    @default("NOUVEAU") @db.VarChar(30)
-  // NOUVEAU, DIAGNOSTIQUE, DEVIS_ENVOYE, DEVIS_ACCEPTE, EN_REPARATION, EN_ATTENTE_PIECE, TERMINE, LIVRE, REFUS_CLIENT, IRREPARABLE
+  status            String    @default("RECU") @db.VarChar(30)
+  // RECU, DIAGNOSTIC, DEVIS_ENVOYE, DEVIS_ACCEPTE, EN_REPARATION, EN_ATTENTE_PIECE, PRET, RECUPERE, REFUS_CLIENT, IRREPARABLE
   priority          String    @default("NORMAL") @db.VarChar(20) // LOW, NORMAL, HIGH, URGENT
+  visitReason       String?   @map("visit_reason") @db.VarChar(300) // Motif de venue à la réception
   issueDescription  String    @map("issue_description") @db.Text
   diagnosis         String?   @db.Text
   estimatedCost     Decimal?  @map("estimated_cost") @db.Decimal(10, 2)
   actualCost        Decimal?  @map("actual_cost") @db.Decimal(10, 2)
   estimatedDays     Int?      @map("estimated_days")
   assignedTo        String?   @map("assigned_to") @db.Uuid
-  photosUrls        String[]  @default([]) @map("photos_urls")
+  receivedBy        String?   @map("received_by") @db.Uuid // Qui a réceptionné
+  photosBefore      String[]  @default([]) @map("photos_before") // Photos à la réception
+  photosAfter       String[]  @default([]) @map("photos_after")  // Photos après réparation
+  photosUrls        String[]  @default([]) @map("photos_urls")   // Legacy — migration progressive
   trackingToken     String    @unique @default(uuid()) @map("tracking_token") @db.Uuid
   quoteAcceptedAt   DateTime? @map("quote_accepted_at") @db.Timestamptz()
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
   closedAt          DateTime? @map("closed_at") @db.Timestamptz()
 
-  customer   User?            @relation(fields: [customerId], references: [id])
-  technician User?            @relation("AssignedTechnician", fields: [assignedTo], references: [id])
-  partsUsed  RepairPartUsed[]
-  statusLog  RepairStatusLog[]
+  customer     User?              @relation(fields: [customerId], references: [id])
+  technician   User?              @relation("AssignedTechnician", fields: [assignedTo], references: [id])
+  receiver     User?              @relation("ReceivedBy", fields: [receivedBy], references: [id])
+  partsUsed    RepairPartUsed[]
+  statusLog    RepairStatusLog[]
+  activityLog  RepairActivityLog[]
   appointments RepairAppointment[]
 
   @@index([customerId])
@@ -556,6 +636,28 @@ model RepairStatusLog {
 
   @@index([ticketId])
   @@map("repair_status_log")
+  @@schema("sav")
+}
+
+model RepairActivityLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  ticketId      String   @map("ticket_id") @db.Uuid
+  action        String   @db.VarChar(30)
+  // STATUS_CHANGE, PHOTO_ADDED, NOTE_ADDED, PART_ADDED, ASSIGNED, HANDOVER, QUOTE_SENT, QUOTE_ACCEPTED, QUOTE_REFUSED, RECEIVED, CLOSED
+  performedBy   String?  @map("performed_by") @db.Uuid
+  performerName String?  @map("performer_name") @db.VarChar(200) // Dénormalisé pour lisibilité
+  details       String?  @db.Text // Description libre de l'action
+  handoverNote  String?  @map("handover_note") @db.Text // Message au prochain intervenant
+  metadata      Json?    // Données structurées (ex: fromStatus/toStatus, photoUrl, partName)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  // PAS de updatedAt — append-only, immuable
+
+  ticket RepairTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([performedBy])
+  @@index([createdAt])
+  @@map("repair_activity_log")
   @@schema("sav")
 }
 

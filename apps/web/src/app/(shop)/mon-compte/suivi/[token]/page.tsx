@@ -5,15 +5,16 @@ import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { repairsApi, type RepairTracking } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { trackFunnelEvent } from "@/lib/funnel-tracking";
 
 const STATUS_STEPS = [
-  "NOUVEAU",
-  "DIAGNOSTIQUE",
+  "RECU",
+  "DIAGNOSTIC",
   "DEVIS_ENVOYE",
   "DEVIS_ACCEPTE",
   "EN_REPARATION",
-  "TERMINE",
-  "LIVRE",
+  "PRET",
+  "RECUPERE",
 ] as const;
 
 function formatDate(iso: string) {
@@ -46,6 +47,14 @@ export default function RepairTrackingPage() {
     }
     fetchTracking();
   }, [token]);
+
+  useEffect(() => {
+    if (!tracking) return;
+    void trackFunnelEvent("repair_tracking_viewed", {
+      status: tracking.status,
+      hasAppointment: !!tracking.nextAppointment,
+    });
+  }, [tracking]);
 
   if (loading) {
     return (

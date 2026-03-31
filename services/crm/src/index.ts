@@ -13,7 +13,15 @@ import { healthRoutes } from "./routes/health.js";
 import { customerRoutes } from "./routes/customers/index.js";
 import { segmentRoutes } from "./routes/segments/index.js";
 import { campaignRoutes } from "./routes/campaigns/index.js";
+import { triggerRoutes } from "./routes/triggers/index.js";
 import { ZodError } from "zod";
+import { validateEnv, COMMON_ENV } from "@trottistore/shared";
+
+validateEnv("crm", [
+  ...COMMON_ENV,
+  { name: "PORT_CRM", required: false },
+  { name: "BREVO_API_KEY", required: false },
+]);
 
 const PORT = parseInt(process.env.PORT_CRM || "3002", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -133,6 +141,7 @@ async function start() {
   await app.register(customerRoutes, { prefix: "/api/v1" });
   await app.register(segmentRoutes, { prefix: "/api/v1" });
   await app.register(campaignRoutes, { prefix: "/api/v1" });
+  await app.register(triggerRoutes, { prefix: "/api/v1" });
 
   // Demarrage
   try {

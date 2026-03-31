@@ -5,6 +5,7 @@ import { salesRoutes } from "./sales.js";
 import { customersRoutes } from "./customers.js";
 import { stockRoutes } from "./stock.js";
 import { eventsRoutes } from "./events.js";
+import { cockpitRoutes } from "./cockpit.js";
 
 export async function analyticsRoutes(app: FastifyInstance) {
   await app.register(realtimeRoutes);
@@ -13,4 +14,5 @@ export async function analyticsRoutes(app: FastifyInstance) {
   await app.register(customersRoutes);
   await app.register(stockRoutes);
   await app.register(eventsRoutes);
+  await app.register(cockpitRoutes);
 }
