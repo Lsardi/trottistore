@@ -49,7 +49,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: lint
     steps:
       - uses: actions/checkout@v4
 
@@ -208,3 +207,27 @@ jobs:
           name: playwright-test-results
           path: apps/web/test-results
           retention-days: 14
+
+  # ─────────────────────────────────────────────
+  # Final CI Gate
+  # ─────────────────────────────────────────────
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs:
+      - lint
+      - build
+      - unit-tests
+      - db-validate
+      - security-scan
+      - smoke-tests
+      - docker
+      - e2e-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "CI failed"
+            exit 1
+          fi
