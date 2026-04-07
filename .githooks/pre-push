@@ -21,4 +21,7 @@ if [[ "$branch" != "$agent/"* ]]; then
   exit 1
 fi
 
+echo "Pre-push: running smoke tests..."
+pnpm test:smoke
+
 exit 0
