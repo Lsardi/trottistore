@@ -2,6 +2,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    experimental: {
+      fsModuleCache: true,
+    },
     projects: [
       "services/ecommerce/vitest.config.ts",
       "services/crm/vitest.config.ts",
