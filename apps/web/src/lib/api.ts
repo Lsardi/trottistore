@@ -154,6 +154,54 @@ export const ordersApi = {
     apiFetch<{ success: boolean; data: Order }>('ecommerce', `/orders/${id}`),
 };
 
+export const addressesApi = {
+  list: () =>
+    apiFetch<{ success: boolean; data: Address[] }>('ecommerce', '/addresses'),
+
+  create: (body: {
+    firstName: string;
+    lastName: string;
+    street: string;
+    street2?: string;
+    city: string;
+    postalCode: string;
+    country?: string;
+    phone?: string;
+    company?: string;
+    label?: string;
+    type?: 'SHIPPING' | 'BILLING';
+    isDefault?: boolean;
+  }) =>
+    apiFetch<{ success: boolean; data: Address }>('ecommerce', '/addresses', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  update: (id: string, body: Partial<{
+    firstName: string;
+    lastName: string;
+    street: string;
+    street2: string;
+    city: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+    company: string;
+    label: string;
+    type: 'SHIPPING' | 'BILLING';
+    isDefault: boolean;
+  }>) =>
+    apiFetch<{ success: boolean; data: Address }>('ecommerce', `/addresses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean }>('ecommerce', `/addresses/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
 export const leadsApi = {
   createPro: (body: {
     company: string;
@@ -592,6 +640,22 @@ export interface OrderItem {
   product: Product;
 }
 
+export interface Address {
+  id: string;
+  type: string;
+  label?: string | null;
+  firstName: string;
+  lastName: string;
+  company?: string | null;
+  street: string;
+  street2?: string | null;
+  city: string;
+  postalCode: string;
+  country: string;
+  phone?: string | null;
+  isDefault: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -605,21 +669,7 @@ export interface User {
   lastLoginAt?: string | null;
   loginCount?: number;
   createdAt?: string;
-  addresses?: Array<{
-    id: string;
-    type: string;
-    label?: string | null;
-    firstName: string;
-    lastName: string;
-    company?: string | null;
-    street: string;
-    street2?: string | null;
-    city: string;
-    postalCode: string;
-    country: string;
-    phone?: string | null;
-    isDefault: boolean;
-  }>;
+  addresses?: Address[];
   customerProfile?: {
     loyaltyTier: string;
     loyaltyPoints: number;

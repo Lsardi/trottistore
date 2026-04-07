@@ -10,11 +10,5 @@ export default defineConfig({
       "packages/shared/vitest.config.ts",
       "apps/web/vitest.config.ts",
     ],
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "lcov"],
-      include: ["services/*/src/**/*.ts", "packages/*/src/**/*.ts"],
-      exclude: ["**/*.test.ts", "**/index.ts"],
-    },
   },
 });
