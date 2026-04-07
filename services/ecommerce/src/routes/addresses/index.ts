@@ -113,11 +113,26 @@ export async function addressRoutes(app: FastifyInstance) {
     }
 
     const data = parsed.data;
+    if (Object.keys(data).length === 0) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Aucun champ a mettre a jour",
+        },
+      });
+    }
 
-    if (data.isDefault) {
-      const type = data.type ?? existing.type;
+    const nextType = data.type ?? existing.type;
+    const nextIsDefault = data.isDefault ?? existing.isDefault;
+    const shouldUnsetCurrentDefault =
+      nextIsDefault &&
+      (data.isDefault === true ||
+        (existing.isDefault && data.type !== undefined && data.type !== existing.type));
+
+    if (shouldUnsetCurrentDefault) {
       await app.prisma.address.updateMany({
-        where: { userId, type, isDefault: true, id: { not: id } },
+        where: { userId, type: nextType, isDefault: true, id: { not: id } },
         data: { isDefault: false },
       });
     }
