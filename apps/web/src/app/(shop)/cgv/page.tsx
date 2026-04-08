@@ -54,9 +54,12 @@ export default function CgvPage() {
       </section>
 
       <section className="space-y-2">
-        <p className="spec-label">7. Mediation</p>
+        <p className="spec-label">7. Médiation</p>
         <p className="font-mono text-sm text-text-muted">
-          Mediateur de la consommation: [MÉDIATEUR À COMPLÉTER].
+          Conformément aux articles L611-1 et suivants du Code de la consommation, en cas de litige non résolu,
+          vous pouvez recourir gratuitement au service de médiation FEVAD (Fédération du e-commerce et de la vente à distance) :
+          mediateurduecommerce.fr — 60 rue La Boétie, 75008 Paris.
+          Avant de saisir le médiateur, vous devez avoir contacté notre service client pour tenter de résoudre le litige.
         </p>
       </section>
 
