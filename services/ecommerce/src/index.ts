@@ -21,6 +21,7 @@ import { addressRoutes } from "./routes/addresses/index.js";
 import { stockRoutes } from "./routes/stock/index.js";
 import { checkoutRoutes } from "./routes/checkout/index.js";
 import { merchantRoutes } from "./routes/merchant/index.js";
+import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
 
@@ -64,6 +65,7 @@ async function start() {
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
   await app.register(authPlugin);
+  await app.register(metricsPlugin);
 
   // Global error handler
   app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
