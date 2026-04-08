@@ -27,7 +27,8 @@ RUN pnpm --filter @trottistore/service-sav build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/services/sav/dist ./dist
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/services/sav/dist ./dist
+USER node
 EXPOSE 3004
 CMD ["node", "dist/index.js"]
