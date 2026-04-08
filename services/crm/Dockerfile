@@ -27,7 +27,8 @@ RUN pnpm --filter @trottistore/service-crm build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/services/crm/dist ./dist
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/services/crm/dist ./dist
+USER node
 EXPOSE 3002
 CMD ["node", "dist/index.js"]
