@@ -63,7 +63,9 @@ export async function eventsRoutes(app: FastifyInstance) {
   });
 
   // POST /analytics/events/public — public funnel events (no auth)
-  app.post("/analytics/events/public", async (request, reply) => {
+  app.post("/analytics/events/public", {
+    config: { rateLimit: { max: 15, timeWindow: "1 minute" } },
+  }, async (request, reply) => {
     const { events } = publicBatchEventsSchema.parse(request.body);
 
     const headerSession = request.headers["x-session-id"];

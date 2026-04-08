@@ -190,7 +190,9 @@ function overlaps(
 
 export async function repairRoutes(app: FastifyInstance) {
   // POST /repairs — Create a repair ticket
-  app.post("/repairs", async (request, reply) => {
+  app.post("/repairs", {
+    config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+  }, async (request, reply) => {
     const body = createRepairSchema.parse(request.body);
     const user = getRequestUser(request);
     const trackingToken = randomUUID();
@@ -448,7 +450,9 @@ export async function repairRoutes(app: FastifyInstance) {
   });
 
   // POST /appointments — Book an atelier slot
-  app.post("/appointments", async (request, reply) => {
+  app.post("/appointments", {
+    config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+  }, async (request, reply) => {
     const body = createAppointmentSchema.parse(request.body);
     const startsAt = atParisTime(body.startsAt);
     const endsAt = computeEnd(startsAt, body.durationMin);
