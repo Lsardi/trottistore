@@ -89,6 +89,7 @@ async function start() {
     }
     const errorWithCode = error as { code?: unknown };
     const isZodError = error instanceof ZodError;
+    const zodError = isZodError ? (error as ZodError) : null;
     const statusCode = isZodError ? 400 : error.statusCode || 500;
     const customCode =
       statusCode < 500 && typeof errorWithCode.code === "string"
@@ -127,7 +128,7 @@ async function start() {
       error: {
         code,
         message,
-        ...(isZodError ? { details: error.flatten().fieldErrors } : {}),
+        ...(zodError ? { details: zodError.flatten().fieldErrors } : {}),
         ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
       },
     });
