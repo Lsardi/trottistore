@@ -161,9 +161,52 @@ function formatPrice(amount: string | number): string {
             </h1>
             <p className="font-mono text-xs text-text-muted mt-2">{user.email}</p>
           </div>
-          <button onClick={handleLogout} className="btn-outline">
-            DECONNEXION
-          </button>
+          <div className="flex flex-col gap-2">
+            <button onClick={handleLogout} className="btn-outline">
+              DÉCONNEXION
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/v1/auth/export", {
+                    headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+                  });
+                  const data = await res.json();
+                  const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "mes-donnees-trottistore.json";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch {
+                  alert("Erreur lors de l'export. Réessayez.");
+                }
+              }}
+              className="font-mono text-xs text-text-dim underline"
+            >
+              Exporter mes données
+            </button>
+            <button
+              onClick={async () => {
+                if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.")) return;
+                if (!confirm("Dernière confirmation : toutes vos données personnelles seront effacées.")) return;
+                try {
+                  await fetch("/api/v1/auth/account", {
+                    method: "DELETE",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+                  });
+                  localStorage.removeItem("accessToken");
+                  window.location.href = "/";
+                } catch {
+                  alert("Erreur lors de la suppression. Contactez-nous.");
+                }
+              }}
+              className="font-mono text-xs text-danger underline"
+            >
+              Supprimer mon compte
+            </button>
+          </div>
         </div>
 
         <div className="mb-8">

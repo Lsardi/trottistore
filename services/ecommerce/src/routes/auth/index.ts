@@ -459,4 +459,90 @@ export async function authRoutes(app: FastifyInstance) {
       };
     },
   );
+
+  // ── GET /auth/export — RGPD data portability (art. 20) ──
+  app.get(
+    "/auth/export",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId } = request.user;
+
+      const user = await app.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          addresses: true,
+          orders: {
+            include: { items: { select: { productId: true, quantity: true, unitPriceHt: true } } },
+            orderBy: { createdAt: "desc" },
+          },
+          customerProfile: true,
+          refreshTokens: false,
+        },
+      });
+
+      if (!user) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Utilisateur introuvable" },
+        });
+      }
+
+      // Strip sensitive fields
+      const { passwordHash: _, refreshTokens: _rt, ...safeUser } = user as Record<string, unknown>;
+
+      return {
+        success: true,
+        data: {
+          exportedAt: new Date().toISOString(),
+          user: safeUser,
+        },
+      };
+    },
+  );
+
+  // ── DELETE /auth/account — RGPD right to erasure (art. 17) ──
+  app.delete(
+    "/auth/account",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId } = request.user;
+
+      // Anonymize instead of hard delete to preserve order history integrity
+      await app.prisma.$transaction(async (tx) => {
+        // Delete refresh tokens
+        await tx.refreshToken.deleteMany({ where: { userId } });
+
+        // Delete addresses
+        await tx.address.deleteMany({ where: { userId } });
+
+        // Delete customer profile + interactions
+        const profile = await tx.customerProfile.findUnique({ where: { userId } });
+        if (profile) {
+          await tx.customerInteraction.deleteMany({ where: { customerId: profile.id } });
+          await tx.customerProfile.delete({ where: { userId } });
+        }
+
+        // Anonymize user (keep for order history FK)
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            email: `deleted_${userId}@anon.trottistore.fr`,
+            firstName: "Compte",
+            lastName: "Supprimé",
+            phone: null,
+            passwordHash: "DELETED",
+            avatarUrl: null,
+            status: "INACTIVE",
+          },
+        });
+      });
+
+      clearRefreshCookie(reply);
+
+      return {
+        success: true,
+        data: { message: "Compte supprimé. Vos données personnelles ont été effacées." },
+      };
+    },
+  );
 }
