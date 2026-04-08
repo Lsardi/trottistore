@@ -493,12 +493,23 @@ export default function ProductPage() {
 
             {/* Cart message */}
             {cartMessage && (
-              <p
-                className="font-mono text-xs mt-3 uppercase tracking-wider"
-                style={{ color: cartSuccess ? "var(--color-neon)" : "var(--color-danger)" }}
-              >
-                {cartMessage}
-              </p>
+              <div className="mt-3">
+                <p
+                  className="font-mono text-xs uppercase tracking-wider"
+                  style={{ color: cartSuccess ? "var(--color-neon)" : "var(--color-danger)" }}
+                >
+                  {cartMessage}
+                </p>
+                {cartSuccess && (
+                  <Link
+                    href="/panier"
+                    className="btn-outline inline-block mt-2"
+                    style={{ fontSize: "0.7rem", padding: "0.4rem 1.2rem" }}
+                  >
+                    VOIR LE PANIER
+                  </Link>
+                )}
+              </div>
             )}
           </div>
         </div>

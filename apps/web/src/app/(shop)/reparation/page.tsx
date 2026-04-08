@@ -213,10 +213,11 @@ function ReparationPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="spec-label block mb-2">
+              <label htmlFor="repair-name" className="spec-label block mb-2">
                 Nom complet <span className="text-danger">*</span>
               </label>
               <input
+                id="repair-name"
                 type="text"
                 required
                 placeholder="Nom Prénom"
@@ -226,10 +227,11 @@ function ReparationPage() {
               />
             </div>
             <div>
-              <label className="spec-label block mb-2">
+              <label htmlFor="repair-phone" className="spec-label block mb-2">
                 Telephone <span className="text-danger">*</span>
               </label>
               <input
+                id="repair-phone"
                 type="tel"
                 required
                 placeholder="06 XX XX XX XX"
@@ -241,10 +243,11 @@ function ReparationPage() {
           </div>
 
           <div>
-            <label className="spec-label block mb-2">
+            <label htmlFor="repair-email" className="spec-label block mb-2">
               Email <span className="text-text-dim font-normal">(optionnel)</span>
             </label>
             <input
+              id="repair-email"
               type="email"
               placeholder="votre@email.fr"
               value={formData.customerEmail}
@@ -255,10 +258,11 @@ function ReparationPage() {
 
           {/* Product model */}
           <div>
-            <label className="spec-label block mb-2">
+            <label htmlFor="repair-model" className="spec-label block mb-2">
               Modele de trottinette <span className="text-danger">*</span>
             </label>
             <input
+              id="repair-model"
               type="text"
               required
               placeholder="Ex: Dualtron Thunder 2, Xiaomi Pro 2, Ninebot Max G30..."
@@ -270,10 +274,11 @@ function ReparationPage() {
 
           {/* Serial number */}
           <div>
-            <label className="spec-label block mb-2">
+            <label htmlFor="repair-serial" className="spec-label block mb-2">
               Numero de serie <span className="text-text-dim font-normal">(optionnel)</span>
             </label>
             <input
+              id="repair-serial"
               type="text"
               placeholder="Visible sous le deck ou sur la colonne de direction"
               value={formData.serialNumber}
@@ -321,10 +326,11 @@ function ReparationPage() {
 
           {/* Description */}
           <div>
-            <label className="spec-label block mb-2">
+            <label htmlFor="repair-description" className="spec-label block mb-2">
               Description du probleme <span className="text-danger">*</span>
             </label>
             <textarea
+              id="repair-description"
               required
               rows={5}
               placeholder="Decrivez le probleme en detail : quand est-ce apparu ? Quels symptomes ? La trottinette demarre-t-elle encore ?"

@@ -236,8 +236,9 @@ export default function ProPage() {
           <form onSubmit={handleSubmit} className="bg-surface border border-border p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="spec-label block mb-2">Entreprise *</label>
+                <label htmlFor="pro-company" className="spec-label block mb-2">Entreprise *</label>
                 <input
+                  id="pro-company"
                   required
                   className="input-dark w-full"
                   placeholder="Nom de l'entreprise"
@@ -246,8 +247,9 @@ export default function ProPage() {
                 />
               </div>
               <div>
-                <label className="spec-label block mb-2">Nom du contact *</label>
+                <label htmlFor="pro-contact" className="spec-label block mb-2">Nom du contact *</label>
                 <input
+                  id="pro-contact"
                   required
                   className="input-dark w-full"
                   value={formData.contact}
@@ -257,8 +259,9 @@ export default function ProPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="spec-label block mb-2">Email *</label>
+                <label htmlFor="pro-email" className="spec-label block mb-2">Email *</label>
                 <input
+                  id="pro-email"
                   type="email"
                   required
                   className="input-dark w-full"
@@ -267,8 +270,9 @@ export default function ProPage() {
                 />
               </div>
               <div>
-                <label className="spec-label block mb-2">Telephone</label>
+                <label htmlFor="pro-phone" className="spec-label block mb-2">Telephone</label>
                 <input
+                  id="pro-phone"
                   type="tel"
                   className="input-dark w-full"
                   value={formData.phone}
@@ -277,8 +281,9 @@ export default function ProPage() {
               </div>
             </div>
             <div>
-              <label className="spec-label block mb-2">Taille de flotte</label>
+              <label htmlFor="pro-fleet" className="spec-label block mb-2">Taille de flotte</label>
               <select
+                id="pro-fleet"
                 className="input-dark w-full"
                 value={formData.fleetSize}
                 onChange={(e) => setFormData({ ...formData, fleetSize: e.target.value })}
@@ -291,8 +296,9 @@ export default function ProPage() {
               </select>
             </div>
             <div>
-              <label className="spec-label block mb-2">Message</label>
+              <label htmlFor="pro-message" className="spec-label block mb-2">Message</label>
               <textarea
+                id="pro-message"
                 rows={4}
                 className="input-dark w-full resize-none"
                 placeholder="Décrivez votre besoin..."
