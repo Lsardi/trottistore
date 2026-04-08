@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SOSButton from "@/components/SOSButton";
+import CookieBanner from "@/components/CookieBanner";
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       <main id="main-content" style={{ flex: 1 }}>{children}</main>
       <Footer />
       <SOSButton />
+      <CookieBanner />
     </div>
   );
 }
