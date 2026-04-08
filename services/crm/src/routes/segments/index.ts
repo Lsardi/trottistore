@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { parseIdParam } from "@trottistore/shared";
 
 const segmentCriteriaSchema = z.object({
   loyaltyTier: z.enum(["BRONZE", "SILVER", "GOLD"]).optional(),
@@ -96,7 +97,7 @@ export async function segmentRoutes(app: FastifyInstance) {
   // POST /segments/:id/evaluate — Re-evaluate segment count
   // ───────────────────────────────────────────────────────────
   app.post("/segments/:id/evaluate", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const segment = await app.prisma.customerSegment.findUnique({
       where: { id },

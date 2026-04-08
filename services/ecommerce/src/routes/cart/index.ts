@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { parseProductIdParam } from "@trottistore/shared";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -279,7 +280,7 @@ export async function cartRoutes(app: FastifyInstance) {
 
   // PUT /cart/items/:productId — update item quantity
   app.put("/cart/items/:productId", async (request, reply) => {
-    const { productId } = request.params as { productId: string };
+    const productId = parseProductIdParam(request.params);
     const parsed = updateItemSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -351,7 +352,7 @@ export async function cartRoutes(app: FastifyInstance) {
 
   // DELETE /cart/items/:productId — remove item from cart
   app.delete("/cart/items/:productId", async (request, reply) => {
-    const { productId } = request.params as { productId: string };
+    const productId = parseProductIdParam(request.params);
     const key = getCartKey(request);
     const cart = await getCart(app, key);
 

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { parseIdParam } from "@trottistore/shared";
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -176,7 +177,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // GET /customers/:id — Full 360-degree profile
   // ───────────────────────────────────────────────────────────
   app.get("/customers/:id", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const customer = await app.prisma.user.findUnique({
       where: { id },
@@ -234,7 +235,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // GET /customers/:id/timeline — Paginated interaction history
   // ───────────────────────────────────────────────────────────
   app.get("/customers/:id/timeline", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const query = timelineQuerySchema.parse(request.query);
     const { page, limit, type } = query;
     const skip = (page - 1) * limit;
@@ -288,7 +289,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // POST /customers/:id/loyalty/add — Add loyalty points
   // ───────────────────────────────────────────────────────────
   app.post("/customers/:id/loyalty/add", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const body = addPointsSchema.parse(request.body);
 
     // Ensure profile exists
@@ -347,7 +348,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // POST /customers/:id/interactions — Create interaction
   // ───────────────────────────────────────────────────────────
   app.post("/customers/:id/interactions", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const body = createInteractionSchema.parse(request.body);
 
     // Verify customer exists
@@ -379,7 +380,7 @@ export async function customerRoutes(app: FastifyInstance) {
 
   // GET /customers/:id/garage — Full repair + purchase history (timeline)
   app.get("/customers/:id/garage", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     // Get customer profile
     const profile = await app.prisma.customerProfile.findUnique({

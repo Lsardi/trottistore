@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { parseIdParam } from "@trottistore/shared";
 import {
   validateTransition,
   getNextStatuses,
@@ -497,7 +498,7 @@ export async function repairRoutes(app: FastifyInstance) {
 
   // GET /repairs/:id — Full ticket detail
   app.get("/repairs/:id", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const user = getRequestUser(request);
 
     const ticket = await app.prisma.repairTicket.findUnique({
@@ -571,7 +572,7 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const body = updateStatusSchema.parse(request.body);
 
     const ticket = await app.prisma.repairTicket.findUnique({
@@ -691,7 +692,7 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const body = diagnosisSchema.parse(request.body);
 
     const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
@@ -780,7 +781,7 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const body = quoteSchema.parse(request.body);
 
     const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
@@ -846,7 +847,7 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
 
@@ -891,7 +892,7 @@ export async function repairRoutes(app: FastifyInstance) {
   // PUT /repairs/:id/quote/accept-client — Accept quote as client or guest via tracking token
   app.put("/repairs/:id/quote/accept-client", async (request, reply) => {
     const user = getRequestUser(request);
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const body = customerQuoteAcceptSchema.parse(request.body ?? {});
 
     const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
@@ -963,7 +964,7 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const body = addPartSchema.parse(request.body);
 
     const ticket = await app.prisma.repairTicket.findUnique({ where: { id } });
@@ -1040,7 +1041,7 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const ticket = await app.prisma.repairTicket.findUnique({
       where: { id },

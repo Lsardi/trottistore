@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { parseIdParam } from "@trottistore/shared";
 
 const EMPTY_CAMPAIGN_STATS = {
   sent: 0,
@@ -84,7 +85,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   // GET /campaigns/:id/stats — Get campaign statistics
   // ───────────────────────────────────────────────────────────
   app.get("/campaigns/:id/stats", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const campaign = await app.prisma.emailCampaign.findUnique({
       where: { id },

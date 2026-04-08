@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { parseIdParam } from "@trottistore/shared";
 import { TERMINAL_STATUSES } from "../../utils/status-machine.js";
 
 // --- Zod Schemas ---
@@ -52,7 +53,7 @@ export async function technicianRoutes(app: FastifyInstance) {
 
   // GET /technicians/:id/schedule — Technician's active tickets
   app.get("/technicians/:id/schedule", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     // Look up technician by their own id (Technician table id)
     const technician = await app.prisma.technician.findUnique({
@@ -114,7 +115,7 @@ export async function technicianRoutes(app: FastifyInstance) {
 
   // PUT /technicians/:id/availability — Update availability
   app.put("/technicians/:id/availability", async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const body = updateAvailabilitySchema.parse(request.body);
 
     const technician = await app.prisma.technician.findUnique({ where: { id } });

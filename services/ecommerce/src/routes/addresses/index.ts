@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
+import { parseIdParam } from "@trottistore/shared";
 
 const addressSchema = z.object({
   type: z.enum(["SHIPPING", "BILLING"]).default("SHIPPING"),
@@ -88,7 +89,7 @@ export async function addressRoutes(app: FastifyInstance) {
   // PUT /addresses/:id — update address
   app.put("/addresses/:id", async (request, reply) => {
     const userId = getUserId(request)!;
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const existing = await app.prisma.address.findFirst({
       where: { id, userId },
@@ -161,7 +162,7 @@ export async function addressRoutes(app: FastifyInstance) {
   // DELETE /addresses/:id — delete address
   app.delete("/addresses/:id", async (request, reply) => {
     const userId = getUserId(request)!;
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const existing = await app.prisma.address.findFirst({
       where: { id, userId },

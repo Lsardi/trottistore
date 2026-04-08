@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { parseSlugParam } from "@trottistore/shared";
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -237,7 +238,7 @@ export async function productRoutes(app: FastifyInstance) {
 
   // ─── GET /products/:slug — Product detail ──────────────────
   app.get("/products/:slug", async (request, reply) => {
-    const { slug } = request.params as { slug: string };
+    const slug = parseSlugParam(request.params);
 
     const product = await app.prisma.product.findUnique({
       where: { slug },
