@@ -148,38 +148,6 @@ export const ordersApi = {
       body: JSON.stringify(body),
     }),
 
-  createGuest: (body: {
-    email: string;
-    shippingAddress: {
-      firstName: string;
-      lastName: string;
-      street: string;
-      street2?: string;
-      postalCode: string;
-      city: string;
-      country?: string;
-      phone?: string;
-    };
-    billingAddress?: {
-      firstName: string;
-      lastName: string;
-      street: string;
-      street2?: string;
-      postalCode: string;
-      city: string;
-      country?: string;
-      phone?: string;
-    };
-    paymentMethod: string;
-    shippingMethod?: "DELIVERY" | "STORE_PICKUP";
-    notes?: string;
-    acceptedCgv: true;
-  }) =>
-    apiFetch<{ success: boolean; data: Order }>('ecommerce', '/orders/guest', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-
   list: (params?: { page?: number }) =>
     apiFetch<{ success: boolean; data: Order[]; pagination: Pagination }>('ecommerce', '/orders', { params }),
 
