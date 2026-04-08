@@ -44,6 +44,52 @@ export class ConflictError extends AppError {
   }
 }
 
+type PrismaLikeError = {
+  name?: unknown;
+  code?: unknown;
+  meta?: unknown;
+};
+
+function isPrismaKnownRequestError(error: unknown): error is PrismaLikeError {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as PrismaLikeError;
+  return candidate.name === "PrismaClientKnownRequestError" && typeof candidate.code === "string";
+}
+
+function extractMetaTarget(meta: unknown): string {
+  if (!meta || typeof meta !== "object") return "resource";
+  const target = (meta as { target?: unknown }).target;
+  if (Array.isArray(target) && target.length > 0) return target.join(", ");
+  if (typeof target === "string" && target.length > 0) return target;
+  return "resource";
+}
+
+/**
+ * Map Prisma known request errors to stable API errors.
+ * Returns undefined when the error is not a Prisma known request error.
+ */
+export function mapPrismaError(error: unknown): AppError | undefined {
+  if (!isPrismaKnownRequestError(error)) return undefined;
+
+  const code = error.code as string;
+  const target = extractMetaTarget(error.meta);
+
+  switch (code) {
+    case "P2000":
+      return new ValidationError({ prismaCode: code, message: "Value too long for column" });
+    case "P2001":
+      return new NotFoundError("Resource", target);
+    case "P2002":
+      return new ConflictError(`Duplicate value for unique field(s): ${target}`);
+    case "P2003":
+      return new ValidationError({ prismaCode: code, message: "Invalid relation reference" });
+    case "P2025":
+      return new NotFoundError("Resource", target);
+    default:
+      return undefined;
+  }
+}
+
 // ─── PAGINATION ────────────────────────────────────────────
 
 export interface PaginationParams {
@@ -80,6 +126,45 @@ export function paginate<T>(
       hasPrev: params.page > 1,
     },
   };
+}
+
+// ─── PARAM PARSING ─────────────────────────────────────────
+
+/**
+ * Safely extract and validate a UUID `id` from request params.
+ * Returns the id string, or throws a 400 error.
+ */
+export function parseIdParam(params: unknown): string {
+  const p = params as Record<string, unknown>;
+  const id = typeof p?.id === "string" ? p.id.trim() : "";
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ValidationError({ id: "Invalid or missing UUID" });
+  }
+  return id;
+}
+
+/**
+ * Safely extract a slug from request params.
+ */
+export function parseSlugParam(params: unknown): string {
+  const p = params as Record<string, unknown>;
+  const slug = typeof p?.slug === "string" ? p.slug.trim() : "";
+  if (!slug || slug.length > 200) {
+    throw new ValidationError({ slug: "Invalid or missing slug" });
+  }
+  return slug;
+}
+
+/**
+ * Safely extract a productId from request params.
+ */
+export function parseProductIdParam(params: unknown): string {
+  const p = params as Record<string, unknown>;
+  const productId = typeof p?.productId === "string" ? p.productId.trim() : "";
+  if (!productId) {
+    throw new ValidationError({ productId: "Invalid or missing productId" });
+  }
+  return productId;
 }
 
 // ─── API RESPONSE ──────────────────────────────────────────

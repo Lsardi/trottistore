@@ -12,7 +12,7 @@ import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { analyticsRoutes } from "./routes/index.js";
 import { ZodError } from "zod";
-import { validateEnv, COMMON_ENV } from "@trottistore/shared";
+import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
 
 validateEnv("analytics", [
   ...COMMON_ENV,
@@ -83,6 +83,10 @@ async function start() {
 
   // Global error handler
   app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    const prismaAppError = mapPrismaError(error);
+    if (prismaAppError) {
+      error = prismaAppError as AppError & { statusCode?: number };
+    }
     const errorWithCode = error as { code?: unknown };
     const isZodError = error instanceof ZodError;
     const statusCode = isZodError ? 400 : error.statusCode || 500;
