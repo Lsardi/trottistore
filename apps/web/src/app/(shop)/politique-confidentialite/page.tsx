@@ -33,7 +33,7 @@ export default function PolitiqueConfidentialitePage() {
       </section>
 
       <section className="space-y-2">
-        <p className="spec-label">Durees de conservation</p>
+        <p className="spec-label">Durées de conservation</p>
         <p className="font-mono text-sm text-text-muted">
           Les donnees sont conservees pendant la duree necessaire a la finalite et aux obligations legales applicables.
         </p>

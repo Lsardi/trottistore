@@ -17,9 +17,9 @@ export default function CookiesPage() {
           <p>
             <span className="text-text">refresh_token</span> (JWT)
             <br />
-            Finalite: maintien de session et authentification utilisateur.
+            Finalité : maintien de session et authentification utilisateur.
             <br />
-            Duree: selon la duree de vie du jeton configuree serveur.
+            Durée : selon la durée de vie du jeton configurée serveur.
           </p>
         </div>
       </section>

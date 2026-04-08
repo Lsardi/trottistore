@@ -271,7 +271,7 @@ export default async function ReparationBrandPage({ params }: { params: Promise<
 
       {/* Modèles */}
       <section className="bg-surface border border-border p-6 mb-6">
-        <h2 className="font-display font-bold text-text uppercase text-sm mb-4">Modeles {data.name} pris en charge</h2>
+        <h2 className="font-display font-bold text-text uppercase text-sm mb-4">Modèles {data.name} pris en charge</h2>
         <div className="flex flex-wrap gap-2">
           {data.models.map((model) => (
             <Link

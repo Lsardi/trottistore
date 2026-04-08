@@ -386,7 +386,7 @@ function formatPrice(amount: string | number): string {
                   />
                 </div>
                 <div>
-                  <label className="spec-label block mb-2">Telephone</label>
+                  <label className="spec-label block mb-2">Téléphone</label>
                   <input
                     type="tel"
                     placeholder="06 12 34 56 78"
