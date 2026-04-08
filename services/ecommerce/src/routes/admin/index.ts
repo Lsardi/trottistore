@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { parseIdParam } from "@trottistore/shared";
 import { requireRole } from "../../plugins/auth";
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -202,7 +203,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // ─── PUT /admin/products/:id — Update product ─────────────
   app.put("/admin/products/:id", adminOnly, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const parsed = updateProductSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -308,7 +309,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // ─── DELETE /admin/products/:id — Delete / Archive product ─
   app.delete("/admin/products/:id", adminOnly, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const { hard } = (request.query as { hard?: string }) || {};
 
     const existing = await app.prisma.product.findUnique({ where: { id } });
@@ -346,7 +347,7 @@ export async function adminRoutes(app: FastifyInstance) {
     "/admin/products/:id/stock",
     adminOnly,
     async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
     const parsed = stockUpdateSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -475,7 +476,7 @@ export async function adminRoutes(app: FastifyInstance) {
 
   // ─── GET /admin/products/:id — Get single product for editing
   app.get("/admin/products/:id", adminOnly, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const product = await app.prisma.product.findUnique({
       where: { id },
@@ -506,7 +507,7 @@ export async function adminRoutes(app: FastifyInstance) {
     "/admin/products/:id/duplicate",
     adminOnly,
     async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const source = await app.prisma.product.findUnique({
       where: { id },

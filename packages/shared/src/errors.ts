@@ -131,14 +131,13 @@ export function paginate<T>(
 // ─── PARAM PARSING ─────────────────────────────────────────
 
 /**
- * Safely extract and validate a UUID `id` from request params.
- * Returns the id string, or throws a 400 error.
+ * Safely extract an `id` from request params.
  */
 export function parseIdParam(params: unknown): string {
   const p = params as Record<string, unknown>;
   const id = typeof p?.id === "string" ? p.id.trim() : "";
-  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-    throw new ValidationError({ id: "Invalid or missing UUID" });
+  if (!id || id.length > 200) {
+    throw new ValidationError({ id: "Invalid or missing id" });
   }
   return id;
 }

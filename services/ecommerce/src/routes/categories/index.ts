@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { parseSlugParam } from "@trottistore/shared";
 
 const categoryProductsSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -59,7 +60,7 @@ export async function categoryRoutes(app: FastifyInstance) {
 
   // GET /categories/:slug — Category detail with paginated products
   app.get("/categories/:slug", async (request, reply) => {
-    const { slug } = request.params as { slug: string };
+    const slug = parseSlugParam(request.params);
     const parsed = categoryProductsSchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({

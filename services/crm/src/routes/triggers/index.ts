@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { parseIdParam } from "@trottistore/shared";
 
 /**
  * Automated triggers for SAV notifications.
@@ -120,7 +121,7 @@ export async function triggerRoutes(app: FastifyInstance) {
       });
     }
 
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const trigger = await app.prisma.automatedTrigger.findUnique({ where: { id } });
     if (!trigger) {
@@ -147,7 +148,7 @@ export async function triggerRoutes(app: FastifyInstance) {
         error: { code: "FORBIDDEN", message: "Acces reserve aux managers" },
       });
     }
-    const { id } = request.params as { id: string };
+    const id = parseIdParam(request.params);
 
     const logs = await app.prisma.notificationLog.findMany({
       where: { triggerId: id },
