@@ -549,11 +549,37 @@ export const stockApi = {
 // ─── CRM ───────────────────────────────────────────────────
 
 export const customersApi = {
-  list: (params?: { page?: number; limit?: number; search?: string; sort?: string }) =>
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sort?: string;
+    loyaltyTier?: "BRONZE" | "SILVER" | "GOLD";
+  }) =>
     apiFetch<{ success: boolean; data: CustomerListItem[]; pagination: Pagination }>("crm", "/customers", { params }),
+
+  getById: (customerId: string) =>
+    apiFetch<{ success: boolean; data: CustomerDetail }>("crm", `/customers/${customerId}`),
 
   getGarage: (customerId: string) =>
     apiFetch<{ success: boolean; data: CustomerGarage }>("crm", `/customers/${customerId}/garage`),
+
+  update: (
+    customerId: string,
+    body: Partial<{
+      firstName: string;
+      lastName: string;
+      phone: string | null;
+      source: string;
+      tags: string[];
+      scooterModels: string[];
+      healthScore: number | null;
+    }>
+  ) =>
+    apiFetch<{ success: boolean; data: CustomerDetail }>("crm", `/customers/${customerId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
 };
 
 // ─── TRIGGERS (SAV) ───────────────────────────────────────
@@ -1021,6 +1047,24 @@ export interface CustomerGarage {
     type: "REPAIR" | "ORDER" | "INTERACTION";
     data: Record<string, unknown>;
   }>;
+}
+
+export interface CustomerDetail {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  customerProfile?: {
+    loyaltyTier: string;
+    loyaltyPoints: number;
+    totalOrders: number;
+    totalSpent: number | string;
+    source?: string | null;
+    tags?: string[];
+    scooterModels?: string[];
+    healthScore?: number | null;
+  } | null;
 }
 
 export interface TriggerRunResult {

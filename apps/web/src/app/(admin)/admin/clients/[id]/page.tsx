@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { customersApi, type CustomerGarage } from "@/lib/api";
-import { ArrowLeft, Loader2, Wrench, ShoppingBag, MessageSquare } from "lucide-react";
+import { customersApi, type CustomerGarage, type CustomerDetail } from "@/lib/api";
+import { ArrowLeft, Loader2, Wrench, ShoppingBag, MessageSquare, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function formatCurrency(amount: number): string {
@@ -24,6 +24,17 @@ export default function AdminClientGaragePage() {
   const customerId = params?.id;
 
   const [garage, setGarage] = useState<CustomerGarage | null>(null);
+  const [customer, setCustomer] = useState<CustomerDetail | null>(null);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    source: "",
+    tags: "",
+    scooterModels: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,8 +44,20 @@ export default function AdminClientGaragePage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await customersApi.getGarage(customerId);
-        setGarage(res.data);
+        const [garageRes, customerRes] = await Promise.all([
+          customersApi.getGarage(customerId),
+          customersApi.getById(customerId),
+        ]);
+        setGarage(garageRes.data);
+        setCustomer(customerRes.data);
+        setFormData({
+          firstName: customerRes.data.firstName ?? "",
+          lastName: customerRes.data.lastName ?? "",
+          phone: customerRes.data.phone ?? "",
+          source: customerRes.data.customerProfile?.source ?? "",
+          tags: (customerRes.data.customerProfile?.tags ?? []).join(", "),
+          scooterModels: (customerRes.data.customerProfile?.scooterModels ?? []).join(", "),
+        });
       } catch {
         setError("Impossible de charger la fiche garage client.");
       } finally {
@@ -45,6 +68,34 @@ export default function AdminClientGaragePage() {
   }, [customerId]);
 
   const timeline = useMemo(() => garage?.timeline || [], [garage]);
+
+  async function handleSaveProfile() {
+    if (!customerId) return;
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const res = await customersApi.update(customerId, {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        phone: formData.phone.trim() || null,
+        source: formData.source.trim() || undefined,
+        tags: formData.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        scooterModels: formData.scooterModels
+          .split(",")
+          .map((m) => m.trim())
+          .filter(Boolean),
+      });
+      setCustomer(res.data);
+      setSaveMessage("Profil client mis à jour.");
+    } catch {
+      setSaveMessage("Échec de mise à jour du profil.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -69,6 +120,46 @@ export default function AdminClientGaragePage() {
         <div className="border border-border bg-surface p-4 font-mono text-sm text-text-muted">Aucune donnee disponible.</div>
       ) : (
         <>
+          <section className="bg-surface border border-border p-4">
+            <h2 className="font-display font-bold text-text mb-4">Édition client</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="spec-label mb-2 block">Prénom</span>
+                <input className="input-dark w-full" value={formData.firstName} onChange={(e) => setFormData((p) => ({ ...p, firstName: e.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="spec-label mb-2 block">Nom</span>
+                <input className="input-dark w-full" value={formData.lastName} onChange={(e) => setFormData((p) => ({ ...p, lastName: e.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="spec-label mb-2 block">Téléphone</span>
+                <input className="input-dark w-full" value={formData.phone} onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="spec-label mb-2 block">Source</span>
+                <input className="input-dark w-full" value={formData.source} onChange={(e) => setFormData((p) => ({ ...p, source: e.target.value }))} />
+              </label>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <label className="block">
+                <span className="spec-label mb-2 block">Tags (séparés par virgule)</span>
+                <input className="input-dark w-full" value={formData.tags} onChange={(e) => setFormData((p) => ({ ...p, tags: e.target.value }))} />
+              </label>
+              <label className="block">
+                <span className="spec-label mb-2 block">Modèles trottinettes (virgule)</span>
+                <input className="input-dark w-full" value={formData.scooterModels} onChange={(e) => setFormData((p) => ({ ...p, scooterModels: e.target.value }))} />
+              </label>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <button type="button" onClick={handleSaveProfile} disabled={saving} className="btn-neon disabled:opacity-60">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Enregistrer
+              </button>
+              {saveMessage ? <p className="font-mono text-xs text-text-muted">{saveMessage}</p> : null}
+              {customer ? <p className="font-mono text-xs text-text-dim ml-auto">{customer.email}</p> : null}
+            </div>
+          </section>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-surface border border-border p-4">
               <p className="spec-label">Niveau</p>

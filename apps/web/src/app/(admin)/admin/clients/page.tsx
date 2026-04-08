@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Users, Star, Mail, ShoppingBag, ArrowRight } from "lucide-react";
+import { Users, Star, Mail, ShoppingBag, ArrowRight, Search } from "lucide-react";
 import { customersApi, type CustomerListItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -18,21 +18,33 @@ function formatCurrency(amount: number | string): string {
 
 export default function AdminClientsPage() {
   const [customers, setCustomers] = useState<CustomerListItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [tierFilter, setTierFilter] = useState<"" | "BRONZE" | "SILVER" | "GOLD">("");
+  const [sort, setSort] = useState<"newest" | "name" | "points_desc" | "last_active" | "total_spent">("newest");
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
       try {
-        const res = await customersApi.list({ limit: 50, sort: "newest" });
+        const res = await customersApi.list({
+          limit: 50,
+          sort,
+          ...(search.trim() ? { search: search.trim() } : {}),
+          ...(tierFilter ? { loyaltyTier: tierFilter } : {}),
+        });
         setCustomers(res.data || []);
+        setTotal(res.pagination?.total ?? res.data.length);
       } catch {
         setCustomers([]);
+        setTotal(0);
       } finally {
         setLoading(false);
       }
     }
     void load();
-  }, []);
+  }, [search, sort, tierFilter]);
 
   return (
     <div>
@@ -40,9 +52,45 @@ export default function AdminClientsPage() {
         <div>
           <h1 className="heading-lg">CLIENTS</h1>
           <p className="font-mono text-sm text-text-muted mt-1">
-            {customers.length} client{customers.length !== 1 ? "s" : ""} enregistre{customers.length !== 1 ? "s" : ""}
+            {total} client{total !== 1 ? "s" : ""} enregistre{total !== 1 ? "s" : ""}
           </p>
         </div>
+      </div>
+
+      <div className="bg-surface border border-border p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <label className="block">
+          <span className="spec-label mb-2 block">Recherche</span>
+          <div className="relative">
+            <Search className="w-4 h-4 text-text-dim absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Nom, email, téléphone..."
+              className="input-dark w-full pl-9"
+            />
+          </div>
+        </label>
+
+        <label className="block">
+          <span className="spec-label mb-2 block">Niveau fidélité</span>
+          <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value as typeof tierFilter)} className="input-dark w-full">
+            <option value="">Tous</option>
+            <option value="BRONZE">Bronze</option>
+            <option value="SILVER">Silver</option>
+            <option value="GOLD">Gold</option>
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="spec-label mb-2 block">Tri</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="input-dark w-full">
+            <option value="newest">Plus récents</option>
+            <option value="name">Nom (A-Z)</option>
+            <option value="points_desc">Points (desc)</option>
+            <option value="last_active">Dernière activité</option>
+            <option value="total_spent">CA total (desc)</option>
+          </select>
+        </label>
       </div>
 
       <div className="bg-surface border border-border overflow-hidden">
