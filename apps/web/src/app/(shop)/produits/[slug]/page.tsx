@@ -1,14 +1,29 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Minus, Plus, ImageOff, ArrowLeft, MapPin, Clock, Bell } from "lucide-react";
-import DOMPurify from "dompurify";
-import { productsApi, cartApi, stockAlertsApi, type Product } from "@/lib/api";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Clock, MapPin } from "lucide-react";
+import { brand } from "@/lib/brand";
 import { formatPriceTTC, priceTTC } from "@/lib/utils";
 import ProductCard from "@/components/ProductCard";
+import type { Product } from "@/lib/api";
+import ProductGallery from "./ProductGallery";
+import AddToCartSection from "./AddToCartSection";
+import StockAlertForm from "./StockAlertForm";
+
+interface ProductsListResponse {
+  success?: boolean;
+  data?: Product[];
+  products?: Product[];
+}
+
+interface ProductResponse {
+  success?: boolean;
+  data?: Product;
+  product?: Product;
+}
+
+const ECOMMERCE_BASE_URL = process.env.ECOMMERCE_URL || process.env.NEXT_PUBLIC_API_ECOMMERCE || "http://localhost:3001";
 
 function formatHT(priceHt: string): string {
   const num = parseFloat(priceHt);
@@ -18,139 +33,117 @@ function formatHT(priceHt: string): string {
   }).format(num);
 }
 
-export default function ProductPage() {
-  const params = useParams();
-  const slug = params.slug as string;
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [addingToCart, setAddingToCart] = useState(false);
-  const [cartMessage, setCartMessage] = useState("");
-  const [cartSuccess, setCartSuccess] = useState(false);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [alertEmail, setAlertEmail] = useState("");
-  const [alertSent, setAlertSent] = useState(false);
-  const [alertSubmitting, setAlertSubmitting] = useState(false);
-  const [alertError, setAlertError] = useState("");
+function sanitizeProductHtml(html?: string | null): string {
+  if (!html) return "";
+  return html
+    .replace(new RegExp("<script[\\s\\S]*?<\\/script>", "gi"), "")
+    .replace(new RegExp("<style[\\s\\S]*?<\\/style>", "gi"), "")
+    .replace(/ on[a-z]+="[^"]*"/gi, "")
+    .replace(/ on[a-z]+='[^']*'/gi, "")
+    .replace(/javascript:/gi, "");
+}
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await productsApi.getBySlug(slug);
-        setProduct(res.data);
-
-        if (res.data.categories?.[0]?.category?.slug) {
-          try {
-            const relRes = await productsApi.list({
-              categorySlug: res.data.categories[0].category.slug,
-              limit: 8,
-            });
-            setRelatedProducts(
-              relRes.data.filter((p) => p.id !== res.data.id).slice(0, 4)
-            );
-          } catch {
-            // not critical
-          }
-        }
-      } catch {
-        setProduct(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [slug]);
-
-  async function handleAddToCart() {
-    if (!product) return;
-    setAddingToCart(true);
-    try {
-      await cartApi.addItem({
-        productId: product.id,
-        variantId: product.variants?.[0]?.id,
-        quantity,
-      });
-      window.dispatchEvent(new Event("trottistore:cart-updated"));
-      setCartSuccess(true);
-      setCartMessage("Produit ajouté au panier");
-      setTimeout(() => {
-        setCartMessage("");
-        setCartSuccess(false);
-      }, 3000);
-    } catch {
-      setCartMessage("Erreur lors de l'ajout au panier");
-      setTimeout(() => setCartMessage(""), 3000);
-    } finally {
-      setAddingToCart(false);
-    }
+async function fetchProductBySlug(slug: string): Promise<Product | null> {
+  try {
+    const res = await fetch(`${ECOMMERCE_BASE_URL}/api/v1/products/${slug}`, {
+      next: { revalidate: 120 },
+    });
+    if (!res.ok) return null;
+    const payload = (await res.json()) as ProductResponse;
+    return payload.data || payload.product || null;
+  } catch {
+    return null;
   }
+}
 
-  /* ─── Loading state ─── */
-  if (loading) {
-    return (
-      <div className="min-h-screen" style={{ backgroundColor: "var(--color-void)" }}>
-        {/* Breadcrumb skeleton */}
-        <div className="px-4 sm:px-6 lg:px-8 py-3" style={{ backgroundColor: "var(--color-surface)", borderBottom: "1px solid var(--color-border)" }}>
-          <div className="mx-auto max-w-[1400px]">
-            <div className="h-3 w-72 animate-pulse" style={{ backgroundColor: "var(--color-surface-2)" }} />
-          </div>
-        </div>
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-8 lg:gap-12">
-            <div>
-              <div className="aspect-square animate-pulse" style={{ backgroundColor: "#0F0F0F" /* image bg */, border: "1px solid var(--color-border)" }} />
-              <div className="flex gap-2 mt-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="w-16 h-16 animate-pulse" style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-4 py-2">
-              <div className="h-3 w-24 animate-pulse" style={{ backgroundColor: "var(--color-surface-2)" }} />
-              <div className="h-8 w-full animate-pulse" style={{ backgroundColor: "var(--color-surface-2)" }} />
-              <div className="h-8 w-2/3 animate-pulse" style={{ backgroundColor: "var(--color-surface-2)" }} />
-              <div className="divider my-4" />
-              <div className="h-10 w-40 animate-pulse" style={{ backgroundColor: "var(--color-surface-2)" }} />
-              <div className="h-4 w-28 animate-pulse" style={{ backgroundColor: "var(--color-surface-2)" }} />
-              <div className="divider my-4" />
-              <div className="h-12 w-full animate-pulse mt-6" style={{ backgroundColor: "var(--color-surface-2)" }} />
-            </div>
-          </div>
-        </div>
-      </div>
+async function fetchRelatedProducts(product: Product): Promise<Product[]> {
+  const categorySlug = product.categories?.[0]?.category?.slug;
+  if (!categorySlug) return [];
+
+  try {
+    const res = await fetch(
+      `${ECOMMERCE_BASE_URL}/api/v1/products?categorySlug=${encodeURIComponent(categorySlug)}&limit=8`,
+      { next: { revalidate: 120 } },
     );
+    if (!res.ok) return [];
+    const payload = (await res.json()) as ProductsListResponse;
+    const items = payload.data || payload.products || [];
+    return items.filter((p) => p.id !== product.id).slice(0, 4);
+  } catch {
+    return [];
   }
+}
 
-  /* ─── Not found ─── */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await fetchProductBySlug(slug);
+
   if (!product) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--color-void)" }}>
-        <div className="text-center">
-          <h1 className="heading-lg mb-4" style={{ color: "var(--color-text)" }}>
-            PRODUIT INTROUVABLE
-          </h1>
-          <Link
-            href="/produits"
-            className="font-mono text-xs uppercase tracking-wider inline-flex items-center gap-2 transition-colors"
-            style={{ color: "var(--color-neon)" }}
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour au catalogue
-          </Link>
-        </div>
-      </div>
-    );
+    return {
+      title: `Produit introuvable | ${brand.name}`,
+      robots: { index: false, follow: false },
+    };
   }
 
-  /* ─── Derived data ─── */
+  const displayPriceHt =
+    product.salePriceHt && parseFloat(product.salePriceHt) < parseFloat(product.priceHt)
+      ? product.salePriceHt
+      : product.priceHt;
+  const ttc = priceTTC(displayPriceHt, product.tvaRate).toFixed(2);
+  const description = (product.shortDescription || product.description || brand.seo.description)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+
+  return {
+    title: `${product.name} | ${brand.name}`,
+    description,
+    alternates: {
+      canonical: `/produits/${slug}`,
+    },
+    openGraph: {
+      title: `${product.name} | ${brand.name}`,
+      description,
+      url: `/produits/${slug}`,
+      type: "website",
+      images: product.images?.[0]
+        ? [
+            {
+              url: product.images[0].url,
+              alt: product.images[0].alt || product.name,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${product.name} | ${brand.name}`,
+      description,
+      images: product.images?.[0] ? [product.images[0].url] : undefined,
+    },
+    other: {
+      "product:price:amount": ttc,
+      "product:price:currency": "EUR",
+    },
+  };
+}
+
+export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const product = await fetchProductBySlug(slug);
+
+  if (!product) {
+    notFound();
+  }
+
+  const relatedProducts = await fetchRelatedProducts(product);
+
   const variant = product.variants?.[0];
   const inStock = variant ? variant.stockQuantity > 0 : true;
   const stockQty = variant?.stockQuantity ?? 0;
   const images = product.images?.length ? product.images : [];
-  const hasSalePrice =
-    !!product.salePriceHt &&
-    parseFloat(product.salePriceHt) < parseFloat(product.priceHt);
+  const hasSalePrice = !!product.salePriceHt && parseFloat(product.salePriceHt) < parseFloat(product.priceHt);
 
   const displayPriceHt = hasSalePrice ? product.salePriceHt! : product.priceHt;
   const ttcFormatted = formatPriceTTC(displayPriceHt, product.tvaRate);
@@ -159,7 +152,6 @@ export default function ProductPage() {
   const categoryName = product.categories?.[0]?.category?.name;
   const categorySlug = product.categories?.[0]?.category?.slug;
 
-  /* ─── Structured data for SEO ─── */
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -189,27 +181,22 @@ export default function ProductPage() {
       availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       seller: { "@type": "Organization", name: "TrottiStore" },
     },
-    ...(categoryName && {
-      category: categoryName,
-    }),
+    ...(categoryName && { category: categoryName }),
   };
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--color-void)" }}>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-      />
-      {/* ── Breadcrumb bar ── */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
+
       <div
         className="px-4 sm:px-6 lg:px-8 py-3"
         style={{ backgroundColor: "var(--color-surface)", borderBottom: "1px solid var(--color-border)" }}
       >
-        <nav className="mx-auto max-w-[1400px] font-mono text-[0.65rem] uppercase tracking-wider flex items-center gap-2 flex-wrap" style={{ color: "var(--color-text-dim)" }}>
+        <nav
+          className="mx-auto max-w-[1400px] font-mono text-[0.65rem] uppercase tracking-wider flex items-center gap-2 flex-wrap"
+          style={{ color: "var(--color-text-dim)" }}
+        >
           <Link href="/" className="transition-colors hover:text-neon">
             ACCUEIL
           </Link>
@@ -220,10 +207,7 @@ export default function ProductPage() {
           {categoryName && categorySlug && (
             <>
               <span>/</span>
-              <Link
-                href={`/produits?categorySlug=${categorySlug}`}
-                className="transition-colors hover:text-neon"
-              >
+              <Link href={`/produits?categorySlug=${categorySlug}`} className="transition-colors hover:text-neon">
                 {categoryName.toUpperCase()}
               </Link>
             </>
@@ -233,58 +217,11 @@ export default function ProductPage() {
         </nav>
       </div>
 
-      {/* ── Main content ── */}
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
         <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-8 lg:gap-12">
-          {/* ── LEFT: Image gallery ── */}
-          <div>
-            {/* Main image */}
-            <div
-              className="aspect-square flex items-center justify-center overflow-hidden relative"
-              style={{ backgroundColor: "#0F0F0F" /* image bg */, border: "1px solid var(--color-border)" }}
-            >
-              {images[selectedImage] ? (
-                <Image
-                  src={images[selectedImage].url}
-                  alt={images[selectedImage].alt || product.name}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 55vw"
-                  style={{ objectFit: "contain", padding: "24px" }}
-                />
-              ) : (
-                <ImageOff className="w-20 h-20" style={{ color: "var(--color-border)" }} />
-              )}
-            </div>
+          <ProductGallery images={images} productName={product.name} />
 
-            {/* Thumbnails */}
-            {images.length > 1 && (
-              <div className="flex gap-2 mt-3">
-                {images.map((img, i) => (
-                  <button
-                    key={img.id}
-                    onClick={() => setSelectedImage(i)}
-                    className="w-16 h-16 md:w-20 md:h-20 flex-shrink-0 overflow-hidden transition-colors relative"
-                    style={{
-                      backgroundColor: "var(--color-surface)",
-                      border: i === selectedImage ? "1px solid var(--color-neon)" : "1px solid var(--color-border)",
-                    }}
-                  >
-                    <Image
-                      src={img.url}
-                      alt=""
-                      fill
-                      sizes="80px"
-                      style={{ objectFit: "contain", padding: "4px" }}
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ── RIGHT: Spec sheet ── */}
           <div className="py-2">
-            {/* Brand */}
             {product.brand && (
               <Link
                 href={`/produits?search=${product.brand.slug}`}
@@ -295,14 +232,12 @@ export default function ProductPage() {
               </Link>
             )}
 
-            {/* Product name */}
             <h1 className="heading-lg mt-2 mb-4" style={{ color: "var(--color-text)" }}>
               {product.name.toUpperCase()}
             </h1>
 
             <div className="divider mb-5" />
 
-            {/* ── Price block ── */}
             <div className="mb-5">
               <div className="flex items-baseline gap-3">
                 <span className="price-main">{ttcFormatted}</span>
@@ -312,9 +247,7 @@ export default function ProductPage() {
                   </span>
                 )}
               </div>
-              <p className="price-sub mt-1">
-                {formatHT(displayPriceHt)} &euro; HT
-              </p>
+              <p className="price-sub mt-1">{formatHT(displayPriceHt)} &euro; HT</p>
               {ttcNum >= 300 && (
                 <p className="font-mono text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
                   Payez en 3&times;{" "}
@@ -329,15 +262,12 @@ export default function ProductPage() {
 
             <div className="divider mb-5" />
 
-            {/* ── Specs table ── */}
             <div className="space-y-3 mb-5">
-              {/* REF */}
               <div className="flex items-start gap-6">
                 <span className="spec-label w-28 flex-shrink-0 pt-0.5">RÉF.</span>
                 <span className="spec-value">{product.sku}</span>
               </div>
 
-              {/* Category */}
               {categoryName && (
                 <div className="flex items-start gap-6">
                   <span className="spec-label w-28 flex-shrink-0 pt-0.5">CATÉGORIE</span>
@@ -345,7 +275,6 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Weight */}
               {product.weightGrams && (
                 <div className="flex items-start gap-6">
                   <span className="spec-label w-28 flex-shrink-0 pt-0.5">POIDS</span>
@@ -353,7 +282,6 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Stock */}
               <div className="flex items-start gap-6">
                 <span className="spec-label w-28 flex-shrink-0 pt-0.5">STOCK</span>
                 <span className="spec-value flex items-center gap-2">
@@ -378,7 +306,6 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* Badge retrait boutique */}
             {inStock && (
               <div
                 style={{
@@ -407,157 +334,14 @@ export default function ProductPage() {
 
             <div className="divider mb-5" />
 
-            {/* ── Quantity + Add to cart ── */}
-            {inStock && (
-              <>
-                <div className="flex items-center gap-4 mb-4">
-                  <span className="spec-label">QTÉ</span>
-                  <div className="flex items-center" style={{ border: "1px solid var(--color-border)" }}>
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-10 h-10 flex items-center justify-center transition-colors"
-                      style={{ backgroundColor: "var(--color-surface)", color: "var(--color-text)", borderRight: "1px solid var(--color-border)" }}
-                      aria-label="Diminuer la quantité"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <input
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (val >= 1) setQuantity(val);
-                      }}
-                      min={1}
-                      className="w-12 h-10 text-center font-mono text-sm outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      style={{ backgroundColor: "var(--color-surface)", color: "var(--color-text)", border: "none" }}
-                    />
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="w-10 h-10 flex items-center justify-center transition-colors"
-                      style={{ backgroundColor: "var(--color-surface)", color: "var(--color-text)", borderLeft: "1px solid var(--color-border)" }}
-                      aria-label="Augmenter la quantité"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleAddToCart}
-                  disabled={addingToCart}
-                  className="btn-neon w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ height: "48px" }}
-                >
-                  {cartSuccess
-                    ? "AJOUTÉ AU PANIER"
-                    : addingToCart
-                    ? "AJOUT EN COURS..."
-                    : "AJOUTER AU PANIER"}
-                </button>
-
-                <p className="font-mono text-xs text-text-muted mt-3">
-                  Droit de rétractation de 14 jours et garantie légale de conformité de 2 ans.{" "}
-                  <Link href="/cgv" className="underline text-text">
-                    Voir les CGV
-                  </Link>
-                  .
-                </p>
-              </>
-            )}
-
-            {!inStock && (
-              <div>
-                <div
-                  className="w-full h-12 font-mono text-xs uppercase tracking-wider flex items-center justify-center mb-3"
-                  style={{ backgroundColor: "var(--color-surface-2)", color: "var(--color-text-dim)", border: "1px solid var(--color-border)" }}
-                >
-                  RUPTURE DE STOCK
-                </div>
-                {alertSent ? (
-                  <div
-                    className="flex items-center gap-2 p-3"
-                    style={{ backgroundColor: "rgba(0, 255, 209, 0.08)", border: "1px solid rgba(0, 255, 209, 0.2)" }}
-                  >
-                    <Bell style={{ width: 16, height: 16, color: "var(--color-neon)" }} />
-                    <p className="font-mono text-xs" style={{ color: "var(--color-neon)" }}>
-                      Vous serez prevenu(e) des le retour en stock.
-                    </p>
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      if (!product) return;
-                      setAlertError("");
-                      setAlertSubmitting(true);
-                      try {
-                        await stockAlertsApi.create({
-                          productId: product.id,
-                          variantId: variant?.id,
-                          email: alertEmail,
-                        });
-                        setAlertSent(true);
-                      } catch {
-                        setAlertError("Impossible d'enregistrer l'alerte pour le moment.");
-                      } finally {
-                        setAlertSubmitting(false);
-                      }
-                    }}
-                    className="flex gap-0"
-                  >
-                    <input
-                      type="email"
-                      required
-                      placeholder="Votre email pour etre prevenu"
-                      value={alertEmail}
-                      onChange={(e) => setAlertEmail(e.target.value)}
-                      className="input-dark flex-1"
-                      style={{ borderRight: "none" }}
-                    />
-                    <button
-                      type="submit"
-                      disabled={alertSubmitting}
-                      className="btn-neon whitespace-nowrap disabled:opacity-60"
-                      style={{ borderRadius: 0 }}
-                    >
-                      <Bell style={{ width: 14, height: 14 }} />
-                      {alertSubmitting ? "ENVOI..." : "ALERTEZ-MOI"}
-                    </button>
-                  </form>
-                )}
-                {alertError && (
-                  <p className="font-mono text-xs mt-2" style={{ color: "var(--color-danger)" }}>
-                    {alertError}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Cart message */}
-            {cartMessage && (
-              <div className="mt-3">
-                <p
-                  className="font-mono text-xs uppercase tracking-wider"
-                  style={{ color: cartSuccess ? "var(--color-neon)" : "var(--color-danger)" }}
-                >
-                  {cartMessage}
-                </p>
-                {cartSuccess && (
-                  <Link
-                    href="/panier"
-                    className="btn-outline inline-block mt-2"
-                    style={{ fontSize: "0.7rem", padding: "0.4rem 1.2rem" }}
-                  >
-                    VOIR LE PANIER
-                  </Link>
-                )}
-              </div>
+            {inStock ? (
+              <AddToCartSection productId={product.id} variantId={variant?.id} />
+            ) : (
+              <StockAlertForm productId={product.id} variantId={variant?.id} />
             )}
           </div>
         </div>
 
-        {/* ── Description section ── */}
         {(product.shortDescription || product.description) && (
           <div className="mt-16">
             <div className="divider mb-8" />
@@ -567,22 +351,20 @@ export default function ProductPage() {
               <div
                 className="font-mono text-sm leading-relaxed mb-4"
                 style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.shortDescription) }}
+                dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.shortDescription) }}
               />
             )}
 
-            {product.description &&
-              product.description !== product.shortDescription && (
-                <div
-                  className="font-mono text-sm leading-relaxed"
-                  style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description) }}
-                />
-              )}
+            {product.description && product.description !== product.shortDescription && (
+              <div
+                className="font-mono text-sm leading-relaxed"
+                style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}
+                dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.description) }}
+              />
+            )}
           </div>
         )}
 
-        {/* ── Related products ── */}
         {relatedProducts.length > 0 && (
           <div className="mt-16">
             <div className="divider mb-8" />
@@ -594,6 +376,17 @@ export default function ProductPage() {
             </div>
           </div>
         )}
+
+        <div className="mt-10">
+          <Link
+            href="/produits"
+            className="font-mono text-xs uppercase tracking-wider inline-flex items-center gap-2 transition-colors hover:text-neon"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Retour au catalogue
+          </Link>
+        </div>
       </div>
     </div>
   );
