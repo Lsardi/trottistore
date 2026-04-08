@@ -21,6 +21,8 @@
     "agent:rebase-all": "bash scripts/git-agent-rebase-all.sh",
     "agent:cleanup": "bash scripts/git-agent-cleanup.sh",
     "agent:conflicts": "clash status",
+    "audit:llm": "tsx scripts/audit-llm.ts",
+    "audit:playwright": "pnpm --filter @trottistore/web exec playwright test e2e/site-audit.spec.ts",
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "vitest run",

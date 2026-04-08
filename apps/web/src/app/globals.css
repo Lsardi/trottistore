@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Serif:wght@500;600;700&family=Manrope:wght@500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700;800&display=swap");
+/* Fonts loaded via next/font in lib/fonts.ts — no external @import needed */
 @import "tailwindcss";
 
 /*
@@ -28,9 +28,9 @@
   --color-danger: #FF3B30;
   --color-warning: #FF9500;
   --color-success: #00FFD1;
-  --font-display: "Syne", sans-serif;
-  --font-mono: "Space Mono", monospace;
-  --font-sans: "Syne", sans-serif;
+  --font-display: var(--font-syne), sans-serif;
+  --font-mono: var(--font-space-mono), monospace;
+  --font-sans: var(--font-syne), sans-serif;
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -54,9 +54,9 @@
   --color-neon: #00FFD1;
   --color-neon-muted: #00CCa8;
   --color-neon-dim: rgba(0, 255, 209, 0.15);
-  --font-display: "Syne", sans-serif;
-  --font-mono: "Space Mono", monospace;
-  --font-sans: "Syne", sans-serif;
+  --font-display: var(--font-syne), sans-serif;
+  --font-mono: var(--font-space-mono), monospace;
+  --font-sans: var(--font-syne), sans-serif;
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -79,9 +79,9 @@
   --color-neon: #0f7b6c;
   --color-neon-muted: #0c6659;
   --color-neon-dim: rgba(15, 123, 108, 0.12);
-  --font-display: "IBM Plex Serif", serif;
-  --font-mono: "IBM Plex Mono", monospace;
-  --font-sans: "Manrope", sans-serif;
+  --font-display: var(--font-ibm-plex-serif), serif;
+  --font-mono: var(--font-ibm-plex-mono), monospace;
+  --font-sans: var(--font-manrope), sans-serif;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -104,9 +104,9 @@
   --color-neon: #ffde00;
   --color-neon-muted: #f3c500;
   --color-neon-dim: rgba(255, 222, 0, 0.2);
-  --font-display: "IBM Plex Sans", sans-serif;
-  --font-mono: "IBM Plex Mono", monospace;
-  --font-sans: "IBM Plex Sans", sans-serif;
+  --font-display: var(--font-ibm-plex-sans), sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), monospace;
+  --font-sans: var(--font-ibm-plex-sans), sans-serif;
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
