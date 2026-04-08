@@ -270,7 +270,7 @@ export default function ProPage() {
                 />
               </div>
               <div>
-                <label htmlFor="pro-phone" className="spec-label block mb-2">Telephone</label>
+                <label htmlFor="pro-phone" className="spec-label block mb-2">Téléphone</label>
                 <input
                   id="pro-phone"
                   type="tel"
@@ -307,7 +307,7 @@ export default function ProPage() {
               />
             </div>
             {submitError && (
-              <p className="font-mono text-xs text-danger">{submitError}</p>
+              <p role="alert" className="font-mono text-xs text-danger">{submitError}</p>
             )}
             <button type="submit" disabled={submitting} className="btn-neon w-full disabled:opacity-60">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

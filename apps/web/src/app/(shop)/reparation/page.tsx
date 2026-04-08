@@ -341,7 +341,7 @@ function ReparationPage() {
           </div>
 
           {error && (
-            <div className="border border-danger/30 bg-danger/10 text-danger px-4 py-3 font-mono text-sm">
+            <div role="alert" className="border border-danger/30 bg-danger/10 text-danger px-4 py-3 font-mono text-sm">
               {error}
             </div>
           )}

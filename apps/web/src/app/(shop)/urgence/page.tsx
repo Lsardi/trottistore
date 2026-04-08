@@ -254,7 +254,7 @@ function UrgencePage() {
           Demande express (prise en charge prioritaire, majoration +20%)
         </label>
 
-        {error ? <p className="font-mono text-sm text-danger">{error}</p> : null}
+        {error ? <p role="alert" className="font-mono text-sm text-danger">{error}</p> : null}
 
         <button type="submit" disabled={submitting} className="btn-neon w-full disabled:opacity-60">
           {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wrench className="w-4 h-4" />}

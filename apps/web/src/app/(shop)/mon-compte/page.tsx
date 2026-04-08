@@ -302,7 +302,7 @@ function formatPrice(amount: string | number): string {
 
           <div className="p-6 sm:p-8">
             {error && (
-              <div className="border border-danger/30 bg-danger/10 text-danger px-4 py-3 font-mono text-sm mb-6">
+              <div role="alert" className="border border-danger/30 bg-danger/10 text-danger px-4 py-3 font-mono text-sm mb-6">
                 {error}
               </div>
             )}

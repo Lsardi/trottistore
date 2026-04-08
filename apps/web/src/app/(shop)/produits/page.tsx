@@ -113,11 +113,11 @@ function ProductsPage() {
       setTotal(0);
       setTotalPages(1);
       if (error instanceof ApiError) {
-        setError("Le service catalogue est temporairement indisponible. Reessayez dans quelques instants.");
+        setError("Le service catalogue est temporairement indisponible. Réessayez dans quelques instants.");
         return;
       }
       if (error instanceof TypeError) {
-        setError("Le service catalogue ne repond pas. Verifiez que l'API e-commerce est demarree (port 3001).");
+        setError("Le service catalogue ne répond pas. Vérifiez que l'API e-commerce est démarrée (port 3001).");
         return;
       }
       setError("Impossible de charger le catalogue pour le moment.");
@@ -237,7 +237,7 @@ function ProductsPage() {
         </div>
 
         {error && (
-          <div className="mb-6 border border-border bg-surface px-4 py-3 font-mono text-xs text-red-300">
+          <div role="alert" className="mb-6 border border-border bg-surface px-4 py-3 font-mono text-xs text-red-300">
             {error}
           </div>
         )}
