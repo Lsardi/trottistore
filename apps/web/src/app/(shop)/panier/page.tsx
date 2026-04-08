@@ -65,6 +65,7 @@ export default function CartPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="sr-only">PANIER</h1>
         <div className="space-y-4">
           <div className="h-8 bg-surface w-48" />
           <div className="h-28 bg-surface" />
