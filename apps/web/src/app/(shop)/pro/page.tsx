@@ -8,6 +8,7 @@ import {
 import { brand } from "@/lib/brand";
 import { leadsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import ConsentCheckbox from "@/components/ConsentCheckbox";
 
 const PLANS = [
   {
@@ -93,9 +94,14 @@ export default function ProPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [consent, setConsent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!consent) {
+      setSubmitError("Veuillez accepter la politique de confidentialité.");
+      return;
+    }
     setSubmitError("");
     setSubmitting(true);
 
@@ -309,7 +315,8 @@ export default function ProPage() {
             {submitError && (
               <p role="alert" className="font-mono text-xs text-danger">{submitError}</p>
             )}
-            <button type="submit" disabled={submitting} className="btn-neon w-full disabled:opacity-60">
+            <ConsentCheckbox checked={consent} onChange={setConsent} id="pro-consent" />
+            <button type="submit" disabled={submitting || !consent} className="btn-neon w-full disabled:opacity-60">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               ENVOYER LA DEMANDE
             </button>

@@ -8,6 +8,7 @@ import { appointmentsApi, repairsApi, type AppointmentSlot } from "@/lib/api";
 import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 import { trackFunnelEvent } from "@/lib/funnel-tracking";
+import ConsentCheckbox from "@/components/ConsentCheckbox";
 
 function formatSlot(iso: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -44,6 +45,7 @@ function UrgencePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<{ trackingUrl?: string; ticketNumber: number } | null>(null);
+  const [consent, setConsent] = useState(false);
 
   const availableSlots = useMemo(() => slots.filter((slot) => slot.available), [slots]);
 
@@ -74,6 +76,10 @@ function UrgencePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!consent) {
+      setError("Veuillez accepter la politique de confidentialité.");
+      return;
+    }
     setSubmitting(true);
     setError("");
 
@@ -261,8 +267,9 @@ function UrgencePage() {
         </label>
 
         {error ? <p role="alert" className="font-mono text-sm text-danger">{error}</p> : null}
+        <ConsentCheckbox checked={consent} onChange={setConsent} id="urgent-consent" />
 
-        <button type="submit" disabled={submitting} className="btn-neon w-full disabled:opacity-60">
+        <button type="submit" disabled={submitting || !consent} className="btn-neon w-full disabled:opacity-60">
           {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wrench className="w-4 h-4" />}
           VALIDER MA DEMANDE URGENTE
         </button>
