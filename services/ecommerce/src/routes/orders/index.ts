@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { Decimal } from "@prisma/client/runtime/library";
+import { sendEmail } from "../../emails/send.js";
+import { orderConfirmationEmail } from "../../emails/templates.js";
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -545,6 +547,33 @@ export async function orderRoutes(app: FastifyInstance) {
       },
     });
 
+    // 10. Send confirmation email (non-blocking)
+    if (fullOrder) {
+      const customerEmail = await app.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, firstName: true },
+      });
+      if (customerEmail?.email) {
+        const { subject, html } = orderConfirmationEmail({
+          orderNumber: fullOrder.orderNumber,
+          customerName: customerEmail.firstName || "Client",
+          items: fullOrder.items.map((i) => ({
+            name: i.product?.name || "Produit",
+            quantity: i.quantity,
+            unitPrice: Number(i.unitPriceHt).toFixed(2),
+          })),
+          subtotalHt: Number(fullOrder.subtotalHt).toFixed(2),
+          shippingCost: Number(fullOrder.shippingCost).toFixed(2),
+          totalTtc: Number(fullOrder.totalTtc).toFixed(2),
+          paymentMethod: fullOrder.paymentMethod,
+          shippingAddress: `${shippingAddr.street}, ${shippingAddr.postalCode} ${shippingAddr.city}`,
+        });
+        sendEmail(customerEmail.email, subject, html).catch((e: unknown) =>
+          app.log.error({ err: e }, "Failed to send order confirmation email"),
+        );
+      }
+    }
+
     return reply.status(201).send({
       success: true,
       data: fullOrder,
@@ -818,6 +847,27 @@ export async function orderRoutes(app: FastifyInstance) {
         statusHistory: { orderBy: { changedAt: "desc" } },
       },
     });
+
+    // Send guest confirmation email (non-blocking)
+    if (fullOrder && email) {
+      const { subject, html } = orderConfirmationEmail({
+        orderNumber: fullOrder.orderNumber,
+        customerName: shippingAddress.firstName,
+        items: fullOrder.items.map((i: { product?: { name?: string }; quantity: number; unitPriceHt: unknown }) => ({
+          name: i.product?.name || "Produit",
+          quantity: i.quantity,
+          unitPrice: Number(i.unitPriceHt).toFixed(2),
+        })),
+        subtotalHt: Number(fullOrder.subtotalHt).toFixed(2),
+        shippingCost: Number(fullOrder.shippingCost).toFixed(2),
+        totalTtc: Number(fullOrder.totalTtc).toFixed(2),
+        paymentMethod: fullOrder.paymentMethod,
+        shippingAddress: `${shippingAddress.street}, ${shippingAddress.postalCode} ${shippingAddress.city}`,
+      });
+      sendEmail(email, subject, html).catch((e: unknown) =>
+        app.log.error({ err: e }, "Failed to send guest order confirmation email"),
+      );
+    }
 
     return reply.status(201).send({
       success: true,

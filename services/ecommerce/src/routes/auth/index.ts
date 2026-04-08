@@ -3,6 +3,8 @@ import { z } from "zod";
 import { randomUUID, createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { Role, JwtAccessPayload, JwtRefreshPayload } from "@trottistore/shared";
+import { sendEmail } from "../../emails/send.js";
+import { welcomeEmail } from "../../emails/templates.js";
 import { ROLES } from "@trottistore/shared";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
 
@@ -167,6 +169,12 @@ export async function authRoutes(app: FastifyInstance) {
 
       return newUser;
     });
+
+    // Send welcome email (non-blocking)
+    const { subject, html } = welcomeEmail(user.firstName);
+    sendEmail(user.email, subject, html).catch((e: unknown) =>
+      app.log.error({ err: e }, "Failed to send welcome email"),
+    );
 
     return reply.status(201).send({
       success: true,
