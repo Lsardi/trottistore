@@ -19,7 +19,6 @@
     "@trottistore/database": "workspace:*",
     "@trottistore/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
-    "bullmq": "^5.30.0",
     "dotenv": "^16.4.7",
     "fastify": "^5.8.4",
     "fastify-plugin": "^5.1.0",

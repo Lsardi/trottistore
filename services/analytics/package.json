@@ -17,7 +17,6 @@
     "@prisma/client": "^6.6.0",
     "@trottistore/database": "workspace:*",
     "@trottistore/shared": "workspace:*",
-    "bullmq": "^5.30.0",
     "dotenv": "^16.4.7",
     "fastify": "^5.8.4",
     "fastify-plugin": "^5.1.0",
