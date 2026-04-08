@@ -17,22 +17,22 @@ import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
 
 const TICKET_TYPES = [
-  { value: "REPARATION", label: "Reparation", desc: "Panne ou dysfonctionnement" },
+  { value: "REPARATION", label: "Réparation", desc: "Panne ou dysfonctionnement" },
   { value: "GARANTIE", label: "Sous garantie", desc: "Produit encore garanti" },
-  { value: "RETOUR", label: "Retour produit", desc: "Retour ou echange" },
-  { value: "RECLAMATION", label: "Reclamation", desc: "Probleme de commande" },
+  { value: "RETOUR", label: "Retour produit", desc: "Retour ou échange" },
+  { value: "RECLAMATION", label: "Réclamation", desc: "Problème de commande" },
 ] as const;
 
 const STEPS = [
-  { icon: FileText, title: "Decrivez" },
+  { icon: FileText, title: "Décrivez" },
   { icon: Search, title: "Diagnostic" },
   { icon: Receipt, title: "Devis" },
-  { icon: Wrench, title: "Reparation" },
+  { icon: Wrench, title: "Réparation" },
 ];
 
 const SEO_ISSUE_LINKS = [
-  { label: "Trottinette ne demarre plus", slug: "trottinette-ne-demarre-plus" },
-  { label: "Pneu creve trottinette", slug: "pneu-creve-trottinette" },
+  { label: "Trottinette ne démarre plus", slug: "trottinette-ne-demarre-plus" },
+  { label: "Pneu crevé trottinette", slug: "pneu-creve-trottinette" },
   { label: "Frein trottinette ne freine plus", slug: "frein-trottinette-ne-freine-plus" },
   { label: "Batterie ne charge plus", slug: "batterie-trottinette-ne-charge-plus" },
   { label: "Guidon qui bouge", slug: "guidon-trottinette-qui-bouge" },
@@ -92,7 +92,7 @@ function ReparationPage() {
         issueDescription: "",
       });
     } catch {
-      setError("Erreur lors de la soumission. Veuillez reessayer ou nous contacter directement.");
+      setError("Erreur lors de la soumission. Veuillez réessayer ou nous contacter directement.");
     } finally {
       setSubmitting(false);
     }
@@ -101,10 +101,10 @@ function ReparationPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <div className="text-center mb-10">
-        <h1 className="heading-lg mb-3">REPARATION SAV</h1>
+        <h1 className="heading-lg mb-3">RÉPARATION SAV</h1>
         <p className="font-mono text-sm text-text-muted max-w-lg mx-auto">
-          Deposez votre demande de reparation en ligne. Notre atelier a {brand.address.city}{" "}
-          repare toutes les marques.
+          Déposez votre demande de réparation en ligne. Notre atelier à {brand.address.city}{" "}
+          répare toutes les marques.
         </p>
       </div>
 
@@ -153,7 +153,7 @@ function ReparationPage() {
           </div>
           <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <p className="spec-label mb-1">Symptome</p>
+              <p className="spec-label mb-1">Symptôme</p>
               <p className="font-mono text-sm text-text">{diagInfo.issue}</p>
             </div>
             <div>
@@ -161,17 +161,17 @@ function ReparationPage() {
               <p className="font-mono text-sm text-text">{diagInfo.diagnosis}</p>
             </div>
             <div>
-              <p className="spec-label mb-1">Cout estime</p>
+              <p className="spec-label mb-1">Coût estimé</p>
               <p className="font-mono text-sm font-bold text-neon">{diagInfo.cost}</p>
             </div>
             <div>
-              <p className="spec-label mb-1">Duree estimee</p>
+              <p className="spec-label mb-1">Durée estimée</p>
               <p className="font-mono text-sm text-text">{diagInfo.duration}</p>
             </div>
           </div>
           <div className="px-5 pb-3">
             <p className="font-mono text-xs text-text-dim">
-              Prix indicatif. Le devis final sera etabli apres examen en atelier.
+              Prix indicatif. Le devis final sera établi après examen en atelier.
             </p>
           </div>
         </div>
@@ -228,7 +228,7 @@ function ReparationPage() {
             </div>
             <div>
               <label htmlFor="repair-phone" className="spec-label block mb-2">
-                Telephone <span className="text-danger">*</span>
+                Téléphone <span className="text-danger">*</span>
               </label>
               <input
                 id="repair-phone"
@@ -259,7 +259,7 @@ function ReparationPage() {
           {/* Product model */}
           <div>
             <label htmlFor="repair-model" className="spec-label block mb-2">
-              Modele de trottinette <span className="text-danger">*</span>
+              Modèle de trottinette <span className="text-danger">*</span>
             </label>
             <input
               id="repair-model"
@@ -275,7 +275,7 @@ function ReparationPage() {
           {/* Serial number */}
           <div>
             <label htmlFor="repair-serial" className="spec-label block mb-2">
-              Numero de serie <span className="text-text-dim font-normal">(optionnel)</span>
+              Numéro de série <span className="text-text-dim font-normal">(optionnel)</span>
             </label>
             <input
               id="repair-serial"
@@ -315,7 +315,7 @@ function ReparationPage() {
                       {t.label}
                     </p>
                     {formData.type === t.value && (
-                      <span className="badge badge-neon">Selectionne</span>
+                      <span className="badge badge-neon">Sélectionné</span>
                     )}
                   </div>
                   <p className="font-mono text-xs text-text-dim mt-0.5">{t.desc}</p>
@@ -327,13 +327,13 @@ function ReparationPage() {
           {/* Description */}
           <div>
             <label htmlFor="repair-description" className="spec-label block mb-2">
-              Description du probleme <span className="text-danger">*</span>
+              Description du problème <span className="text-danger">*</span>
             </label>
             <textarea
               id="repair-description"
               required
               rows={5}
-              placeholder="Decrivez le probleme en detail : quand est-ce apparu ? Quels symptomes ? La trottinette demarre-t-elle encore ?"
+              placeholder="Décrivez le problème en détail : quand est-ce apparu ? Quels symptômes ? La trottinette démarre-t-elle encore ?"
               value={formData.issueDescription}
               onChange={(e) => setFormData({ ...formData, issueDescription: e.target.value })}
               className="input-dark w-full resize-none"

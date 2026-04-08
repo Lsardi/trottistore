@@ -79,27 +79,27 @@ const SEVERITY_CONFIG: Record<Severity, { label: string; badgeClass: string; est
 };
 
 const SOLUTIONS: Record<string, { title: string; description: string; estimatedCost: string; diy: boolean }> = {
-  "no-start": { title: "Diagnostic controleur / carte mere", description: "Verification du controleur, connectiques et carte mere. Remplacement si necessaire.", estimatedCost: "50 - 200 EUR", diy: false },
-  "cuts-off": { title: "Verification BMS + connectiques", description: "Le BMS (Battery Management System) peut couper l'alimentation en cas de surchauffe ou surtension.", estimatedCost: "30 - 150 EUR", diy: false },
-  "low-power": { title: "Diagnostic batterie + controleur", description: "Test de capacite batterie et verification du controleur. Peut necessiter un remplacement.", estimatedCost: "50 - 300 EUR", diy: false },
-  "error-code": { title: "Reset + mise a jour firmware", description: "Tentative de reset du display. Si le code persiste, diagnostic approfondi du composant concerne.", estimatedCost: "20 - 100 EUR", diy: true },
-  "throttle": { title: "Remplacement accelerateur", description: "Accelerateur hors service. Remplacement par piece compatible.", estimatedCost: "15 - 50 EUR", diy: true },
-  "no-charge": { title: "Test chargeur + port de charge", description: "Verification du chargeur, du port et du BMS. Remplacement du composant defaillant.", estimatedCost: "30 - 80 EUR", diy: false },
-  "low-range": { title: "Test capacite batterie", description: "Mesure des cellules. Si capacite < 70%, remplacement recommande.", estimatedCost: "100 - 400 EUR", diy: false },
-  "slow-charge": { title: "Verification chargeur", description: "Test de la puissance du chargeur. Remplacement si sous-performant.", estimatedCost: "25 - 60 EUR", diy: true },
-  "battery-swell": { title: "REMPLACEMENT URGENT", description: "Batterie gonflee = danger. Ne pas utiliser. Remplacement immediat obligatoire.", estimatedCost: "200 - 500 EUR", diy: false },
-  "brake-noise": { title: "Reglage / remplacement plaquettes", description: "Plaquettes usees ou disque voile. Reglage ou remplacement.", estimatedCost: "15 - 40 EUR", diy: true },
-  "brake-weak": { title: "Purge + remplacement plaquettes", description: "Plaquettes usees ou huile de frein a remplacer (freins hydrauliques).", estimatedCost: "20 - 60 EUR", diy: false },
-  "brake-stuck": { title: "Deblocage etrier + reglage", description: "Etrier de frein bloque. Nettoyage, reglage ou remplacement.", estimatedCost: "25 - 50 EUR", diy: false },
-  "brake-lever": { title: "Remplacement levier de frein", description: "Levier casse ou cable detendu. Remplacement rapide.", estimatedCost: "10 - 35 EUR", diy: true },
-  "display-off": { title: "Verification connectiques display", description: "Rebranchement ou remplacement du display.", estimatedCost: "20 - 80 EUR", diy: true },
-  "display-flicker": { title: "Rebranchement connectique", description: "Faux contact probable. Verification et securisation de la connectique.", estimatedCost: "15 - 30 EUR", diy: true },
-  "lights-off": { title: "Remplacement LED / ampoule", description: "LED HS ou connectique defaillante.", estimatedCost: "10 - 40 EUR", diy: true },
-  "flat-tire": { title: "Reparation / remplacement pneu", description: "Crevaison reparable ou pneu a remplacer. Chambre a air disponible en stock.", estimatedCost: "10 - 35 EUR", diy: true },
-  "wobble": { title: "Serrage direction + roulements", description: "Jeu dans le jeu de direction ou roulements uses.", estimatedCost: "20 - 60 EUR", diy: false },
-  "fold-loose": { title: "Resserrage / remplacement collier", description: "Mecanisme de pliage lache. Securisation importante pour la securite.", estimatedCost: "15 - 45 EUR", diy: false },
-  "noise": { title: "Diagnostic mecanique complet", description: "Identification de la source du bruit. Peut venir du moteur, des roulements ou du deck.", estimatedCost: "30 - 100 EUR", diy: false },
-  "suspension": { title: "Remplacement amortisseur", description: "Amortisseur use ou casse. Remplacement par piece compatible.", estimatedCost: "30 - 80 EUR", diy: false },
+  "no-start": { title: "Diagnostic contrôleur / carte mère", description: "Vérification du contrôleur, connectiques et carte mère. Remplacement si nécessaire.", estimatedCost: "50 - 200 EUR", diy: false },
+  "cuts-off": { title: "Vérification BMS + connectiques", description: "Le BMS (Battery Management System) peut couper l'alimentation en cas de surchauffe ou surtension.", estimatedCost: "30 - 150 EUR", diy: false },
+  "low-power": { title: "Diagnostic batterie + contrôleur", description: "Test de capacité batterie et vérification du contrôleur. Peut nécessiter un remplacement.", estimatedCost: "50 - 300 EUR", diy: false },
+  "error-code": { title: "Reset + mise à jour firmware", description: "Tentative de reset du display. Si le code persiste, diagnostic approfondi du composant concerné.", estimatedCost: "20 - 100 EUR", diy: true },
+  "throttle": { title: "Remplacement accélérateur", description: "Accélérateur hors service. Remplacement par pièce compatible.", estimatedCost: "15 - 50 EUR", diy: true },
+  "no-charge": { title: "Test chargeur + port de charge", description: "Vérification du chargeur, du port et du BMS. Remplacement du composant défaillant.", estimatedCost: "30 - 80 EUR", diy: false },
+  "low-range": { title: "Test capacité batterie", description: "Mesure des cellules. Si capacité < 70%, remplacement recommandé.", estimatedCost: "100 - 400 EUR", diy: false },
+  "slow-charge": { title: "Vérification chargeur", description: "Test de la puissance du chargeur. Remplacement si sous-performant.", estimatedCost: "25 - 60 EUR", diy: true },
+  "battery-swell": { title: "REMPLACEMENT URGENT", description: "Batterie gonflée = danger. Ne pas utiliser. Remplacement immédiat obligatoire.", estimatedCost: "200 - 500 EUR", diy: false },
+  "brake-noise": { title: "Réglage / remplacement plaquettes", description: "Plaquettes usées ou disque voilé. Réglage ou remplacement.", estimatedCost: "15 - 40 EUR", diy: true },
+  "brake-weak": { title: "Purge + remplacement plaquettes", description: "Plaquettes usées ou huile de frein à remplacer (freins hydrauliques).", estimatedCost: "20 - 60 EUR", diy: false },
+  "brake-stuck": { title: "Déblocage étrier + réglage", description: "Étrier de frein bloqué. Nettoyage, réglage ou remplacement.", estimatedCost: "25 - 50 EUR", diy: false },
+  "brake-lever": { title: "Remplacement levier de frein", description: "Levier cassé ou câble détendu. Remplacement rapide.", estimatedCost: "10 - 35 EUR", diy: true },
+  "display-off": { title: "Vérification connectiques display", description: "Rebranchement ou remplacement du display.", estimatedCost: "20 - 80 EUR", diy: true },
+  "display-flicker": { title: "Rebranchement connectique", description: "Faux contact probable. Vérification et sécurisation de la connectique.", estimatedCost: "15 - 30 EUR", diy: true },
+  "lights-off": { title: "Remplacement LED / ampoule", description: "LED HS ou connectique défaillante.", estimatedCost: "10 - 40 EUR", diy: true },
+  "flat-tire": { title: "Réparation / remplacement pneu", description: "Crevaison réparable ou pneu à remplacer. Chambre à air disponible en stock.", estimatedCost: "10 - 35 EUR", diy: true },
+  "wobble": { title: "Serrage direction + roulements", description: "Jeu dans le jeu de direction ou roulements usés.", estimatedCost: "20 - 60 EUR", diy: false },
+  "fold-loose": { title: "Resserrage / remplacement collier", description: "Mécanisme de pliage lâche. Sécurisation importante pour la sécurité.", estimatedCost: "15 - 45 EUR", diy: false },
+  "noise": { title: "Diagnostic mécanique complet", description: "Identification de la source du bruit. Peut venir du moteur, des roulements ou du deck.", estimatedCost: "30 - 100 EUR", diy: false },
+  "suspension": { title: "Remplacement amortisseur", description: "Amortisseur usé ou cassé. Remplacement par pièce compatible.", estimatedCost: "30 - 80 EUR", diy: false },
 };
 
 type DiagStep = "category" | "symptom" | "result";
@@ -167,7 +167,7 @@ export default function DiagnosticPage() {
               {(() => { const Icon = category.icon; return <Icon className="w-6 h-6 text-neon" />; })()}
               {category.label}
             </h2>
-            <p className="font-mono text-sm text-text-muted mb-6">Decrivez le symptome</p>
+            <p className="font-mono text-sm text-text-muted mb-6">Décrivez le symptôme</p>
             <div className="space-y-3">
               {category.symptoms.map((sym) => {
                 const sev = SEVERITY_CONFIG[sym.severity as Severity];
@@ -215,8 +215,8 @@ export default function DiagnosticPage() {
               <div className="border border-danger bg-danger/10 p-4 mb-6 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-mono text-sm font-bold text-danger">Attention — Probleme critique</p>
-                  <p className="font-mono text-xs text-danger/80">Cessez d&rsquo;utiliser votre trottinette et contactez-nous immediatement.</p>
+                  <p className="font-mono text-sm font-bold text-danger">Attention — Problème critique</p>
+                  <p className="font-mono text-xs text-danger/80">Cessez d&rsquo;utiliser votre trottinette et contactez-nous immédiatement.</p>
                 </div>
               </div>
             )}
@@ -238,15 +238,15 @@ export default function DiagnosticPage() {
                 {/* Details grid */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-surface-2 border border-border p-4 text-center">
-                    <p className="spec-label mb-1">Cout estime</p>
+                    <p className="spec-label mb-1">Coût estimé</p>
                     <p className="price-main text-base">{solution.estimatedCost}</p>
                   </div>
                   <div className="bg-surface-2 border border-border p-4 text-center">
-                    <p className="spec-label mb-1">Duree</p>
+                    <p className="spec-label mb-1">Durée</p>
                     <p className="font-mono text-sm font-bold text-text">{severityConfig.estimate}</p>
                   </div>
                   <div className="bg-surface-2 border border-border p-4 text-center">
-                    <p className="spec-label mb-1">Faisable soi-meme ?</p>
+                    <p className="spec-label mb-1">Faisable soi-même ?</p>
                     <p className={cn("font-mono text-sm font-bold", solution.diy ? "text-neon" : "text-warning")}>
                       {solution.diy ? "Oui" : "Atelier"}
                     </p>

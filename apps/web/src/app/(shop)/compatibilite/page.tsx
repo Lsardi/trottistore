@@ -64,9 +64,9 @@ export default function CompatibilitePage() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="heading-lg mb-3">COMPATIBILITE PIECES</h1>
+          <h1 className="heading-lg mb-3">COMPATIBILITÉ PIÈCES</h1>
           <p className="font-mono text-sm text-text-muted max-w-xl mx-auto">
-            Selectionnez votre trottinette et on vous montre uniquement les pieces qui marchent avec.
+            Sélectionnez votre trottinette et on vous montre uniquement les pièces qui marchent avec.
           </p>
         </div>
 
@@ -74,8 +74,8 @@ export default function CompatibilitePage() {
         <div className="flex items-center justify-center gap-3 mb-10">
           {[
             { id: "brand", label: "Marque" },
-            { id: "model", label: "Modele" },
-            { id: "results", label: "Pieces" },
+            { id: "model", label: "Modèle" },
+            { id: "results", label: "Pièces" },
           ].map((s, i) => (
             <div key={s.id} className="flex items-center gap-3">
               <div
@@ -140,7 +140,7 @@ export default function CompatibilitePage() {
             <h2 className="heading-md text-text mb-2">
               {selectedBrand}
             </h2>
-            <p className="font-mono text-sm text-text-muted mb-6">Selectionnez votre modele</p>
+            <p className="font-mono text-sm text-text-muted mb-6">Sélectionnez votre modèle</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {currentBrand.models.map((model) => (
                 <button
