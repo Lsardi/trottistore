@@ -15,6 +15,7 @@ import {
 import { repairsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
+import ConsentCheckbox from "@/components/ConsentCheckbox";
 
 const TICKET_TYPES = [
   { value: "REPARATION", label: "Réparation", desc: "Panne ou dysfonctionnement" },
@@ -73,9 +74,14 @@ function ReparationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ ticketNumber: number; trackingUrl?: string } | null>(null);
   const [error, setError] = useState("");
+  const [consent, setConsent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!consent) {
+      setError("Veuillez accepter la politique de confidentialité.");
+      return;
+    }
     setSubmitting(true);
     setError("");
 
@@ -346,9 +352,11 @@ function ReparationPage() {
             </div>
           )}
 
+          <ConsentCheckbox checked={consent} onChange={setConsent} id="repair-consent" />
+
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !consent}
             className="btn-neon w-full py-4 disabled:opacity-50"
           >
             {submitting ? (
