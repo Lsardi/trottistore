@@ -39,6 +39,16 @@ const createInteractionSchema = z.object({
   referenceId: z.string().max(100).optional(),
 });
 
+const updateCustomerSchema = z.object({
+  firstName: z.string().trim().min(1).max(100).optional(),
+  lastName: z.string().trim().min(1).max(100).optional(),
+  phone: z.string().trim().min(6).max(30).nullable().optional(),
+  source: z.string().trim().max(100).optional(),
+  tags: z.array(z.string().trim().min(1).max(50)).optional(),
+  scooterModels: z.array(z.string().trim().min(1).max(120)).optional(),
+  healthScore: z.number().int().min(0).max(100).nullable().optional(),
+});
+
 /**
  * Determine loyalty tier from points total.
  */
@@ -229,6 +239,77 @@ export async function customerRoutes(app: FastifyInstance) {
     }
 
     return { success: true, data: customer };
+  });
+
+  // ───────────────────────────────────────────────────────────
+  // PUT /customers/:id — Update customer profile (admin CRM)
+  // ───────────────────────────────────────────────────────────
+  app.put("/customers/:id", async (request, reply) => {
+    const id = parseIdParam(request.params);
+    const body = updateCustomerSchema.parse(request.body);
+
+    const existing = await app.prisma.user.findUnique({
+      where: { id },
+      include: { customerProfile: true },
+    });
+
+    if (!existing) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: `Client '${id}' introuvable` },
+      });
+    }
+
+    const profileData: {
+      source?: string;
+      tags?: string[];
+      scooterModels?: string[];
+      healthScore?: number | null;
+    } = {};
+    if (body.source !== undefined) profileData.source = body.source;
+    if (body.tags !== undefined) profileData.tags = body.tags;
+    if (body.scooterModels !== undefined) profileData.scooterModels = body.scooterModels;
+    if (body.healthScore !== undefined) profileData.healthScore = body.healthScore;
+
+    const [updatedUser, updatedProfile] = await app.prisma.$transaction([
+      app.prisma.user.update({
+        where: { id },
+        data: {
+          ...(body.firstName !== undefined ? { firstName: body.firstName } : {}),
+          ...(body.lastName !== undefined ? { lastName: body.lastName } : {}),
+          ...(body.phone !== undefined ? { phone: body.phone } : {}),
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+        },
+      }),
+      app.prisma.customerProfile.update({
+        where: { userId: id },
+        data: profileData,
+        select: {
+          loyaltyTier: true,
+          loyaltyPoints: true,
+          totalOrders: true,
+          totalSpent: true,
+          source: true,
+          tags: true,
+          scooterModels: true,
+          healthScore: true,
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        ...updatedUser,
+        customerProfile: updatedProfile,
+      },
+    };
   });
 
   // ───────────────────────────────────────────────────────────
