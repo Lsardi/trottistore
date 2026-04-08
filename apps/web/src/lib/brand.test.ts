@@ -61,9 +61,9 @@ describe("brand config (default values)", () => {
 
   it("has 3-line hero title", () => {
     expect(brand.heroTitle).toHaveLength(3);
-    expect(brand.heroTitle[0]).toBe("GLISSEZ");
-    expect(brand.heroTitle[1]).toBe("EN TOUTE");
-    expect(brand.heroTitle[2]).toBe("LIBERTÉ");
+    expect(brand.heroTitle[0]).toBe("ROULEZ PLUS");
+    expect(brand.heroTitle[1]).toBe("DÉPENSEZ MOINS");
+    expect(brand.heroTitle[2]).toBe("RÉPARATION INCLUSE");
   });
 });
 

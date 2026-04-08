@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Truck, RotateCcw, ShieldCheck, CreditCard } from "lucide-react";
 import { cartApi } from "@/lib/api";
 
 export default function AddToCartSection({
@@ -92,6 +92,25 @@ export default function AddToCartSection({
       >
         {cartSuccess ? "AJOUTÉ AU PANIER" : addingToCart ? "AJOUT EN COURS..." : "AJOUTER AU PANIER"}
       </button>
+
+      {/* Bandeau réassurance */}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {[
+          { icon: Truck, text: "Livraison 48h" },
+          { icon: RotateCcw, text: "Retour 14 jours" },
+          { icon: ShieldCheck, text: "Garantie 2 ans" },
+          { icon: CreditCard, text: "Paiement sécurisé" },
+        ].map(({ icon: Icon, text }) => (
+          <div
+            key={text}
+            className="flex items-center gap-2 px-3 py-2"
+            style={{ backgroundColor: "var(--color-surface-2)", border: "1px solid var(--color-border)" }}
+          >
+            <Icon style={{ width: 14, height: 14, color: "var(--color-neon)", flexShrink: 0 }} />
+            <span className="font-mono text-text-muted" style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{text}</span>
+          </div>
+        ))}
+      </div>
 
       <p className="font-mono text-xs text-text-muted mt-3">
         Droit de rétractation de 14 jours et garantie légale de conformité de 2 ans.{" "}

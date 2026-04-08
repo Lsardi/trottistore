@@ -164,11 +164,8 @@ export default async function HomePage() {
                 className="animate-slide-up stagger-4"
                 style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
               >
-                <Link href="/produits" className="btn-neon">
-                  CATALOGUE
-                </Link>
-                <Link href="/quiz" className="btn-outline">
-                  TROUVEZ VOTRE TROTT
+                <Link href="/produits" className="btn-neon" style={{ padding: "0.75rem 2.5rem" }}>
+                  VOIR LES TROTTINETTES
                 </Link>
                 <Link href="/reparation" className="btn-outline">
                   RÉPARATION SAV

@@ -124,11 +124,11 @@ export const brand: BrandConfig = {
 
   // Content
   heroTitle: [
-    process.env.NEXT_PUBLIC_BRAND_HERO_L1 || "GLISSEZ",
-    process.env.NEXT_PUBLIC_BRAND_HERO_L2 || "EN TOUTE",
-    process.env.NEXT_PUBLIC_BRAND_HERO_L3 || "LIBERTÉ",
+    process.env.NEXT_PUBLIC_BRAND_HERO_L1 || "ROULEZ PLUS",
+    process.env.NEXT_PUBLIC_BRAND_HERO_L2 || "DÉPENSEZ MOINS",
+    process.env.NEXT_PUBLIC_BRAND_HERO_L3 || "RÉPARATION INCLUSE",
   ],
-  heroSubtitle: process.env.NEXT_PUBLIC_BRAND_HERO_SUBTITLE || "Trottinettes, pièces détachées et réparation. Expert depuis 2019.",
+  heroSubtitle: process.env.NEXT_PUBLIC_BRAND_HERO_SUBTITLE || "La boutique #1 en Île-de-France. 2000+ pièces, réparation en 24h, paiement en 4x.",
   footerTagline: process.env.NEXT_PUBLIC_BRAND_FOOTER_TAGLINE || "Spécialiste trottinettes électriques depuis 2019",
 
   // Social

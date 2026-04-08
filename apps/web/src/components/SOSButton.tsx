@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { Phone, Wrench, MapPin, X, Zap } from "lucide-react";
 import { brand } from "@/lib/brand";
@@ -10,6 +10,7 @@ export default function SOSButton() {
   const [open, setOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const pathname = usePathname();
+  const sosMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setShopOpen(isStoreOpen());
@@ -19,6 +20,40 @@ export default function SOSButton() {
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Escape key closes SOS menu
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open]);
+
+  // Focus trap for SOS menu
+  useEffect(() => {
+    if (!open || !sosMenuRef.current) return;
+    const panel = sosMenuRef.current;
+    const focusable = panel.querySelectorAll<HTMLElement>(
+      'a[href], button, input, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    focusable[0].focus();
+
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", trap);
+    return () => document.removeEventListener("keydown", trap);
+  }, [open]);
 
   // Ne pas afficher sur les pages admin
   if (pathname?.startsWith("/admin")) return null;
@@ -46,6 +81,10 @@ export default function SOSButton() {
       {/* Menu d'actions */}
       {open && (
         <div
+          ref={sosMenuRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu SOS urgence"
           style={{
             position: "fixed",
             bottom: 88,
