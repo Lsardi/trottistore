@@ -411,6 +411,14 @@ export default function ProductPage() {
                     ? "AJOUT EN COURS..."
                     : "AJOUTER AU PANIER"}
                 </button>
+
+                <p className="font-mono text-xs text-text-muted mt-3">
+                  Droit de rétractation de 14 jours et garantie légale de conformité de 2 ans.{" "}
+                  <Link href="/cgv" className="underline text-text">
+                    Voir les CGV
+                  </Link>
+                  .
+                </p>
               </>
             )}
 

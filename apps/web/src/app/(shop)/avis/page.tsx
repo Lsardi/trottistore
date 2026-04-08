@@ -107,7 +107,7 @@ export default function AvisPage() {
 
       {/* Hero */}
       <div className="text-center mb-10">
-        <p className="spec-label text-neon mb-3">AVIS CLIENTS VERIFIES</p>
+        <p className="spec-label text-neon mb-3">AVIS CLIENTS</p>
         <h1 className="heading-lg mb-4">CE QUE NOS CLIENTS DISENT</h1>
 
         {/* Score agrégé */}
