@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
+import { fontVariables } from "@/lib/fonts";
 import { DEFAULT_THEME, THEME_PROFILES, THEME_STORAGE_KEY } from "@/lib/themes";
 import StructuredData from "@/components/StructuredData";
 import "./globals.css";
@@ -34,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const allowedThemes = THEME_PROFILES.map((item) => item.id);
 
   return (
-    <html lang="fr" data-theme={DEFAULT_THEME} suppressHydrationWarning>
+    <html lang="fr" data-theme={DEFAULT_THEME} className={fontVariables} suppressHydrationWarning>
       <head>
         <StructuredData />
       </head>

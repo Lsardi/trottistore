@@ -159,8 +159,51 @@ export default function ProductPage() {
   const categoryName = product.categories?.[0]?.category?.name;
   const categorySlug = product.categories?.[0]?.category?.slug;
 
+  /* ─── Structured data for SEO ─── */
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Accueil", item: "https://trottistore.fr" },
+      { "@type": "ListItem", position: 2, name: "Catalogue", item: "https://trottistore.fr/produits" },
+      ...(categoryName
+        ? [{ "@type": "ListItem", position: 3, name: categoryName, item: `https://trottistore.fr/produits?categorySlug=${categorySlug}` }]
+        : []),
+      { "@type": "ListItem", position: categoryName ? 4 : 3, name: product.name },
+    ],
+  };
+
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.shortDescription || product.description || "",
+    image: images.map((img) => img.url),
+    sku: product.sku || undefined,
+    brand: product.brand ? { "@type": "Brand", name: product.brand.name } : undefined,
+    offers: {
+      "@type": "Offer",
+      url: `https://trottistore.fr/produits/${slug}`,
+      priceCurrency: "EUR",
+      price: ttcNum.toFixed(2),
+      availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: { "@type": "Organization", name: "TrottiStore" },
+    },
+    ...(categoryName && {
+      category: categoryName,
+    }),
+  };
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--color-void)" }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       {/* ── Breadcrumb bar ── */}
       <div
         className="px-4 sm:px-6 lg:px-8 py-3"
