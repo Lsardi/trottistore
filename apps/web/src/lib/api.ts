@@ -148,11 +148,64 @@ export const ordersApi = {
       body: JSON.stringify(body),
     }),
 
+  createGuest: (body: {
+    email: string;
+    shippingAddress: {
+      firstName: string;
+      lastName: string;
+      street: string;
+      street2?: string;
+      postalCode: string;
+      city: string;
+      country?: string;
+      phone?: string;
+    };
+    billingAddress?: {
+      firstName: string;
+      lastName: string;
+      street: string;
+      street2?: string;
+      postalCode: string;
+      city: string;
+      country?: string;
+      phone?: string;
+    };
+    paymentMethod: string;
+    shippingMethod?: "DELIVERY" | "STORE_PICKUP";
+    notes?: string;
+    acceptedCgv: true;
+  }) =>
+    apiFetch<{ success: boolean; data: Order }>('ecommerce', '/orders/guest', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   list: (params?: { page?: number }) =>
     apiFetch<{ success: boolean; data: Order[]; pagination: Pagination }>('ecommerce', '/orders', { params }),
 
   getById: (id: string) =>
     apiFetch<{ success: boolean; data: Order }>('ecommerce', `/orders/${id}`),
+
+  adminList: (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
+    apiFetch<{ success: boolean; data: AdminOrderSummary[]; pagination: Pagination }>('ecommerce', '/admin/orders', { params }),
+
+  adminGetById: (id: string) =>
+    apiFetch<{ success: boolean; data: Order }>('ecommerce', `/admin/orders/${id}`),
+
+  adminUpdateStatus: (id: string, body: { status: string; note?: string }) =>
+    apiFetch<{ success: boolean; data: Order }>('ecommerce', `/admin/orders/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  adminUpdateTracking: (
+    id: string,
+    body: { trackingNumber: string; note?: string; markAsShipped?: boolean }
+  ) =>
+    apiFetch<{ success: boolean; data: Order }>('ecommerce', `/admin/orders/${id}/tracking`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 };
 
 export const addressesApi = {
@@ -627,10 +680,54 @@ export interface Order {
   status: string;
   paymentMethod: string;
   paymentStatus: string;
+  shippingMethod?: string;
+  trackingNumber?: string | null;
+  notes?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
   subtotalHt: string;
   tvaAmount: string;
+  shippingCost?: string;
   totalTtc: string;
   items: OrderItem[];
+  itemsCount?: number;
+  customer?: {
+    id: string;
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+  };
+  statusHistory?: Array<{
+    id: string;
+    fromStatus: string;
+    toStatus: string;
+    note?: string | null;
+    changedAt: string;
+    changedBy?: string | null;
+  }>;
+  createdAt: string;
+}
+
+export interface AdminOrderSummary {
+  id: string;
+  orderNumber: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  shippingMethod?: string;
+  trackingNumber?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  totalTtc: string;
+  itemsCount?: number;
+  customer?: {
+    id: string;
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+  };
   createdAt: string;
 }
 
@@ -638,7 +735,14 @@ export interface OrderItem {
   id: string;
   quantity: number;
   unitPriceHt: string;
+  totalHt?: string;
   product: Product;
+  variant?: {
+    id: string;
+    name: string;
+    sku: string;
+    attributes?: Record<string, string> | null;
+  } | null;
 }
 
 export interface Address {
