@@ -37,7 +37,8 @@
     "db:studio": "pnpm --filter @trottistore/database studio",
     "db:seed:demo": "pnpm --filter @trottistore/scripts seed:demo",
     "db:seed": "pnpm --filter @trottistore/scripts seed",
-    "crawl": "pnpm --filter @trottistore/scripts crawl"
+    "crawl": "pnpm --filter @trottistore/scripts crawl",
+    "analytics:refresh": "tsx services/analytics/src/jobs/refresh-projections.ts"
   },
   "devDependencies": {
     "@types/autocannon": "^7.12.7",
