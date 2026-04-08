@@ -16,6 +16,7 @@ import {
   type RepairTicket,
   type User,
 } from "@/lib/api";
+import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 export default function MonCompteWrapper() {
@@ -329,6 +330,12 @@ function formatPrice(amount: string | number): string {
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                     className="input-dark w-full"
                   />
+                  <a
+                    href={`mailto:${brand.email}?subject=Mot%20de%20passe%20oubli%C3%A9`}
+                    className="mt-2 inline-block font-mono text-xs text-text-muted underline hover:text-text"
+                  >
+                    Mot de passe oublié ?
+                  </a>
                 </div>
                 <button type="submit" disabled={loading} className="btn-neon w-full mt-2 disabled:opacity-50">
                   {loading ? (

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
-import { ApiError, authApi, cartApi, checkoutApi, ordersApi, type CartItem, type User } from "@/lib/api";
+import { ApiError, addressesApi, authApi, cartApi, checkoutApi, ordersApi, type CartItem, type User } from "@/lib/api";
 
 const PAYMENT_METHODS = [
   { value: "CARD", label: "Carte bancaire (Stripe)" },
@@ -107,6 +107,20 @@ export default function CheckoutPage() {
     orderId: string;
     clientSecret: string;
   } | null>(null);
+  const [showInlineAddressForm, setShowInlineAddressForm] = useState(false);
+  const [creatingAddress, setCreatingAddress] = useState(false);
+  const [addressError, setAddressError] = useState("");
+  const [inlineAddress, setInlineAddress] = useState({
+    firstName: "",
+    lastName: "",
+    street: "",
+    street2: "",
+    postalCode: "",
+    city: "",
+    country: "FR",
+    phone: "",
+    label: "Livraison",
+  });
 
   useEffect(() => {
     async function loadCheckout() {
@@ -114,11 +128,19 @@ export default function CheckoutPage() {
         const [cartRes, meRes] = await Promise.all([cartApi.get(), authApi.me()]);
         setItems(cartRes.data.items);
         setUser(meRes.data);
+        setInlineAddress((prev) => ({
+          ...prev,
+          firstName: meRes.data.firstName || prev.firstName,
+          lastName: meRes.data.lastName || prev.lastName,
+          phone: meRes.data.phone || prev.phone,
+        }));
 
         const defaultAddress = meRes.data.addresses?.find((a) => a.isDefault) ?? meRes.data.addresses?.[0];
         if (defaultAddress) {
           setShippingAddressId(defaultAddress.id);
           setBillingAddressId(defaultAddress.id);
+        } else {
+          setShowInlineAddressForm(true);
         }
 
         const stripeConfig = await checkoutApi.config().catch(() => null);
@@ -163,22 +185,88 @@ export default function CheckoutPage() {
   const shippingMethod = deliveryMode === "PICKUP_1H" ? "STORE_PICKUP" : "DELIVERY";
   const isStripeFlow = isStripePaymentMethod(paymentMethod);
   const stripeAvailable = Boolean(stripePublishableKey && stripePromise);
+  const hasAddresses = (user?.addresses?.length ?? 0) > 0;
+
+  function normalizeCountryCode(rawCountry: string): string {
+    const value = rawCountry.trim().toUpperCase();
+    if (!value) return "FR";
+    if (value === "FRANCE") return "FR";
+    if (value.length === 2) return value;
+    return "FR";
+  }
+
+  async function createInlineAddress(): Promise<string | null> {
+    const requiredFields: Array<keyof typeof inlineAddress> = ["firstName", "lastName", "street", "postalCode", "city"];
+    const missingRequiredField = requiredFields.some((field) => !inlineAddress[field].trim());
+    if (missingRequiredField) {
+      setAddressError("Renseigne prénom, nom, rue, code postal et ville.");
+      return null;
+    }
+
+    setCreatingAddress(true);
+    setAddressError("");
+
+    try {
+      const res = await addressesApi.create({
+        firstName: inlineAddress.firstName.trim(),
+        lastName: inlineAddress.lastName.trim(),
+        street: inlineAddress.street.trim(),
+        street2: inlineAddress.street2.trim() || undefined,
+        postalCode: inlineAddress.postalCode.trim(),
+        city: inlineAddress.city.trim(),
+        country: normalizeCountryCode(inlineAddress.country),
+        phone: inlineAddress.phone.trim() || undefined,
+        label: inlineAddress.label.trim() || "Livraison",
+        type: "SHIPPING",
+        isDefault: !hasAddresses,
+      });
+
+      const createdAddress = res.data;
+      setUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              addresses: [...(prev.addresses ?? []), createdAddress],
+            }
+          : prev,
+      );
+      setShippingAddressId(createdAddress.id);
+      setBillingAddressId(createdAddress.id);
+      setShowInlineAddressForm(false);
+
+      return createdAddress.id;
+    } catch {
+      setAddressError("Impossible d'enregistrer l'adresse. Réessaie.");
+      return null;
+    } finally {
+      setCreatingAddress(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!shippingAddressId) {
-      setError("Sélectionne une adresse de livraison.");
-      return;
-    }
     if (!acceptedCgv) {
       setError("Tu dois accepter les conditions generales de vente.");
       return;
     }
-
     setSubmitting(true);
     setError("");
+    let selectedShippingAddressId = shippingAddressId;
 
     try {
+      if (!selectedShippingAddressId && showInlineAddressForm) {
+        const createdAddressId = await createInlineAddress();
+        if (!createdAddressId) {
+          return;
+        }
+        selectedShippingAddressId = createdAddressId;
+      }
+
+      if (!selectedShippingAddressId) {
+        setError("Sélectionne une adresse de livraison.");
+        return;
+      }
+
       const normalizedNotes = [
         deliveryMode === "PICKUP_1H" ? "[RETRAIT_1H] Client souhaite retrait boutique sous 1h." : null,
         notes || null,
@@ -188,7 +276,7 @@ export default function CheckoutPage() {
         .slice(0, 1000);
 
       const orderRes = await ordersApi.create({
-        shippingAddressId,
+        shippingAddressId: selectedShippingAddressId,
         billingAddressId: billingAddressId || undefined,
         paymentMethod,
         notes: normalizedNotes || undefined,
@@ -263,6 +351,7 @@ export default function CheckoutPage() {
               onChange={(e) => setShippingAddressId(e.target.value)}
               className="input-dark w-full"
               required
+              disabled={!hasAddresses}
             >
               <option value="">Sélectionner une adresse</option>
               {user?.addresses?.map((address) => (
@@ -271,6 +360,104 @@ export default function CheckoutPage() {
                 </option>
               ))}
             </select>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="font-mono text-xs text-text-muted">
+                {hasAddresses ? "Tu peux aussi ajouter une nouvelle adresse." : "Aucune adresse enregistrée pour ce compte."}
+              </p>
+              <button
+                type="button"
+                className="font-mono text-xs text-neon underline disabled:opacity-50"
+                onClick={() => {
+                  setShowInlineAddressForm((prev) => !prev);
+                  setAddressError("");
+                }}
+              >
+                {showInlineAddressForm ? "Fermer le formulaire" : "Ajouter une adresse"}
+              </button>
+            </div>
+            {showInlineAddressForm ? (
+              <div className="mt-3 border border-border p-4 space-y-3">
+                <p className="spec-label">Nouvelle adresse</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    className="input-dark w-full"
+                    placeholder="Prénom*"
+                    value={inlineAddress.firstName}
+                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, firstName: e.target.value }))}
+                  />
+                  <input
+                    className="input-dark w-full"
+                    placeholder="Nom*"
+                    value={inlineAddress.lastName}
+                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, lastName: e.target.value }))}
+                  />
+                </div>
+                <input
+                  className="input-dark w-full"
+                  placeholder="Adresse*"
+                  value={inlineAddress.street}
+                  onChange={(e) => setInlineAddress((prev) => ({ ...prev, street: e.target.value }))}
+                />
+                <input
+                  className="input-dark w-full"
+                  placeholder="Complément d'adresse"
+                  value={inlineAddress.street2}
+                  onChange={(e) => setInlineAddress((prev) => ({ ...prev, street2: e.target.value }))}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    className="input-dark w-full"
+                    placeholder="Code postal*"
+                    value={inlineAddress.postalCode}
+                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, postalCode: e.target.value }))}
+                  />
+                  <input
+                    className="input-dark w-full"
+                    placeholder="Ville*"
+                    value={inlineAddress.city}
+                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, city: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    className="input-dark w-full"
+                    placeholder="Pays (code ISO, ex: FR)"
+                    value={inlineAddress.country}
+                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, country: e.target.value }))}
+                  />
+                  <input
+                    className="input-dark w-full"
+                    placeholder="Téléphone"
+                    value={inlineAddress.phone}
+                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+                <input
+                  className="input-dark w-full"
+                  placeholder="Libellé (ex: domicile)"
+                  value={inlineAddress.label}
+                  onChange={(e) => setInlineAddress((prev) => ({ ...prev, label: e.target.value }))}
+                />
+                {addressError ? <p className="font-mono text-xs text-danger">{addressError}</p> : null}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await createInlineAddress();
+                  }}
+                  disabled={creatingAddress}
+                  className="btn-outline w-full disabled:opacity-50"
+                >
+                  {creatingAddress ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      ENREGISTREMENT...
+                    </>
+                  ) : (
+                    "ENREGISTRER CETTE ADRESSE"
+                  )}
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div>
