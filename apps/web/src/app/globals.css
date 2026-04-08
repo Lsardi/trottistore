@@ -21,7 +21,7 @@
   --color-border-light: #333333;
   --color-text: #E8E8E8;
   --color-text-muted: #888888;
-  --color-text-dim: #555555;
+  --color-text-dim: #777777;
   --color-neon: #00FFD1;
   --color-neon-muted: #00CCa8;
   --color-neon-dim: rgba(0, 255, 209, 0.15);
@@ -50,7 +50,7 @@
   --color-border-light: #333333;
   --color-text: #E8E8E8;
   --color-text-muted: #888888;
-  --color-text-dim: #555555;
+  --color-text-dim: #777777;
   --color-neon: #00FFD1;
   --color-neon-muted: #00CCa8;
   --color-neon-dim: rgba(0, 255, 209, 0.15);
@@ -75,7 +75,7 @@
   --color-border-light: #c7baa5;
   --color-text: #2a241a;
   --color-text-muted: #655b4d;
-  --color-text-dim: #8b7e6b;
+  --color-text-dim: #6b5f4f;
   --color-neon: #0f7b6c;
   --color-neon-muted: #0c6659;
   --color-neon-dim: rgba(15, 123, 108, 0.12);
@@ -100,7 +100,7 @@
   --color-border-light: #3c3c3c;
   --color-text: #111111;
   --color-text-muted: #333333;
-  --color-text-dim: #5a5a5a;
+  --color-text-dim: #525252;
   --color-neon: #ffde00;
   --color-neon-muted: #f3c500;
   --color-neon-dim: rgba(255, 222, 0, 0.2);
