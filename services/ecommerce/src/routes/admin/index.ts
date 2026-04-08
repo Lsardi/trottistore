@@ -105,7 +105,7 @@ const fullProductInclude = {
 
 export async function adminRoutes(app: FastifyInstance) {
   const adminOnly = {
-    preHandler: [app.authenticate, requireRole("ADMIN")],
+    preHandler: [app.authenticate, requireRole("SUPERADMIN", "ADMIN", "MANAGER")],
   };
 
   // ─── POST /admin/products — Create product ─────────────────
