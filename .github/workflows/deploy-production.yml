@@ -1,0 +1,122 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to deploy (all, web, ecommerce, crm, sav, analytics)"
+        required: false
+        default: "all"
+      run_healthchecks:
+        description: "Run production healthchecks after deploy"
+        required: false
+        default: "true"
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Deploy to Railway Production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Railway configuration
+        run: |
+          if [ -z "${RAILWAY_TOKEN}" ]; then
+            echo "Missing required secret: RAILWAY_TOKEN"
+            exit 1
+          fi
+          if [ -z "${RAILWAY_PROJECT_ID}" ]; then
+            echo "Missing required variable: RAILWAY_PROJECT_ID"
+            exit 1
+          fi
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy Web (Next.js)
+        if: inputs.service == 'all' || inputs.service == 'web'
+        run: |
+          cd apps/web
+          railway up --service web --environment production --detach -p "$RAILWAY_PROJECT_ID"
+
+      - name: Deploy Ecommerce Service
+        if: inputs.service == 'all' || inputs.service == 'ecommerce'
+        run: |
+          cd services/ecommerce
+          railway up --service ecommerce --environment production --detach -p "$RAILWAY_PROJECT_ID"
+
+      - name: Deploy CRM Service
+        if: inputs.service == 'all' || inputs.service == 'crm'
+        run: |
+          cd services/crm
+          railway up --service crm --environment production --detach -p "$RAILWAY_PROJECT_ID"
+
+      - name: Deploy SAV Service
+        if: inputs.service == 'all' || inputs.service == 'sav'
+        run: |
+          cd services/sav
+          railway up --service sav --environment production --detach -p "$RAILWAY_PROJECT_ID"
+
+      - name: Deploy Analytics Service
+        if: inputs.service == 'all' || inputs.service == 'analytics'
+        run: |
+          cd services/analytics
+          railway up --service analytics --environment production --detach -p "$RAILWAY_PROJECT_ID"
+
+  healthcheck:
+    name: Post-deploy healthchecks (prod)
+    needs: deploy
+    if: inputs.run_healthchecks == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for services to start
+        run: sleep 30
+
+      - name: Check Web
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_WEB_URL || 'https://trottistore.fr' }}/" || echo "000")
+          echo "Web: $STATUS"
+          [ "$STATUS" = "200" ] || [ "$STATUS" = "308" ] || exit 1
+
+      - name: Check Ecommerce /health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_ECOMMERCE_URL || 'https://ecommerce.trottistore.fr' }}/health" || echo "000")
+          echo "Ecommerce: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Check CRM /health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_CRM_URL || 'https://crm.trottistore.fr' }}/health" || echo "000")
+          echo "CRM: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Check SAV /health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_SAV_URL || 'https://sav.trottistore.fr' }}/health" || echo "000")
+          echo "SAV: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Check Analytics /health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_ANALYTICS_URL || 'https://analytics.trottistore.fr' }}/health" || echo "000")
+          echo "Analytics: $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+      - name: Check Ecommerce /ready
+        run: |
+          BODY=$(curl -s "${{ vars.PROD_ECOMMERCE_URL || 'https://ecommerce.trottistore.fr' }}/ready")
+          echo "Ecommerce ready: $BODY"
+          echo "$BODY" | grep -q '"ready"' || exit 1
+
+      - name: Summary
+        if: always()
+        run: echo "Production healthchecks complete"
