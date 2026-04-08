@@ -43,10 +43,10 @@ const STATS = [
 ];
 
 const CATEGORIES_SMALL = [
-  { name: "ÉCLAIRAGES", icon: Lightbulb, count: 48 },
-  { name: "FREINAGE", icon: Disc, count: 92 },
-  { name: "CÂBLES", icon: Cable, count: 67 },
-  { name: "DISPLAYS", icon: Monitor, count: 31 },
+  { name: "ÉCLAIRAGES", icon: Lightbulb, count: 48, slug: "eclairages" },
+  { name: "FREINAGE", icon: Disc, count: 92, slug: "freinage" },
+  { name: "CÂBLES", icon: Cable, count: 67, slug: "cables" },
+  { name: "DISPLAYS", icon: Monitor, count: 31, slug: "displays" },
 ];
 
 const REVIEWS = [
@@ -215,6 +215,7 @@ export default function HomePage() {
                 alt="Trottinette électrique Teverun Tetra"
                 width={300}
                 height={300}
+                priority
                 style={{
                   maxWidth: "100%",
                   maxHeight: 400,
@@ -580,8 +581,9 @@ export default function HomePage() {
             {CATEGORIES_SMALL.map((cat) => {
               const Icon = cat.icon;
               return (
-                <div
+                <Link
                   key={cat.name}
+                  href={`/produits?categorySlug=${cat.slug}`}
                   className="category-card"
                   style={{
                     backgroundColor: "var(--color-surface-2)",
@@ -592,6 +594,8 @@ export default function HomePage() {
                     justifyContent: "space-between",
                     transition: "border-color 200ms",
                     cursor: "pointer",
+                    textDecoration: "none",
+                    color: "inherit",
                   }}
                 >
                   <div>
@@ -612,7 +616,7 @@ export default function HomePage() {
                   <span className="font-mono" style={{ fontSize: "0.65rem", color: "var(--color-text-dim)" }}>
                     {cat.count} produits
                   </span>
-                </div>
+                </Link>
               );
             })}
           </div>

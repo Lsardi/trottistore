@@ -4,6 +4,7 @@ import { brand } from "@/lib/brand";
 export const metadata: Metadata = {
   title: `Checkout | ${brand.name}`,
   description: "Finalisez votre commande. Paiement sécurisé par carte, Apple Pay, Google Pay ou en 3x sans frais.",
+  robots: { index: false, follow: false },
 };
 
 export default function CheckoutLayout({ children }: { children: React.ReactNode }) {

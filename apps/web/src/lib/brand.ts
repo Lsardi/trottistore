@@ -103,10 +103,10 @@ export const brand: BrandConfig = {
 
   // SEO
   seo: {
-    title: process.env.NEXT_PUBLIC_BRAND_SEO_TITLE || "TrottiStore — Trottinettes electriques & Pieces detachees",
+    title: process.env.NEXT_PUBLIC_BRAND_SEO_TITLE || "TrottiStore — Trottinettes électriques & Pièces détachées",
     titleTemplate: process.env.NEXT_PUBLIC_BRAND_SEO_TITLE_TEMPLATE || "%s | TrottiStore",
-    description: process.env.NEXT_PUBLIC_BRAND_SEO_DESCRIPTION || "Boutique specialisee trottinettes electriques, pieces detachees et reparation SAV. Livraison France, paiement en plusieurs fois sans frais.",
-    keywords: (process.env.NEXT_PUBLIC_BRAND_SEO_KEYWORDS || "trottinette electrique,pieces detachees trottinette,reparation trottinette,SAV trottinette,TrottiStore").split(","),
+    description: process.env.NEXT_PUBLIC_BRAND_SEO_DESCRIPTION || "Boutique spécialisée trottinettes électriques, pièces détachées et réparation SAV. Livraison France, paiement en plusieurs fois sans frais.",
+    keywords: (process.env.NEXT_PUBLIC_BRAND_SEO_KEYWORDS || "trottinette électrique,pièces détachées trottinette,réparation trottinette,SAV trottinette,TrottiStore").split(","),
     ogUrl: process.env.NEXT_PUBLIC_BRAND_OG_URL || "https://trottistore.fr",
     locale: process.env.NEXT_PUBLIC_BRAND_LOCALE || "fr_FR",
   },
