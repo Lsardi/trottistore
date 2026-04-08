@@ -141,6 +141,7 @@ export const ordersApi = {
     paymentMethod: string;
     notes?: string;
     shippingMethod?: "DELIVERY" | "STORE_PICKUP";
+    acceptedCgv: true;
   }) =>
     apiFetch<{ success: boolean; data: Order }>('ecommerce', '/orders', {
       method: 'POST',

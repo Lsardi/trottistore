@@ -19,6 +19,10 @@ const SERVICE_LINKS = [
   { label: "Avis clients", href: "/avis" },
   { label: "Offre Pro", href: "/pro" },
   { label: "Suivi commande", href: "/mon-compte" },
+  { label: "Mentions légales", href: "/mentions-legales" },
+  { label: "CGV", href: "/cgv" },
+  { label: "Politique de confidentialité", href: "/politique-confidentialite" },
+  { label: "Cookies", href: "/cookies" },
 ];
 
 export default function Footer() {

@@ -99,6 +99,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<(typeof PAYMENT_METHODS)[number]["value"]>("CARD");
   const [deliveryMode, setDeliveryMode] = useState<(typeof DELIVERY_MODES)[number]["value"]>("STANDARD");
   const [notes, setNotes] = useState("");
+  const [acceptedCgv, setAcceptedCgv] = useState(false);
   const [error, setError] = useState("");
   const [successOrderId, setSuccessOrderId] = useState("");
   const [stripePublishableKey, setStripePublishableKey] = useState<string | null>(null);
@@ -169,6 +170,10 @@ export default function CheckoutPage() {
       setError("Sélectionne une adresse de livraison.");
       return;
     }
+    if (!acceptedCgv) {
+      setError("Tu dois accepter les conditions generales de vente.");
+      return;
+    }
 
     setSubmitting(true);
     setError("");
@@ -188,6 +193,7 @@ export default function CheckoutPage() {
         paymentMethod,
         notes: normalizedNotes || undefined,
         shippingMethod,
+        acceptedCgv: true,
       });
 
       if (isStripeFlow && stripeAvailable) {
@@ -357,6 +363,25 @@ export default function CheckoutPage() {
                 Changer de mode de paiement
               </button>
             </div>
+          ) : null}
+
+          {!pendingStripeCheckout ? (
+            <label className="flex items-start gap-2 font-mono text-xs text-text-muted">
+              <input
+                type="checkbox"
+                checked={acceptedCgv}
+                onChange={(e) => setAcceptedCgv(e.target.checked)}
+                className="mt-0.5"
+                required
+              />
+              <span>
+                J&apos;accepte les{" "}
+                <Link href="/cgv" className="underline text-text">
+                  conditions générales de vente
+                </Link>
+                .
+              </span>
+            </label>
           ) : null}
 
           {error && <div className="border border-danger/40 bg-danger/10 px-4 py-3 font-mono text-sm text-danger">{error}</div>}

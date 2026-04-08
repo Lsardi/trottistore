@@ -39,6 +39,7 @@ const checkoutSchema = z.object({
   paymentMethod: z.enum(PAYMENT_METHODS),
   shippingMethod: z.enum(["DELIVERY", "STORE_PICKUP"]).optional().default("DELIVERY"),
   notes: z.string().max(1000).optional(),
+  acceptedCgv: z.literal(true),
 });
 
 const listOrdersSchema = z.object({
