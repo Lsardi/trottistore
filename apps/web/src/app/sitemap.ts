@@ -31,6 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static public routes (excluding private: /checkout, /panier, /mon-compte)
   const staticRoutes = [
     "",
+    "/a-propos",
     "/atelier",
     "/avis",
     "/compatibilite",

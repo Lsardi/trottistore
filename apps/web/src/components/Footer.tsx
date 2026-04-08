@@ -22,6 +22,7 @@ const SERVICE_LINKS = [
   { label: "Livraison & Retours", href: "/livraison" },
   { label: "FAQ", href: "/faq" },
   { label: "Guides", href: "/guide" },
+  { label: "À propos", href: "/a-propos" },
   { label: "Mentions légales", href: "/mentions-legales" },
   { label: "CGV", href: "/cgv" },
   { label: "Politique de confidentialité", href: "/politique-confidentialite" },

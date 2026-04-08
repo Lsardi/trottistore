@@ -31,7 +31,7 @@ services:
     image: redis:7-alpine
     container_name: trottistore-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD} --save 900 1 --save 300 10 --save 60 10000
     volumes:
       - redis_data:/data
     healthcheck:
@@ -189,11 +189,42 @@ services:
     networks:
       - internal
 
+  backup:
+    image: postgres:16-alpine
+    container_name: trottistore-backup
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "Backup cron started"
+        while true; do
+          sleep 21600  # Every 6 hours
+          echo "[$(date)] Running database backup..."
+          PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h postgres -U "$${POSTGRES_USER:-trottistore}" "$${POSTGRES_DB:-trottistore}" | gzip > /backups/trottistore_$$(date +%Y%m%d_%H%M%S).sql.gz
+          # Cleanup backups older than 30 days
+          find /backups -name "trottistore_*.sql.gz" -mtime +30 -delete
+          echo "[$(date)] Backup complete"
+        done
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trottistore}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-trottistore}
+    volumes:
+      - backup_data:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+    networks:
+      - internal
+
 volumes:
   postgres_data:
   redis_data:
   caddy_data:
   caddy_config:
+  backup_data:
 
 networks:
   internal:
