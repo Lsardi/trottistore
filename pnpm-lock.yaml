@@ -306,6 +306,9 @@ importers:
       ioredis:
         specifier: ^5.4.0
         version: 5.10.1
+      nodemailer:
+        specifier: ^8.0.4
+        version: 8.0.4
       prom-client:
         specifier: ^15.1.3
         version: 15.1.3
@@ -319,6 +322,9 @@ importers:
       '@types/bcryptjs':
         specifier: ^2.4.6
         version: 2.4.6
+      '@types/nodemailer':
+        specifier: ^7.0.11
+        version: 7.0.11
       prisma:
         specifier: ^6.19.2
         version: 6.19.2(typescript@5.9.3)

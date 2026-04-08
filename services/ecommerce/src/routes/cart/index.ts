@@ -165,6 +165,23 @@ async function enrichCartItems(app: FastifyInstance, cart: Cart) {
 // ─── Routes ──────────────────────────────────────────────────
 
 export async function cartRoutes(app: FastifyInstance) {
+  // Try to decode JWT if present (optional auth — anonymous carts still work)
+  app.addHook("onRequest", async (request) => {
+    const authHeader = request.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.slice(7);
+        const decoded = app.jwt.verify(token) as { sub: string; email: string; role: string };
+        (request as unknown as { user: { id: string; userId: string } }).user = {
+          id: decoded.sub,
+          userId: decoded.sub,
+        };
+      } catch {
+        // Invalid token — proceed as anonymous
+      }
+    }
+  });
+
   // GET /cart — current cart with enriched product data
   app.get("/cart", async (request, reply) => {
     const key = getCartKey(request);

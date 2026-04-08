@@ -25,4 +25,8 @@ else
   echo "→ Database already has data ($USER_COUNT users), skipping seed."
 fi
 
+# Refresh analytics projections
+echo "→ Refreshing analytics projections..."
+pnpm analytics:refresh 2>/dev/null && echo "  ✓ Projections refreshed" || echo "  ⚠ Projections skipped (services not ready yet)"
+
 exec pnpm turbo dev
