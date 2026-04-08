@@ -4,7 +4,7 @@ import { brand } from "@/lib/brand";
 import { Wrench, Zap, Shield, Clock, MapPin, Phone, Star, ChevronRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: `Atelier réparation trottinette — ${brand.address.city} | ${brand.name}`,
+  title: `Atelier réparation trottinette | ${brand.name}`,
   description: `Atelier spécialisé réparation trottinettes électriques à ${brand.address.city}. Diagnostic gratuit, toutes marques, pièces en stock. Ouvert lundi-samedi 10h-19h.`,
 };
 

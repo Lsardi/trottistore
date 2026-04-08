@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: `Compatibilité pièces trottinette — Trouvez vos pièces | ${brand.name}`,
+  title: `Compatibilité pièces trottinette | ${brand.name}`,
   description: "Sélectionnez votre marque et modèle de trottinette. On vous montre uniquement les pièces compatibles en stock. Dualtron, Xiaomi, Ninebot, Kaabo et plus.",
 };
 

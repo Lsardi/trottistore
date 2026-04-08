@@ -158,9 +158,10 @@ function UrgencePage() {
 
         <section className="bg-surface border border-border p-6">
           <p className="spec-label mb-3">PRISE DE RDV</p>
-          <label className="spec-label block mb-2">Date souhaitée</label>
+          <label htmlFor="urgent-date" className="spec-label block mb-2">Date souhaitée</label>
           <div className="flex gap-2 mb-4">
             <input
+              id="urgent-date"
               type="date"
               value={date}
               min={DEFAULT_DATE}
@@ -198,8 +199,9 @@ function UrgencePage() {
       <form id="urgent-form" onSubmit={handleSubmit} className="bg-surface border border-border p-6 mt-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="spec-label block mb-2">Nom complet *</label>
+            <label htmlFor="urgent-name" className="spec-label block mb-2">Nom complet *</label>
             <input
+              id="urgent-name"
               required
               className="input-dark w-full"
               value={formData.customerName}
@@ -207,8 +209,9 @@ function UrgencePage() {
             />
           </div>
           <div>
-            <label className="spec-label block mb-2">Téléphone *</label>
+            <label htmlFor="urgent-phone" className="spec-label block mb-2">Téléphone *</label>
             <input
+              id="urgent-phone"
               required
               className="input-dark w-full"
               value={formData.customerPhone}
@@ -217,8 +220,9 @@ function UrgencePage() {
           </div>
         </div>
         <div>
-          <label className="spec-label block mb-2">Email</label>
+          <label htmlFor="urgent-email" className="spec-label block mb-2">Email</label>
           <input
+            id="urgent-email"
             type="email"
             className="input-dark w-full"
             value={formData.customerEmail}
@@ -226,8 +230,9 @@ function UrgencePage() {
           />
         </div>
         <div>
-          <label className="spec-label block mb-2">Modèle trottinette *</label>
+          <label htmlFor="urgent-model" className="spec-label block mb-2">Modèle trottinette *</label>
           <input
+            id="urgent-model"
             required
             className="input-dark w-full"
             placeholder="Ex: Xiaomi Pro 2"
@@ -236,8 +241,9 @@ function UrgencePage() {
           />
         </div>
         <div>
-          <label className="spec-label block mb-2">Problème rencontré *</label>
+          <label htmlFor="urgent-issue" className="spec-label block mb-2">Problème rencontré *</label>
           <textarea
+            id="urgent-issue"
             required
             rows={4}
             className="input-dark w-full resize-none"

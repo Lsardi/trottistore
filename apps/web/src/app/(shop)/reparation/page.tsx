@@ -289,10 +289,10 @@ function ReparationPage() {
 
           {/* Type */}
           <div>
-            <label className="spec-label block mb-3">
+            <p id="repair-request-type-label" className="spec-label block mb-3">
               Type de demande <span className="text-danger">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-3">
+            </p>
+            <div role="group" aria-labelledby="repair-request-type-label" className="grid grid-cols-2 gap-3">
               {TICKET_TYPES.map((t) => (
                 <button
                   key={t.value}
