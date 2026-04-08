@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import {
+  ApiError,
   productsApi,
   categoriesApi,
   type Product,
@@ -75,6 +76,7 @@ function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -93,6 +95,7 @@ function ProductsPage() {
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await productsApi.list({
         page,
@@ -104,8 +107,20 @@ function ProductsPage() {
       setProducts(res.data);
       setTotal(res.pagination?.total || 0);
       setTotalPages(res.pagination?.totalPages || 1);
-    } catch {
-      console.error("Erreur chargement produits");
+    } catch (error) {
+      console.error("Erreur chargement produits", error);
+      setProducts([]);
+      setTotal(0);
+      setTotalPages(1);
+      if (error instanceof ApiError) {
+        setError("Le service catalogue est temporairement indisponible. Reessayez dans quelques instants.");
+        return;
+      }
+      if (error instanceof TypeError) {
+        setError("Le service catalogue ne repond pas. Verifiez que l'API e-commerce est demarree (port 3001).");
+        return;
+      }
+      setError("Impossible de charger le catalogue pour le moment.");
     } finally {
       setLoading(false);
     }
@@ -220,6 +235,12 @@ function ProductsPage() {
             </select>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-6 border border-border bg-surface px-4 py-3 font-mono text-xs text-red-300">
+            {error}
+          </div>
+        )}
 
         {/* ── Product grid ── */}
         {loading ? (
