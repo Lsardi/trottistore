@@ -107,7 +107,9 @@ function clearRefreshCookie(reply: FastifyReply) {
 
 export async function authRoutes(app: FastifyInstance) {
   // ── POST /auth/register ────────────────────────────────
-  app.post("/auth/register", async (request, reply) => {
+  app.post("/auth/register", {
+    config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+  }, async (request, reply) => {
     const body = registerSchema.parse(request.body);
 
     // Check if email already taken
@@ -181,7 +183,9 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // ── POST /auth/login ───────────────────────────────────
-  app.post("/auth/login", async (request, reply) => {
+  app.post("/auth/login", {
+    config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+  }, async (request, reply) => {
     const body = loginSchema.parse(request.body);
 
     // Find user

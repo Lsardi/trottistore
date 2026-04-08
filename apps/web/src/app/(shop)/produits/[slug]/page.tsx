@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Minus, Plus, ImageOff, ArrowLeft, MapPin, Clock, Bell } from "lucide-react";
+import DOMPurify from "dompurify";
 import { productsApi, cartApi, stockAlertsApi, type Product } from "@/lib/api";
 import { formatPriceTTC, priceTTC } from "@/lib/utils";
 import ProductCard from "@/components/ProductCard";
@@ -512,7 +513,7 @@ export default function ProductPage() {
               <div
                 className="font-mono text-sm leading-relaxed mb-4"
                 style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}
-                dangerouslySetInnerHTML={{ __html: product.shortDescription }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.shortDescription) }}
               />
             )}
 
@@ -521,7 +522,7 @@ export default function ProductPage() {
                 <div
                   className="font-mono text-sm leading-relaxed"
                   style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}
-                  dangerouslySetInnerHTML={{ __html: product.description }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description) }}
                 />
               )}
           </div>

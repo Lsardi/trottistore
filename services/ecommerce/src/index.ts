@@ -37,6 +37,7 @@ const HOST = process.env.HOST || "0.0.0.0";
 
 async function start() {
   const app = Fastify({
+    trustProxy: true,
     logger: {
       level: process.env.NODE_ENV === "production" ? "info" : "debug",
       transport:
