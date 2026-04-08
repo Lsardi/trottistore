@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import {
   adminProductsApi,
   categoriesApi,
@@ -40,6 +39,21 @@ interface VariantEntry {
   stockQuantity: number;
   priceOverride: string;
   isActive: boolean;
+}
+
+function normalizeImageUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const candidate = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
 }
 
 export default function AdminProductEditPage() {
@@ -155,9 +169,13 @@ export default function AdminProductEditPage() {
   // ─── Image management ──────────────────────────────────────
 
   const addImage = () => {
-    if (!newImageUrl.trim()) return;
+    const normalizedUrl = normalizeImageUrl(newImageUrl);
+    if (!normalizedUrl) {
+      showToast("URL d'image invalide (http(s) requis)", "error");
+      return;
+    }
     const entry: ImageEntry = {
-      url: newImageUrl.trim(),
+      url: normalizedUrl,
       alt: newImageAlt.trim(),
       isPrimary: images.length === 0,
     };
@@ -489,12 +507,11 @@ export default function AdminProductEditPage() {
                         : "border-border"
                     )}
                   >
-                    <Image
+                    <img
                       src={img.url}
                       alt={img.alt || "Image produit"}
-                      fill
-                      sizes="(max-width: 640px) 50vw, 33vw"
-                      style={{ objectFit: "contain" }}
+                      className="absolute inset-0 w-full h-full object-contain"
+                      loading="lazy"
                     />
                     {img.isPrimary && (
                       <span className="absolute top-2 left-2 bg-neon text-surface text-[10px] font-bold px-1.5 py-0.5 rounded">
