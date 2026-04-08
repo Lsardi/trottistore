@@ -5,17 +5,28 @@ import StructuredData from "@/components/StructuredData";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(brand.seo.ogUrl),
   title: {
     default: brand.seo.title,
     template: brand.seo.titleTemplate,
   },
   description: brand.seo.description,
   keywords: brand.seo.keywords,
+  alternates: {
+    canonical: "./",
+  },
   openGraph: {
     type: "website",
     locale: brand.seo.locale,
     url: brand.seo.ogUrl,
     siteName: brand.name,
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
