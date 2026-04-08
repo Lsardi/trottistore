@@ -126,6 +126,16 @@ async function main() {
     { sku: "ACC-SACOCHE", name: "Sacoche guidon étanche", slug: "sacoche-guidon", priceHt: 24.17, brand: "xiaomi", cat: "accessoires", img: null, stock: 15 },
   ];
 
+  const fallbackImageByCategory: Record<
+    "trottinettes-electriques" | "pieces-detachees" | "batteries" | "accessoires",
+    string
+  > = {
+    "trottinettes-electriques": `${IMG}TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg`,
+    "pieces-detachees": `${IMG}MMDUALTRONACHILLEUS2023-TROTTINETTE-ELECTRIQUE-DUALTRON-ACHILLEUS-60V-35AH-2024-300x300.jpg`,
+    batteries: `${IMG}MMDUALTRONNEWSTORMLTD-TROTTINETTE-ELECTRIQUE-DUALTRON-NEW-STORM-LTD-84V45AH-EY4-300x300.jpg`,
+    accessoires: `${IMG}TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg`,
+  };
+
   const products: Record<string, { id: string; priceHt: number }> = {};
   for (const p of productsData) {
     const product = await prisma.product.upsert({
@@ -139,24 +149,19 @@ async function main() {
     });
     products[p.sku] = { id: product.id, priceHt: p.priceHt };
 
-    // Image: uniquement si fiable; sinon on supprime les anciennes images trompeuses.
-    if (p.img) {
-      const existingPrimaryImage = await prisma.productImage.findFirst({
-        where: { productId: product.id, isPrimary: true },
+    // Garantit qu'aucun produit de démo ne reste sans image.
+    const imageUrl = p.img ?? fallbackImageByCategory[p.cat];
+    const existingPrimaryImage = await prisma.productImage.findFirst({
+      where: { productId: product.id, isPrimary: true },
+    });
+    if (existingPrimaryImage) {
+      await prisma.productImage.update({
+        where: { id: existingPrimaryImage.id },
+        data: { url: imageUrl, alt: p.name, position: 0, isPrimary: true },
       });
-      if (existingPrimaryImage) {
-        await prisma.productImage.update({
-          where: { id: existingPrimaryImage.id },
-          data: { url: p.img, alt: p.name, position: 0, isPrimary: true },
-        });
-      } else {
-        await prisma.productImage.create({
-          data: { productId: product.id, url: p.img, alt: p.name, position: 0, isPrimary: true },
-        });
-      }
     } else {
-      await prisma.productImage.deleteMany({
-        where: { productId: product.id },
+      await prisma.productImage.create({
+        data: { productId: product.id, url: imageUrl, alt: p.name, position: 0, isPrimary: true },
       });
     }
 
@@ -185,16 +190,93 @@ async function main() {
   const marieAddr = JSON.stringify(addr("15 Avenue de la République", "69003", "Lyon", "Marie", "Leroy"));
   const thomasAddr = JSON.stringify(addr("8 Rue des Martyrs", "44000", "Nantes", "Thomas", "Petit"));
 
-  const ordersData = [
-    { customer: jean, status: "DELIVERED", method: "CARD", payStatus: "PAID", addr: jeanAddr, items: [{ sku: "DT-ACHILLEUS", qty: 1 }], created: daysAgo(14), delivered: daysAgo(10) },
-    { customer: jean, status: "DELIVERED", method: "CARD", payStatus: "PAID", addr: jeanAddr, items: [{ sku: "PD-CTRL-52V", qty: 1 }, { sku: "PD-PNEU-10", qty: 2 }], created: daysAgo(7), delivered: daysAgo(4) },
-    { customer: jean, status: "SHIPPED", method: "CARD", payStatus: "PAID", addr: jeanAddr, items: [{ sku: "ACC-ANTIVOL", qty: 1 }], created: daysAgo(2) },
-    { customer: marie, status: "CONFIRMED", method: "INSTALLMENT_3X", payStatus: "PARTIAL", addr: marieAddr, items: [{ sku: "TV-TETRA-4M", qty: 1 }], created: daysAgo(3) },
-    { customer: marie, status: "PENDING", method: "BANK_TRANSFER", payStatus: "PENDING", addr: marieAddr, items: [{ sku: "BAT-52V-18AH", qty: 1 }], created: daysAgo(0) },
-    { customer: thomas, status: "DELIVERED", method: "CARD", payStatus: "PAID", addr: thomasAddr, items: [{ sku: "DT-STORM-LTD", qty: 1 }], created: daysAgo(30), delivered: daysAgo(26) },
-    { customer: thomas, status: "CANCELLED", method: "CARD", payStatus: "REFUNDED", addr: thomasAddr, items: [{ sku: "PD-FREIN-DISC", qty: 1 }], created: daysAgo(14) },
-    { customer: thomas, status: "PREPARING", method: "CARD", payStatus: "PAID", addr: thomasAddr, items: [{ sku: "BAT-36V-10AH", qty: 1 }, { sku: "ACC-SACOCHE", qty: 1 }], created: daysAgo(0) },
-  ];
+  type DemoOrderStatus =
+    | "PENDING"
+    | "CONFIRMED"
+    | "PREPARING"
+    | "SHIPPED"
+    | "DELIVERED"
+    | "CANCELLED";
+  type DemoPaymentMethod = "CARD" | "APPLE_PAY" | "BANK_TRANSFER" | "INSTALLMENT_3X";
+  type DemoPaymentStatus = "PENDING" | "PAID" | "PARTIAL" | "REFUNDED";
+  type DemoOrderLine = { sku: string; qty: number };
+  type DemoOrder = {
+    customer: string;
+    status: DemoOrderStatus;
+    method: DemoPaymentMethod;
+    payStatus: DemoPaymentStatus;
+    addr: string;
+    items: DemoOrderLine[];
+    created: Date;
+    delivered?: Date | null;
+  };
+
+  const customerCycle = [jean, marie, thomas];
+  const addressByCustomer: Record<string, string> = {
+    [jean]: jeanAddr,
+    [marie]: marieAddr,
+    [thomas]: thomasAddr,
+  };
+  const orderSkus = Object.keys(products);
+  const highTicketSkus = ["DT-STORM-LTD", "TV-TETRA-4M", "DT-ACHILLEUS"];
+
+  function pickOrderItems(index: number): DemoOrderLine[] {
+    const lines: DemoOrderLine[] = [];
+    const lineCount = index % 5 === 0 ? 3 : index % 3 === 0 ? 2 : 1;
+
+    for (let i = 0; i < lineCount; i++) {
+      const sku =
+        i === 0 && index % 4 === 0
+          ? highTicketSkus[index % highTicketSkus.length]
+          : orderSkus[(index * 3 + i * 2) % orderSkus.length];
+      const qty = /^(PD-|ACC-)/.test(sku) ? ((index + i) % 2) + 1 : 1;
+      lines.push({ sku, qty });
+    }
+
+    return lines;
+  }
+
+  const ordersData: DemoOrder[] = Array.from({ length: 30 }, (_, index) => {
+    const customer = customerCycle[index % customerCycle.length];
+    const method: DemoPaymentMethod =
+      index === 4 || index === 15 || index === 26
+        ? "INSTALLMENT_3X"
+        : index % 6 === 0
+          ? "BANK_TRANSFER"
+          : index % 4 === 0
+            ? "APPLE_PAY"
+            : "CARD";
+
+    let status: DemoOrderStatus;
+    if (index < 12) status = "DELIVERED";
+    else if (index < 18) status = index % 2 === 0 ? "SHIPPED" : "PREPARING";
+    else if (index < 24) status = index % 2 === 0 ? "CONFIRMED" : "PENDING";
+    else if (index < 27) status = "CANCELLED";
+    else status = index % 2 === 0 ? "PREPARING" : "CONFIRMED";
+
+    let payStatus: DemoPaymentStatus;
+    if (status === "CANCELLED") payStatus = "REFUNDED";
+    else if (method === "INSTALLMENT_3X") payStatus = index % 2 === 0 ? "PARTIAL" : "PAID";
+    else if (method === "BANK_TRANSFER" && (status === "PENDING" || status === "CONFIRMED")) payStatus = "PENDING";
+    else payStatus = "PAID";
+
+    const created = daysAgo(29 - index);
+    const delivered =
+      status === "DELIVERED"
+        ? new Date(created.getTime() + ((index % 4) + 1) * 86400000)
+        : null;
+
+    return {
+      customer,
+      status,
+      method,
+      payStatus,
+      addr: addressByCustomer[customer],
+      items: pickOrderItems(index),
+      created,
+      delivered,
+    };
+  });
 
   const orderIds: string[] = [];
   for (const o of ordersData) {
@@ -222,7 +304,7 @@ async function main() {
     });
     orderIds.push(order.id);
   }
-  console.log("✓ 8 orders + items");
+  console.log("✓ 30 orders + items");
 
   // ── 8. PAYMENTS ──
   for (let i = 0; i < ordersData.length; i++) {
@@ -240,23 +322,38 @@ async function main() {
       },
     });
   }
-  console.log("✓ 8 payments");
+  console.log("✓ 30 payments");
 
-  // ── 9. INSTALLMENTS (order 4 — Marie, 3x) ──
-  const order4Total = Math.round(products["TV-TETRA-4M"].priceHt * 1.2 * 100) / 100;
-  const installAmount = Math.round(order4Total / 3 * 100) / 100;
-  for (let i = 1; i <= 3; i++) {
-    await prisma.paymentInstallment.create({
-      data: {
-        orderId: orderIds[3], installmentNumber: i, totalInstallments: 3,
-        amountDue: installAmount,
-        dueDate: new Date(now.getTime() + (i - 1) * 30 * 86400000),
-        status: i === 1 ? "PAID" : "PENDING",
-        paidAt: i === 1 ? daysAgo(3) : null,
-      },
-    });
+  // ── 9. INSTALLMENTS (all 3x orders) ──
+  let installmentRows = 0;
+  for (let i = 0; i < ordersData.length; i++) {
+    const orderSeed = ordersData[i];
+    if (orderSeed.method !== "INSTALLMENT_3X") continue;
+
+    let subtotal = 0;
+    for (const item of orderSeed.items) {
+      subtotal += products[item.sku].priceHt * item.qty;
+    }
+    const total = Math.round(subtotal * 1.2 * 100) / 100;
+    const amount = Math.round((total / 3) * 100) / 100;
+
+    for (let n = 1; n <= 3; n++) {
+      const paid = orderSeed.payStatus === "PAID" ? true : orderSeed.payStatus === "PARTIAL" ? n === 1 : false;
+      await prisma.paymentInstallment.create({
+        data: {
+          orderId: orderIds[i],
+          installmentNumber: n,
+          totalInstallments: 3,
+          amountDue: amount,
+          dueDate: new Date(orderSeed.created.getTime() + (n - 1) * 30 * 86400000),
+          status: paid ? "PAID" : "PENDING",
+          paidAt: paid ? new Date(orderSeed.created.getTime() + (n - 1) * 86400000) : null,
+        },
+      });
+      installmentRows += 1;
+    }
   }
-  console.log("✓ 3 installments (3x payment)");
+  console.log(`✓ ${installmentRows} installments (3x payment)`);
 
   // ── 10. CRM PROFILES ──
   const profiles = [
@@ -410,8 +507,8 @@ async function main() {
   console.log(`  Categories:     5`);
   console.log(`  Brands:         4`);
   console.log(`  Products:       12`);
-  console.log(`  Orders:         8`);
-  console.log(`  Payments:       8 (+ 3 installments)`);
+  console.log(`  Orders:         30`);
+  console.log(`  Payments:       30 (installments inclus)`);
   console.log(`  CRM Profiles:   3`);
   console.log(`  Interactions:   12`);
   console.log(`  Loyalty Points: 7`);
@@ -423,7 +520,7 @@ async function main() {
   console.log("  SCÉNARIOS DÉMO\n");
   console.log("  1. PARCOURS CLIENT VIP");
   console.log("     → client1@demo.fr / demo1234");
-  console.log("     → 3 commandes, tier GOLD, 450 points\n");
+  console.log("     → historique commandes réaliste + tier GOLD\n");
   console.log("  2. PAIEMENT 3X");
   console.log("     → client2@demo.fr / demo1234");
   console.log("     → Commande avec facilité 3x en cours\n");
