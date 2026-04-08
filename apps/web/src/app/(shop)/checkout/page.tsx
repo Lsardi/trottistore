@@ -69,7 +69,7 @@ function StripeConfirmationForm({ orderId, onSuccess, onError }: StripeConfirmat
       return;
     }
 
-    onError("Paiement en attente. Vérifie ton historique de commande.");
+    onError("Paiement en attente. Vérifiez votre historique de commande.");
   }
 
   return (
@@ -107,6 +107,8 @@ export default function CheckoutPage() {
     orderId: string;
     clientSecret: string;
   } | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestEmail, setGuestEmail] = useState("");
   const [showInlineAddressForm, setShowInlineAddressForm] = useState(false);
   const [creatingAddress, setCreatingAddress] = useState(false);
   const [addressError, setAddressError] = useState("");
@@ -125,21 +127,30 @@ export default function CheckoutPage() {
   useEffect(() => {
     async function loadCheckout() {
       try {
-        const [cartRes, meRes] = await Promise.all([cartApi.get(), authApi.me()]);
+        const cartRes = await cartApi.get();
         setItems(cartRes.data.items);
-        setUser(meRes.data);
-        setInlineAddress((prev) => ({
-          ...prev,
-          firstName: meRes.data.firstName || prev.firstName,
-          lastName: meRes.data.lastName || prev.lastName,
-          phone: meRes.data.phone || prev.phone,
-        }));
 
-        const defaultAddress = meRes.data.addresses?.find((a) => a.isDefault) ?? meRes.data.addresses?.[0];
-        if (defaultAddress) {
-          setShippingAddressId(defaultAddress.id);
-          setBillingAddressId(defaultAddress.id);
-        } else {
+        // Try to get user — if 401, switch to guest mode
+        try {
+          const meRes = await authApi.me();
+          setUser(meRes.data);
+          setInlineAddress((prev) => ({
+            ...prev,
+            firstName: meRes.data.firstName || prev.firstName,
+            lastName: meRes.data.lastName || prev.lastName,
+            phone: meRes.data.phone || prev.phone,
+          }));
+
+          const defaultAddress = meRes.data.addresses?.find((a) => a.isDefault) ?? meRes.data.addresses?.[0];
+          if (defaultAddress) {
+            setShippingAddressId(defaultAddress.id);
+            setBillingAddressId(defaultAddress.id);
+          } else {
+            setShowInlineAddressForm(true);
+          }
+        } catch (authErr) {
+          // Not authenticated — enable guest checkout
+          setIsGuest(true);
           setShowInlineAddressForm(true);
         }
 
@@ -148,11 +159,6 @@ export default function CheckoutPage() {
           setStripePublishableKey(stripeConfig.data.publishableKey);
         }
       } catch (err) {
-        const status = err instanceof ApiError ? err.status : 500;
-        if (status === 401) {
-          window.location.href = "/mon-compte?next=/checkout";
-          return;
-        }
         setError("Impossible de charger le checkout.");
       } finally {
         setLoading(false);
@@ -246,7 +252,7 @@ export default function CheckoutPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!acceptedCgv) {
-      setError("Tu dois accepter les conditions generales de vente.");
+      setError("Veuillez accepter les conditions générales de vente.");
       return;
     }
     setSubmitting(true);
@@ -254,19 +260,6 @@ export default function CheckoutPage() {
     let selectedShippingAddressId = shippingAddressId;
 
     try {
-      if (!selectedShippingAddressId && showInlineAddressForm) {
-        const createdAddressId = await createInlineAddress();
-        if (!createdAddressId) {
-          return;
-        }
-        selectedShippingAddressId = createdAddressId;
-      }
-
-      if (!selectedShippingAddressId) {
-        setError("Sélectionne une adresse de livraison.");
-        return;
-      }
-
       const normalizedNotes = [
         deliveryMode === "PICKUP_1H" ? "[RETRAIT_1H] Client souhaite retrait boutique sous 1h." : null,
         notes || null,
@@ -275,14 +268,71 @@ export default function CheckoutPage() {
         .join("\n")
         .slice(0, 1000);
 
-      const orderRes = await ordersApi.create({
-        shippingAddressId: selectedShippingAddressId,
-        billingAddressId: billingAddressId || undefined,
-        paymentMethod,
-        notes: normalizedNotes || undefined,
-        shippingMethod,
-        acceptedCgv: true,
-      });
+      let orderRes;
+
+      if (isGuest) {
+        // Guest checkout — send address inline
+        if (!inlineAddress.firstName || !inlineAddress.lastName || !inlineAddress.street || !inlineAddress.postalCode || !inlineAddress.city) {
+          setError("Veuillez remplir tous les champs obligatoires de l'adresse.");
+          return;
+        }
+        if (!guestEmail) {
+          setError("Veuillez saisir votre adresse email.");
+          return;
+        }
+
+        orderRes = await fetch("/api/v1/orders/guest", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-session-id": localStorage.getItem("sessionId") || "",
+          },
+          body: JSON.stringify({
+            email: guestEmail,
+            shippingAddress: {
+              firstName: inlineAddress.firstName,
+              lastName: inlineAddress.lastName,
+              street: inlineAddress.street,
+              street2: inlineAddress.street2 || undefined,
+              postalCode: inlineAddress.postalCode,
+              city: inlineAddress.city,
+              country: inlineAddress.country || "FR",
+              phone: inlineAddress.phone || undefined,
+            },
+            paymentMethod,
+            shippingMethod,
+            notes: normalizedNotes || undefined,
+            acceptedCgv: true,
+          }),
+        }).then(async (r) => {
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error?.message || "Erreur lors de la commande");
+          return data;
+        });
+      } else {
+        // Authenticated checkout
+        if (!selectedShippingAddressId && showInlineAddressForm) {
+          const createdAddressId = await createInlineAddress();
+          if (!createdAddressId) {
+            return;
+          }
+          selectedShippingAddressId = createdAddressId;
+        }
+
+        if (!selectedShippingAddressId) {
+          setError("Sélectionnez une adresse de livraison.");
+          return;
+        }
+
+        orderRes = await ordersApi.create({
+          shippingAddressId: selectedShippingAddressId,
+          billingAddressId: billingAddressId || undefined,
+          paymentMethod,
+          notes: normalizedNotes || undefined,
+          shippingMethod,
+          acceptedCgv: true,
+        });
+      }
 
       if (isStripeFlow && stripeAvailable) {
         const paymentIntentRes = await checkoutApi.createPaymentIntent({
@@ -344,6 +394,23 @@ export default function CheckoutPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <form onSubmit={handleSubmit} className="lg:col-span-2 bg-surface border border-border p-6 space-y-5">
+          {isGuest && (
+            <div>
+              <p className="spec-label mb-2">Votre email</p>
+              <input
+                type="email"
+                required
+                placeholder="votre@email.fr"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                className="input-dark w-full"
+              />
+              <p className="font-mono text-xs text-text-dim mt-1">
+                Vous recevrez la confirmation de commande à cette adresse.
+                <Link href="/mon-compte?next=/checkout" className="text-neon ml-1">Vous avez un compte ?</Link>
+              </p>
+            </div>
+          )}
           <div>
             <p className="spec-label mb-2">Adresse de livraison</p>
             <select
