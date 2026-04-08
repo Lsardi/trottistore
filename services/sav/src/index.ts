@@ -13,6 +13,7 @@ import { healthRoutes } from "./routes/health.js";
 import { repairRoutes } from "./routes/tickets/index.js";
 import { technicianRoutes } from "./routes/technicians/index.js";
 import { statsRoutes } from "./routes/stats/index.js";
+import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
 
@@ -54,14 +55,17 @@ async function start() {
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
   await app.register(authPlugin);
+  await app.register(metricsPlugin);
 
   app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0];
     const hasAuthorizationHeader = typeof request.headers.authorization === "string" && request.headers.authorization.length > 0;
     const isHealth =
       path === "/health" ||
+      path === "/metrics" ||
       path === "/ready" ||
       path.startsWith("/api/v1/health") ||
+      path.startsWith("/api/v1/metrics") ||
       path.startsWith("/api/v1/ready");
     const isPublicSavIntake =
       request.method === "POST" &&

@@ -9,6 +9,7 @@ import rateLimit from "@fastify/rate-limit";
 import { prismaPlugin } from "./plugins/prisma.js";
 import { redisPlugin } from "./plugins/redis.js";
 import { authPlugin } from "./plugins/auth.js";
+import { metricsPlugin } from "./plugins/metrics.js";
 import { healthRoutes } from "./routes/health.js";
 import { analyticsRoutes } from "./routes/index.js";
 import { ZodError } from "zod";
@@ -51,6 +52,7 @@ async function start() {
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
   await app.register(authPlugin);
+  await app.register(metricsPlugin);
 
   app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0];
@@ -59,8 +61,10 @@ async function start() {
       (path === "/api/v1/analytics/events/public" || path === "/analytics/events/public");
     if (
       path === "/health" ||
+      path === "/metrics" ||
       path === "/ready" ||
       path.startsWith("/api/v1/health") ||
+      path.startsWith("/api/v1/metrics") ||
       path.startsWith("/api/v1/ready") ||
       isPublicFunnelEventIngest
     ) {

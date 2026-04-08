@@ -14,6 +14,7 @@ import { customerRoutes } from "./routes/customers/index.js";
 import { segmentRoutes } from "./routes/segments/index.js";
 import { campaignRoutes } from "./routes/campaigns/index.js";
 import { triggerRoutes } from "./routes/triggers/index.js";
+import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
 
@@ -54,13 +55,16 @@ async function start() {
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
   await app.register(authPlugin);
+  await app.register(metricsPlugin);
 
   app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0];
     if (
       path === "/health" ||
+      path === "/metrics" ||
       path === "/ready" ||
       path.startsWith("/api/v1/health") ||
+      path.startsWith("/api/v1/metrics") ||
       path.startsWith("/api/v1/ready")
     ) {
       return;
