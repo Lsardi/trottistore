@@ -46,3 +46,7 @@ data/crawl/crawl-checkpoint.json
 Thumbs.db
 apps/web/test-results/
 apps/web/playwright-report/
+
+# Local dev tools
+scripts/audit-llm.ts
+.craft-agents.json

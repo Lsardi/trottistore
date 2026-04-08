@@ -806,7 +806,23 @@ export default function HomePage() {
             RESTEZ CONNECTÉ
           </h2>
           <form
-            onSubmit={(e) => e.preventDefault()}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const input = form.querySelector("input") as HTMLInputElement;
+              const email = input?.value?.trim();
+              if (!email) return;
+              try {
+                await fetch("/api/v1/analytics/events/public", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ events: [{ type: "diagnostic_category_selected", properties: { action: "newsletter_signup", email } }] }),
+                });
+              } catch { /* silent */ }
+              input.value = "";
+              const btn = form.querySelector("button") as HTMLButtonElement;
+              if (btn) { btn.textContent = "INSCRIT ✓"; setTimeout(() => { btn.textContent = "S'INSCRIRE"; }, 3000); }
+            }}
             style={{
               display: "flex",
               flex: 1,
@@ -816,6 +832,7 @@ export default function HomePage() {
           >
             <input
               type="email"
+              required
               placeholder="Votre adresse email"
               className="input-dark"
               style={{
