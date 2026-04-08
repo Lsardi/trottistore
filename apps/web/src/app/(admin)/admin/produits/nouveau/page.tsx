@@ -210,8 +210,8 @@ export default function AdminNewProductPage() {
           className={cn(
             "fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium",
             toast.type === "success"
-              ? "bg-green-600 text-white"
-              : "bg-red-600 text-white"
+              ? "bg-neon text-surface"
+              : "bg-danger text-surface"
           )}
         >
           {toast.type === "success" ? (
@@ -228,15 +228,15 @@ export default function AdminNewProductPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/admin/produits"
-            className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"
+            className="p-2 rounded-lg hover:bg-surface-2 transition text-text-muted"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-text">
               Nouveau produit
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-text-muted">
               Remplissez les informations du produit
             </p>
           </div>
@@ -244,14 +244,14 @@ export default function AdminNewProductPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/admin/produits"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border border-border text-text-muted hover:bg-surface transition"
           >
             Annuler
           </Link>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 bg-[#28afb1] text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-[#28afb1]/90 transition-colors shadow-sm disabled:opacity-50"
+            className="inline-flex items-center gap-2 bg-neon text-surface px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-neon/90 transition-colors shadow-sm disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -267,20 +267,20 @@ export default function AdminNewProductPage() {
         {/* Main column */}
         <div className="lg:col-span-2 space-y-6">
           {/* General info */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Informations generales
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Nom du produit *
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                   placeholder="Trottinette electrique..."
                   autoFocus
                 />
@@ -288,60 +288,60 @@ export default function AdminNewProductPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  <label className="block text-xs font-medium text-text-muted mb-1.5">
                     SKU *
                   </label>
                   <input
                     type="text"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                     placeholder="TROTT-001"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  <label className="block text-xs font-medium text-text-muted mb-1.5">
                     Poids (g)
                   </label>
                   <input
                     type="number"
                     value={weightGrams}
                     onChange={(e) => setWeightGrams(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                     placeholder="15000"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Description courte
                 </label>
                 <textarea
                   value={shortDescription}
                   onChange={(e) => setShortDescription(e.target.value)}
                   rows={2}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition resize-none"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Description
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={5}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition resize-y"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition resize-y"
                 />
               </div>
             </div>
           </section>
 
           {/* Images */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Images
             </h2>
 
@@ -351,10 +351,10 @@ export default function AdminNewProductPage() {
                   <div
                     key={idx}
                     className={cn(
-                      "relative group border rounded-lg overflow-hidden aspect-square bg-gray-50",
+                      "relative group border rounded-lg overflow-hidden aspect-square bg-surface",
                       img.isPrimary
-                        ? "border-[#28afb1] ring-2 ring-[#28afb1]/20"
-                        : "border-gray-200"
+                        ? "border-neon ring-2 ring-neon/20"
+                        : "border-border"
                     )}
                   >
                     <Image
@@ -365,7 +365,7 @@ export default function AdminNewProductPage() {
                       style={{ objectFit: "contain" }}
                     />
                     {img.isPrimary && (
-                      <span className="absolute top-2 left-2 bg-[#28afb1] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      <span className="absolute top-2 left-2 bg-neon text-surface text-[10px] font-bold px-1.5 py-0.5 rounded">
                         Principale
                       </span>
                     )}
@@ -373,7 +373,7 @@ export default function AdminNewProductPage() {
                       {!img.isPrimary && (
                         <button
                           onClick={() => setPrimaryImage(idx)}
-                          className="p-1.5 bg-white rounded-md shadow text-gray-700 hover:text-[#28afb1]"
+                          className="p-1.5 bg-surface rounded-md shadow text-text hover:text-neon"
                           title="Definir comme principale"
                         >
                           <Star className="h-4 w-4" />
@@ -381,7 +381,7 @@ export default function AdminNewProductPage() {
                       )}
                       <button
                         onClick={() => removeImage(idx)}
-                        className="p-1.5 bg-white rounded-md shadow text-gray-700 hover:text-red-600"
+                        className="p-1.5 bg-surface rounded-md shadow text-text hover:text-red-600"
                         title="Supprimer"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -398,7 +398,7 @@ export default function AdminNewProductPage() {
                 value={newImageUrl}
                 onChange={(e) => setNewImageUrl(e.target.value)}
                 placeholder="URL de l'image"
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 onKeyDown={(e) => e.key === "Enter" && addImage()}
               />
               <input
@@ -406,13 +406,13 @@ export default function AdminNewProductPage() {
                 value={newImageAlt}
                 onChange={(e) => setNewImageAlt(e.target.value)}
                 placeholder="Alt text"
-                className="w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                className="w-40 px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 onKeyDown={(e) => e.key === "Enter" && addImage()}
               />
               <button
                 onClick={addImage}
                 disabled={!newImageUrl.trim()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-2 rounded-lg text-sm font-medium text-text hover:bg-surface transition disabled:opacity-40"
               >
                 <Plus className="h-4 w-4" />
                 Ajouter
@@ -421,11 +421,11 @@ export default function AdminNewProductPage() {
           </section>
 
           {/* SEO */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">SEO</h2>
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">SEO</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Meta titre
                 </label>
                 <input
@@ -433,14 +433,14 @@ export default function AdminNewProductPage() {
                   value={metaTitle}
                   onChange={(e) => setMetaTitle(e.target.value)}
                   maxLength={200}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-text-dim mt-1">
                   {metaTitle.length}/200
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Meta description
                 </label>
                 <textarea
@@ -448,9 +448,9 @@ export default function AdminNewProductPage() {
                   onChange={(e) => setMetaDesc(e.target.value)}
                   maxLength={500}
                   rows={3}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition resize-none"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition resize-none"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-text-dim mt-1">
                   {metaDesc.length}/500
                 </p>
               </div>
@@ -461,13 +461,13 @@ export default function AdminNewProductPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Pricing */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Tarification
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Prix HT *
                 </label>
                 <div className="relative">
@@ -477,16 +477,16 @@ export default function AdminNewProductPage() {
                     min="0"
                     value={priceHt}
                     onChange={(e) => setPriceHt(e.target.value)}
-                    className="w-full px-3 py-2.5 pr-8 border border-gray-200 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                    className="w-full px-3 py-2.5 pr-8 border border-border rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                     placeholder="0.00"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim text-sm">
                     &euro;
                   </span>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   TVA (%)
                 </label>
                 <input
@@ -496,13 +496,13 @@ export default function AdminNewProductPage() {
                   max="100"
                   value={tvaRate}
                   onChange={(e) => setTvaRate(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 />
               </div>
-              <div className="pt-3 border-t border-gray-100">
+              <div className="pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Prix TTC</span>
-                  <span className="text-lg font-bold text-gray-900 tabular-nums">
+                  <span className="text-sm text-text-muted">Prix TTC</span>
+                  <span className="text-lg font-bold text-text tabular-nums">
                     {priceTtc} &euro;
                   </span>
                 </div>
@@ -511,19 +511,19 @@ export default function AdminNewProductPage() {
           </section>
 
           {/* Status */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Publication
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Statut
                 </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 >
                   <option value="DRAFT">Brouillon</option>
                   <option value="ACTIVE">Actif</option>
@@ -534,21 +534,21 @@ export default function AdminNewProductPage() {
                   type="checkbox"
                   checked={isFeatured}
                   onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="rounded border-gray-300 text-[#28afb1] focus:ring-[#28afb1]"
+                  className="rounded border-border text-neon focus:ring-neon"
                 />
-                <span className="text-sm text-gray-700">Produit vedette</span>
+                <span className="text-sm text-text">Produit vedette</span>
               </label>
             </div>
           </section>
 
           {/* Categories */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Categories
             </h2>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {allCategories.length === 0 ? (
-                <p className="text-sm text-gray-400">Aucune categorie</p>
+                <p className="text-sm text-text-dim">Aucune categorie</p>
               ) : (
                 allCategories.map((cat) => (
                   <label
@@ -559,9 +559,9 @@ export default function AdminNewProductPage() {
                       type="checkbox"
                       checked={selectedCategories.includes(cat.id)}
                       onChange={() => toggleCategory(cat.id)}
-                      className="rounded border-gray-300 text-[#28afb1] focus:ring-[#28afb1]"
+                      className="rounded border-border text-neon focus:ring-neon"
                     />
-                    <span className="text-sm text-gray-700">{cat.name}</span>
+                    <span className="text-sm text-text">{cat.name}</span>
                   </label>
                 ))
               )}

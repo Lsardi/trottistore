@@ -300,7 +300,7 @@ export default function AdminProductEditPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-[#28afb1]" />
+        <Loader2 className="h-8 w-8 animate-spin text-neon" />
       </div>
     );
   }
@@ -318,8 +318,8 @@ export default function AdminProductEditPage() {
           className={cn(
             "fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium",
             toast.type === "success"
-              ? "bg-green-600 text-white"
-              : "bg-red-600 text-white"
+              ? "bg-neon text-surface"
+              : "bg-danger text-surface"
           )}
         >
           {toast.type === "success" ? (
@@ -336,15 +336,15 @@ export default function AdminProductEditPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/admin/produits"
-            className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"
+            className="p-2 rounded-lg hover:bg-surface-2 transition text-text-muted"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-text">
               Modifier le produit
             </h1>
-            <p className="text-sm text-gray-500 font-mono">{sku}</p>
+            <p className="text-sm text-text-muted font-mono">{sku}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -354,8 +354,8 @@ export default function AdminProductEditPage() {
             className={cn(
               "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
               confirmDelete
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                ? "bg-danger text-surface hover:opacity-90"
+                : "border border-border text-text-muted hover:bg-danger/10 hover:text-danger hover:border-danger/40"
             )}
           >
             {deleting ? (
@@ -368,7 +368,7 @@ export default function AdminProductEditPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 bg-[#28afb1] text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-[#28afb1]/90 transition-colors shadow-sm disabled:opacity-50"
+            className="inline-flex items-center gap-2 bg-neon text-surface px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-neon/90 transition-colors shadow-sm disabled:opacity-50"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -376,7 +376,7 @@ export default function AdminProductEditPage() {
               <Save className="h-4 w-4" />
             )}
             Sauvegarder
-            {isDirty && <span className="h-2 w-2 rounded-full bg-white/50" />}
+            {isDirty && <span className="h-2 w-2 rounded-full bg-surface/50" />}
           </button>
         </div>
       </div>
@@ -385,13 +385,13 @@ export default function AdminProductEditPage() {
         {/* Main column */}
         <div className="lg:col-span-2 space-y-6">
           {/* General info */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Informations generales
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Nom du produit *
                 </label>
                 <input
@@ -401,14 +401,14 @@ export default function AdminProductEditPage() {
                     setName(e.target.value);
                     markDirty();
                   }}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                   placeholder="Trottinette electrique..."
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  <label className="block text-xs font-medium text-text-muted mb-1.5">
                     SKU *
                   </label>
                   <input
@@ -418,11 +418,11 @@ export default function AdminProductEditPage() {
                       setSku(e.target.value);
                       markDirty();
                     }}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm font-mono focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  <label className="block text-xs font-medium text-text-muted mb-1.5">
                     Poids (g)
                   </label>
                   <input
@@ -432,14 +432,14 @@ export default function AdminProductEditPage() {
                       setWeightGrams(e.target.value);
                       markDirty();
                     }}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                     placeholder="15000"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Description courte
                 </label>
                 <textarea
@@ -449,12 +449,12 @@ export default function AdminProductEditPage() {
                     markDirty();
                   }}
                   rows={2}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition resize-none"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Description
                 </label>
                 <textarea
@@ -464,15 +464,15 @@ export default function AdminProductEditPage() {
                     markDirty();
                   }}
                   rows={5}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition resize-y"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition resize-y"
                 />
               </div>
             </div>
           </section>
 
           {/* Images */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Images
             </h2>
 
@@ -483,10 +483,10 @@ export default function AdminProductEditPage() {
                   <div
                     key={idx}
                     className={cn(
-                      "relative group border rounded-lg overflow-hidden aspect-square bg-gray-50",
+                      "relative group border rounded-lg overflow-hidden aspect-square bg-surface",
                       img.isPrimary
-                        ? "border-[#28afb1] ring-2 ring-[#28afb1]/20"
-                        : "border-gray-200"
+                        ? "border-neon ring-2 ring-neon/20"
+                        : "border-border"
                     )}
                   >
                     <Image
@@ -497,7 +497,7 @@ export default function AdminProductEditPage() {
                       style={{ objectFit: "contain" }}
                     />
                     {img.isPrimary && (
-                      <span className="absolute top-2 left-2 bg-[#28afb1] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      <span className="absolute top-2 left-2 bg-neon text-surface text-[10px] font-bold px-1.5 py-0.5 rounded">
                         Principale
                       </span>
                     )}
@@ -505,7 +505,7 @@ export default function AdminProductEditPage() {
                       {!img.isPrimary && (
                         <button
                           onClick={() => setPrimaryImage(idx)}
-                          className="p-1.5 bg-white rounded-md shadow text-gray-700 hover:text-[#28afb1]"
+                          className="p-1.5 bg-surface rounded-md shadow text-text hover:text-neon"
                           title="Definir comme principale"
                         >
                           <Star className="h-4 w-4" />
@@ -514,7 +514,7 @@ export default function AdminProductEditPage() {
                       {idx > 0 && (
                         <button
                           onClick={() => moveImage(idx, idx - 1)}
-                          className="p-1.5 bg-white rounded-md shadow text-gray-700 hover:text-gray-900"
+                          className="p-1.5 bg-surface rounded-md shadow text-text hover:text-text"
                           title="Deplacer avant"
                         >
                           <ArrowLeft className="h-4 w-4" />
@@ -522,7 +522,7 @@ export default function AdminProductEditPage() {
                       )}
                       <button
                         onClick={() => removeImage(idx)}
-                        className="p-1.5 bg-white rounded-md shadow text-gray-700 hover:text-red-600"
+                        className="p-1.5 bg-surface rounded-md shadow text-text hover:text-red-600"
                         title="Supprimer"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -540,7 +540,7 @@ export default function AdminProductEditPage() {
                 value={newImageUrl}
                 onChange={(e) => setNewImageUrl(e.target.value)}
                 placeholder="URL de l'image"
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 onKeyDown={(e) => e.key === "Enter" && addImage()}
               />
               <input
@@ -548,13 +548,13 @@ export default function AdminProductEditPage() {
                 value={newImageAlt}
                 onChange={(e) => setNewImageAlt(e.target.value)}
                 placeholder="Alt text"
-                className="w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                className="w-40 px-3 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 onKeyDown={(e) => e.key === "Enter" && addImage()}
               />
               <button
                 onClick={addImage}
                 disabled={!newImageUrl.trim()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-2 rounded-lg text-sm font-medium text-text hover:bg-surface transition disabled:opacity-40"
               >
                 <Plus className="h-4 w-4" />
                 Ajouter
@@ -563,12 +563,12 @@ export default function AdminProductEditPage() {
           </section>
 
           {/* Variants */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Variantes & Stock
             </h2>
             {variants.length === 0 ? (
-              <p className="text-sm text-gray-400">Aucune variante</p>
+              <p className="text-sm text-text-dim">Aucune variante</p>
             ) : (
               <div className="space-y-3">
                 {variants.map((v) => (
@@ -583,11 +583,11 @@ export default function AdminProductEditPage() {
           </section>
 
           {/* SEO */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">SEO</h2>
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">SEO</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Meta titre
                 </label>
                 <input
@@ -598,14 +598,14 @@ export default function AdminProductEditPage() {
                     markDirty();
                   }}
                   maxLength={200}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-text-dim mt-1">
                   {metaTitle.length}/200
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Meta description
                 </label>
                 <textarea
@@ -616,9 +616,9 @@ export default function AdminProductEditPage() {
                   }}
                   maxLength={500}
                   rows={3}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition resize-none"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition resize-none"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-text-dim mt-1">
                   {metaDesc.length}/500
                 </p>
               </div>
@@ -629,13 +629,13 @@ export default function AdminProductEditPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Pricing */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Tarification
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Prix HT *
                 </label>
                 <div className="relative">
@@ -648,15 +648,15 @@ export default function AdminProductEditPage() {
                       setPriceHt(e.target.value);
                       markDirty();
                     }}
-                    className="w-full px-3 py-2.5 pr-8 border border-gray-200 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                    className="w-full px-3 py-2.5 pr-8 border border-border rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim text-sm">
                     &euro;
                   </span>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   TVA (%)
                 </label>
                 <input
@@ -669,13 +669,13 @@ export default function AdminProductEditPage() {
                     setTvaRate(e.target.value);
                     markDirty();
                   }}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 />
               </div>
-              <div className="pt-3 border-t border-gray-100">
+              <div className="pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Prix TTC</span>
-                  <span className="text-lg font-bold text-gray-900 tabular-nums">
+                  <span className="text-sm text-text-muted">Prix TTC</span>
+                  <span className="text-lg font-bold text-text tabular-nums">
                     {priceTtc} &euro;
                   </span>
                 </div>
@@ -684,13 +684,13 @@ export default function AdminProductEditPage() {
           </section>
 
           {/* Status */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Publication
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                <label className="block text-xs font-medium text-text-muted mb-1.5">
                   Statut
                 </label>
                 <select
@@ -699,7 +699,7 @@ export default function AdminProductEditPage() {
                     setStatus(e.target.value);
                     markDirty();
                   }}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#28afb1]/20 focus:border-[#28afb1] outline-none transition"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:ring-2 focus:ring-neon/20 focus:border-neon outline-none transition"
                 >
                   <option value="ACTIVE">Actif</option>
                   <option value="DRAFT">Brouillon</option>
@@ -714,21 +714,21 @@ export default function AdminProductEditPage() {
                     setIsFeatured(e.target.checked);
                     markDirty();
                   }}
-                  className="rounded border-gray-300 text-[#28afb1] focus:ring-[#28afb1]"
+                  className="rounded border-border text-neon focus:ring-neon"
                 />
-                <span className="text-sm text-gray-700">Produit vedette</span>
+                <span className="text-sm text-text">Produit vedette</span>
               </label>
             </div>
           </section>
 
           {/* Categories */}
-          <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-4">
               Categories
             </h2>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {allCategories.length === 0 ? (
-                <p className="text-sm text-gray-400">Aucune categorie</p>
+                <p className="text-sm text-text-dim">Aucune categorie</p>
               ) : (
                 allCategories.map((cat) => (
                   <label
@@ -739,9 +739,9 @@ export default function AdminProductEditPage() {
                       type="checkbox"
                       checked={selectedCategories.includes(cat.id)}
                       onChange={() => toggleCategory(cat.id)}
-                      className="rounded border-gray-300 text-[#28afb1] focus:ring-[#28afb1]"
+                      className="rounded border-border text-neon focus:ring-neon"
                     />
-                    <span className="text-sm text-gray-700">{cat.name}</span>
+                    <span className="text-sm text-text">{cat.name}</span>
                   </label>
                 ))
               )}
@@ -779,19 +779,19 @@ function VariantRow({
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg">
+    <div className="flex items-center justify-between px-4 py-3 bg-surface rounded-lg">
       <div>
-        <p className="text-sm font-medium text-gray-900">{variant.name}</p>
-        <p className="text-xs text-gray-400 font-mono">{variant.sku}</p>
+        <p className="text-sm font-medium text-text">{variant.name}</p>
+        <p className="text-xs text-text-dim font-mono">{variant.sku}</p>
       </div>
       <div className="flex items-center gap-4">
         {variant.priceOverride && (
-          <span className="text-sm text-gray-500 tabular-nums">
+          <span className="text-sm text-text-muted tabular-nums">
             {formatPrice(parseFloat(variant.priceOverride))}
           </span>
         )}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Stock:</span>
+          <span className="text-xs text-text-dim">Stock:</span>
           {editing ? (
             <div className="flex items-center gap-1">
               <input
@@ -805,10 +805,10 @@ function VariantRow({
                 }}
                 onBlur={handleSave}
                 autoFocus
-                className="w-16 px-2 py-1 text-sm text-right border border-[#28afb1] rounded-md focus:ring-2 focus:ring-[#28afb1]/20 outline-none tabular-nums"
+                className="w-16 px-2 py-1 text-sm text-right border border-neon rounded-md focus:ring-2 focus:ring-neon/20 outline-none tabular-nums"
               />
               {saving && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#28afb1]" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-neon" />
               )}
             </div>
           ) : (
@@ -820,7 +820,7 @@ function VariantRow({
               className={cn(
                 "min-w-[2rem] rounded-full px-2 py-0.5 text-xs font-bold cursor-pointer hover:ring-2 hover:ring-offset-1 transition",
                 variant.stockQuantity === 0
-                  ? "bg-red-50 text-red-600 hover:ring-red-300"
+                  ? "bg-danger/10 text-danger hover:ring-danger/40"
                   : variant.stockQuantity <= 5
                     ? "bg-orange-50 text-orange-600 hover:ring-orange-300"
                     : "bg-green-50 text-green-700 hover:ring-green-300"
