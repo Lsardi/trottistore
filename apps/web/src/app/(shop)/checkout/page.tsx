@@ -193,6 +193,7 @@ export default function CheckoutPage() {
         paymentMethod,
         notes: normalizedNotes || undefined,
         shippingMethod,
+        acceptedCgv: true,
       });
 
       if (isStripeFlow && stripeAvailable) {
