@@ -98,23 +98,32 @@ async function main() {
 
   // ── 6. PRODUCTS ──
   const IMG = "https://www.trottistore.fr/wp-content/uploads/2025/07/";
-  const productsData = [
+  const productsData: Array<{
+    sku: string;
+    name: string;
+    slug: string;
+    priceHt: number;
+    brand: "dualtron" | "teverun" | "xiaomi" | "ninebot";
+    cat: "trottinettes-electriques" | "pieces-detachees" | "batteries" | "accessoires";
+    img: string | null;
+    stock: number;
+  }> = [
     // Trottinettes
     { sku: "DT-STORM-LTD", name: "Dualtron Storm LTD 84V", slug: "dualtron-storm-ltd", priceHt: 3999.17, brand: "dualtron", cat: "trottinettes-electriques", img: `${IMG}MMDUALTRONNEWSTORMLTD-TROTTINETTE-ELECTRIQUE-DUALTRON-NEW-STORM-LTD-84V45AH-EY4-300x300.jpg`, stock: 3 },
     { sku: "TV-TETRA-4M", name: "Teverun Tetra 4 Moteurs", slug: "teverun-tetra", priceHt: 4165.83, brand: "teverun", cat: "trottinettes-electriques", img: `${IMG}TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg`, stock: 2 },
     { sku: "DT-ACHILLEUS", name: "Dualtron Achilleus 60V 35AH", slug: "dualtron-achilleus", priceHt: 2332.50, brand: "dualtron", cat: "trottinettes-electriques", img: `${IMG}MMDUALTRONACHILLEUS2023-TROTTINETTE-ELECTRIQUE-DUALTRON-ACHILLEUS-60V-35AH-2024-300x300.jpg`, stock: 5 },
-    { sku: "XM-PRO2", name: "Xiaomi Pro 2 Essential", slug: "xiaomi-pro-2", priceHt: 332.50, brand: "xiaomi", cat: "trottinettes-electriques", img: `${IMG}KUICKWHEELS9-TROTTINETTE-KUICKWHEEL-S9-36V-156-Ah-300x300.jpg`, stock: 12 },
+    { sku: "XM-PRO2", name: "Xiaomi Pro 2 Essential", slug: "xiaomi-pro-2", priceHt: 332.50, brand: "xiaomi", cat: "trottinettes-electriques", img: null, stock: 12 },
     // Pièces
-    { sku: "PD-CTRL-52V", name: "Contrôleur 52V universel", slug: "controleur-52v", priceHt: 65.00, brand: "dualtron", cat: "pieces-detachees", img: `${IMG}MMDUALTRONAMINIA5217-TROTTINETTE-ELECTRIQUE-DUALTRON-AMINIA-SPECIAL-52V-175Ah-IPX5-300x300.jpg`, stock: 18 },
-    { sku: "PD-FREIN-DISC", name: "Kit frein à disque hydraulique", slug: "frein-disque-hydraulique", priceHt: 42.50, brand: "teverun", cat: "pieces-detachees", img: `${IMG}TEVERUNSPACE52V18A-TROTTINETTE-ELECTRIQUE-TEVERUN-SPACE-52V-18AH-300x300.png`, stock: 25 },
-    { sku: "PD-PNEU-10", name: "Pneu 10 pouces renforcé", slug: "pneu-10-pouces", priceHt: 18.33, brand: "xiaomi", cat: "pieces-detachees", img: `${IMG}MMDUALTRONTOGO48V15A-TROTTINETTE-ELECTRIQUE-DUALTRON-TOGO-PLUS-48V15A-300x300.jpg`, stock: 42 },
-    { sku: "PD-CABLE-SET", name: "Set câbles connectiques", slug: "cables-connectiques", priceHt: 8.25, brand: "ninebot", cat: "pieces-detachees", img: `${IMG}MMDUALTRONFOREVER60V18A2025-TROTTINETTE-ELECTRIQUE-DUALTRON-FOREVER-60V-182A-2025-EY4-300x300.jpg`, stock: 0 },
+    { sku: "PD-CTRL-52V", name: "Contrôleur 52V universel", slug: "controleur-52v", priceHt: 65.00, brand: "dualtron", cat: "pieces-detachees", img: null, stock: 18 },
+    { sku: "PD-FREIN-DISC", name: "Kit frein à disque hydraulique", slug: "frein-disque-hydraulique", priceHt: 42.50, brand: "teverun", cat: "pieces-detachees", img: null, stock: 25 },
+    { sku: "PD-PNEU-10", name: "Pneu 10 pouces renforcé", slug: "pneu-10-pouces", priceHt: 18.33, brand: "xiaomi", cat: "pieces-detachees", img: null, stock: 42 },
+    { sku: "PD-CABLE-SET", name: "Set câbles connectiques", slug: "cables-connectiques", priceHt: 8.25, brand: "ninebot", cat: "pieces-detachees", img: null, stock: 0 },
     // Batteries
-    { sku: "BAT-52V-18AH", name: "Batterie 52V 18Ah Samsung", slug: "batterie-52v-18ah", priceHt: 415.83, brand: "dualtron", cat: "batteries", img: `${IMG}TEVERUNBLADEMINIULTRA-TROTTINETTE-ELECTRIQUE-TEVERUN-BLADE-MINI-ULTRA-60V-27A-300x300.jpg`, stock: 7 },
-    { sku: "BAT-36V-10AH", name: "Batterie 36V 10Ah LG", slug: "batterie-36v-10ah", priceHt: 208.33, brand: "xiaomi", cat: "batteries", img: `${IMG}MMDUALTRONXLTD-TROTTINETTE-ELECTRIQUE-DUALTRON-X-LTD-300x300.jpg`, stock: 4 },
+    { sku: "BAT-52V-18AH", name: "Batterie 52V 18Ah Samsung", slug: "batterie-52v-18ah", priceHt: 415.83, brand: "dualtron", cat: "batteries", img: null, stock: 7 },
+    { sku: "BAT-36V-10AH", name: "Batterie 36V 10Ah LG", slug: "batterie-36v-10ah", priceHt: 208.33, brand: "xiaomi", cat: "batteries", img: null, stock: 4 },
     // Accessoires
-    { sku: "ACC-ANTIVOL", name: "Antivol U renforcé", slug: "antivol-u-renforce", priceHt: 33.25, brand: "ninebot", cat: "accessoires", img: `${IMG}TEVERUNSUPREME602024-TROTTINETTE-ELECTRIQUE-TEVERUN-FIGHTER-7260R-EDITION-2024-V3-300x300.jpg`, stock: 30 },
-    { sku: "ACC-SACOCHE", name: "Sacoche guidon étanche", slug: "sacoche-guidon", priceHt: 24.17, brand: "xiaomi", cat: "accessoires", img: `${IMG}MMDUALTRONACHILLEUSR2023-TROTTINETTE-ELECTRIQUE-DUALTRON-ACHILLEUS-60V-35AH-ROUGE-2024-300x300.jpg`, stock: 15 },
+    { sku: "ACC-ANTIVOL", name: "Antivol U renforcé", slug: "antivol-u-renforce", priceHt: 33.25, brand: "ninebot", cat: "accessoires", img: null, stock: 30 },
+    { sku: "ACC-SACOCHE", name: "Sacoche guidon étanche", slug: "sacoche-guidon", priceHt: 24.17, brand: "xiaomi", cat: "accessoires", img: null, stock: 15 },
   ];
 
   const products: Record<string, { id: string; priceHt: number }> = {};
@@ -130,10 +139,26 @@ async function main() {
     });
     products[p.sku] = { id: product.id, priceHt: p.priceHt };
 
-    // Image
-    await prisma.productImage.create({
-      data: { productId: product.id, url: p.img, alt: p.name, position: 0, isPrimary: true },
-    }).catch(() => {});
+    // Image: uniquement si fiable; sinon on supprime les anciennes images trompeuses.
+    if (p.img) {
+      const existingPrimaryImage = await prisma.productImage.findFirst({
+        where: { productId: product.id, isPrimary: true },
+      });
+      if (existingPrimaryImage) {
+        await prisma.productImage.update({
+          where: { id: existingPrimaryImage.id },
+          data: { url: p.img, alt: p.name, position: 0, isPrimary: true },
+        });
+      } else {
+        await prisma.productImage.create({
+          data: { productId: product.id, url: p.img, alt: p.name, position: 0, isPrimary: true },
+        });
+      }
+    } else {
+      await prisma.productImage.deleteMany({
+        where: { productId: product.id },
+      });
+    }
 
     // Variant
     await prisma.productVariant.upsert({
@@ -150,7 +175,7 @@ async function main() {
       data: { productId: product.id, categoryId: cats[p.cat] },
     }).catch(() => {});
   }
-  console.log("✓ 12 products + variants + images");
+  console.log("✓ 12 products + variants + image policy");
 
   // ── 7. ORDERS ──
   const jean = users["client1@demo.fr"];
