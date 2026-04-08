@@ -47,6 +47,23 @@ const listOrdersSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+const adminListOrdersSchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  status: z
+    .enum([
+      "PENDING",
+      "CONFIRMED",
+      "PREPARING",
+      "SHIPPED",
+      "DELIVERED",
+      "CANCELLED",
+      "REFUNDED",
+    ])
+    .optional(),
+  search: z.string().max(100).optional(),
+});
+
 const updateStatusSchema = z.object({
   status: z.enum([
     "PENDING",
@@ -58,6 +75,12 @@ const updateStatusSchema = z.object({
     "REFUNDED",
   ]),
   note: z.string().max(500).optional(),
+});
+
+const updateTrackingSchema = z.object({
+  trackingNumber: z.string().min(1).max(100).trim(),
+  note: z.string().max(500).optional(),
+  markAsShipped: z.boolean().default(true),
 });
 
 const orderIdParamsSchema = z.object({
@@ -154,6 +177,10 @@ function requireAuth(
     return false;
   }
   return true;
+}
+
+function isBackofficeRole(role?: string): boolean {
+  return role === "SUPERADMIN" || role === "ADMIN" || role === "MANAGER";
 }
 
 // ─── Routes ──────────────────────────────────────────────────
@@ -499,6 +526,252 @@ export async function orderRoutes(app: FastifyInstance) {
     });
   });
 
+  // GET /admin/orders — Admin/backoffice list orders
+  app.get("/admin/orders", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+
+    const user = request.user;
+    if (!isBackofficeRole(user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const parsed = adminListOrdersSchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid query parameters",
+          details: parsed.error.flatten().fieldErrors,
+        },
+      });
+    }
+
+    const { page, limit, status, search } = parsed.data;
+    const skip = (page - 1) * limit;
+    const normalizedSearch = search?.trim();
+
+    const where = {
+      ...(status ? { status } : {}),
+      ...(normalizedSearch
+        ? {
+            OR: [
+              { trackingNumber: { contains: normalizedSearch, mode: "insensitive" as const } },
+              { customer: { email: { contains: normalizedSearch, mode: "insensitive" as const } } },
+              ...(Number.isFinite(Number(normalizedSearch))
+                ? [{ orderNumber: Number(normalizedSearch) }]
+                : []),
+            ],
+          }
+        : {}),
+    };
+
+    const [orders, total] = await Promise.all([
+      app.prisma.order.findMany({
+        where,
+        include: {
+          customer: {
+            select: { id: true, email: true, firstName: true, lastName: true, phone: true },
+          },
+          _count: { select: { items: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      app.prisma.order.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      success: true,
+      data: orders.map((order) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        shippingMethod: order.shippingMethod,
+        trackingNumber: order.trackingNumber,
+        shippedAt: order.shippedAt,
+        deliveredAt: order.deliveredAt,
+        totalTtc: order.totalTtc,
+        itemsCount: order._count.items,
+        createdAt: order.createdAt,
+        customer: order.customer,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
+  });
+
+  // GET /admin/orders/:id — Admin/backoffice order detail
+  app.get("/admin/orders/:id", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+
+    const user = request.user;
+    if (!isBackofficeRole(user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const params = orderIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid order identifier",
+          details: params.error.flatten().fieldErrors,
+        },
+      });
+    }
+
+    const order = await app.prisma.order.findUnique({
+      where: { id: params.data.id },
+      include: {
+        customer: {
+          select: { id: true, email: true, firstName: true, lastName: true, phone: true },
+        },
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                sku: true,
+                images: {
+                  where: { isPrimary: true },
+                  take: 1,
+                  select: { url: true, alt: true },
+                },
+              },
+            },
+            variant: {
+              select: { id: true, name: true, sku: true, attributes: true },
+            },
+          },
+        },
+        payments: { orderBy: { createdAt: "desc" } },
+        installments: { orderBy: { installmentNumber: "asc" } },
+        statusHistory: { orderBy: { changedAt: "desc" } },
+      },
+    });
+
+    if (!order) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Order not found" },
+      });
+    }
+
+    return { success: true, data: order };
+  });
+
+  // PUT /admin/orders/:id/tracking — update parcel tracking info
+  app.put("/admin/orders/:id/tracking", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+
+    const user = request.user;
+    const userId = user.id ?? user.userId;
+    if (!isBackofficeRole(user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const params = orderIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid order identifier",
+          details: params.error.flatten().fieldErrors,
+        },
+      });
+    }
+
+    const parsed = updateTrackingSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid tracking update",
+          details: parsed.error.flatten().fieldErrors,
+        },
+      });
+    }
+
+    const { id } = params.data;
+    const { trackingNumber, note, markAsShipped } = parsed.data;
+
+    const order = await app.prisma.order.findUnique({
+      where: { id },
+      select: { id: true, status: true, trackingNumber: true },
+    });
+
+    if (!order) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Order not found" },
+      });
+    }
+
+    const shouldTransitionToShipped =
+      markAsShipped &&
+      order.status !== "SHIPPED" &&
+      order.status !== "DELIVERED" &&
+      order.status !== "CANCELLED" &&
+      order.status !== "REFUNDED" &&
+      (VALID_STATUS_TRANSITIONS[order.status] ?? []).includes("SHIPPED");
+
+    const updatedOrder = await app.prisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({
+        where: { id },
+        data: {
+          trackingNumber,
+          ...(shouldTransitionToShipped
+            ? { status: "SHIPPED", shippedAt: new Date() }
+            : {}),
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: id,
+          fromStatus: order.status,
+          toStatus: shouldTransitionToShipped ? "SHIPPED" : order.status,
+          note:
+            note ??
+            `Tracking updated: ${trackingNumber}${
+              shouldTransitionToShipped ? " (status set to SHIPPED)" : ""
+            }`,
+          changedBy: userId,
+        },
+      });
+
+      return updated;
+    });
+
+    return { success: true, data: updatedOrder };
+  });
+
   // GET /orders — List user's orders (paginated)
   app.get("/orders", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
@@ -630,16 +903,16 @@ export async function orderRoutes(app: FastifyInstance) {
     return { success: true, data: order };
   });
 
-  // PUT /orders/:id/status — Admin: change order status
+  // PUT /orders/:id/status — Backoffice: change order status (legacy path)
   app.put("/orders/:id/status", async (request, reply) => {
     if (!requireAuth(request, reply)) return;
 
     const user = request.user;
     const userId = user.id ?? user.userId;
-    if (user.role !== "ADMIN") {
+    if (!isBackofficeRole(user.role)) {
       return reply.status(403).send({
         success: false,
-        error: { code: "FORBIDDEN", message: "Admin access required" },
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
       });
     }
 
@@ -749,6 +1022,118 @@ export async function orderRoutes(app: FastifyInstance) {
         }
 
         // Cancel pending installments
+        await tx.paymentInstallment.updateMany({
+          where: { orderId: id, status: "PENDING" },
+          data: { status: "CANCELLED" },
+        });
+      }
+
+      return updatedOrder;
+    });
+
+    return { success: true, data: updated };
+  });
+
+  // PUT /admin/orders/:id/status — Backoffice: change order status
+  app.put("/admin/orders/:id/status", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+
+    const user = request.user;
+    const userId = user.id ?? user.userId;
+    if (!isBackofficeRole(user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const params = orderIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid order identifier",
+          details: params.error.flatten().fieldErrors,
+        },
+      });
+    }
+    const { id } = params.data;
+    const parsed = updateStatusSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid status update",
+          details: parsed.error.flatten().fieldErrors,
+        },
+      });
+    }
+
+    const { status: newStatus, note } = parsed.data;
+
+    const order = await app.prisma.order.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+
+    if (!order) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Order not found" },
+      });
+    }
+
+    const allowedNext = VALID_STATUS_TRANSITIONS[order.status];
+    if (!allowedNext || !allowedNext.includes(newStatus)) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_TRANSITION",
+          message: `Cannot transition from ${order.status} to ${newStatus}. Allowed: ${(allowedNext ?? []).join(", ") || "none"}`,
+        },
+      });
+    }
+
+    const updated = await app.prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: {
+          status: newStatus,
+          ...(newStatus === "SHIPPED" ? { shippedAt: new Date() } : {}),
+          ...(newStatus === "DELIVERED" ? { deliveredAt: new Date() } : {}),
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: id,
+          fromStatus: order.status,
+          toStatus: newStatus,
+          note: note ?? null,
+          changedBy: userId,
+        },
+      });
+
+      if (newStatus === "CANCELLED") {
+        const items = await tx.orderItem.findMany({ where: { orderId: id } });
+
+        for (const item of items) {
+          if (!item.variantId) continue;
+          if (updatedOrder.paymentMethod.startsWith("INSTALLMENT_")) {
+            await tx.productVariant.update({
+              where: { id: item.variantId },
+              data: { stockReserved: { decrement: item.quantity } },
+            });
+          } else {
+            await tx.productVariant.update({
+              where: { id: item.variantId },
+              data: { stockQuantity: { increment: item.quantity } },
+            });
+          }
+        }
+
         await tx.paymentInstallment.updateMany({
           where: { orderId: id, status: "PENDING" },
           data: { status: "CANCELLED" },
