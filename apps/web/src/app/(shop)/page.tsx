@@ -1,12 +1,10 @@
-"use client";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Lightbulb, Disc, Cable, Monitor, Bike, ChevronRight } from "lucide-react";
+import { Lightbulb, Disc, Cable, Monitor } from "lucide-react";
 import { formatPriceTTC, formatPrice } from "@/lib/utils";
 import { brand } from "@/lib/brand";
-import { getPrimaryScooter, type GarageScooter } from "@/lib/garage";
+import GarageBanner from "@/components/GarageBanner";
+import NewsletterForm from "@/components/NewsletterForm";
 
 // ─── TYPES ────────────────────────────────────────────────
 
@@ -69,31 +67,22 @@ const REVIEWS = [
 
 // ─── HOMEPAGE ─────────────────────────────────────────────
 
-export default function HomePage() {
-  const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [garageScooter, setGarageScooter] = useState<GarageScooter | null>(null);
+async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
+  const ecommerceBaseUrl = process.env.ECOMMERCE_URL || process.env.NEXT_PUBLIC_API_ECOMMERCE || "http://localhost:3001";
+  try {
+    const res = await fetch(`${ecommerceBaseUrl}/api/v1/products/featured`, {
+      next: { revalidate: 120 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || data.products || data || [];
+  } catch {
+    return [];
+  }
+}
 
-  useEffect(() => {
-    setGarageScooter(getPrimaryScooter());
-  }, []);
-
-  useEffect(() => {
-    async function fetchFeatured() {
-      try {
-        const res = await fetch("/api/v1/products/featured");
-        if (res.ok) {
-          const data = await res.json();
-          setFeaturedProducts(data.data || data.products || data || []);
-        }
-      } catch {
-        // Silently fail
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchFeatured();
-  }, []);
+export default async function HomePage() {
+  const featuredProducts = await getFeaturedProducts();
 
   return (
     <>
@@ -296,66 +285,7 @@ export default function HomePage() {
       {/* ================================================================
           GARAGE BANNER — personalized if user has a scooter
           ================================================================ */}
-      {garageScooter && (
-        <section
-          style={{
-            backgroundColor: "rgba(0, 255, 209, 0.05)",
-            borderBottom: "1px solid rgba(0, 255, 209, 0.15)",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 1280,
-              margin: "0 auto",
-              padding: "14px 24px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 16,
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Bike style={{ width: 18, height: 18, color: "var(--color-neon)" }} />
-              <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text)" }}>
-                Votre {garageScooter.brand} {garageScooter.model}
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: 12 }}>
-              <Link
-                href={`/compatibilite?brand=${encodeURIComponent(garageScooter.brand)}&model=${encodeURIComponent(garageScooter.model)}`}
-                className="font-mono"
-                style={{
-                  fontSize: "0.7rem",
-                  color: "var(--color-neon)",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                PIECES COMPATIBLES
-                <ChevronRight style={{ width: 12, height: 12 }} />
-              </Link>
-              <Link
-                href={`/reparation?productModel=${encodeURIComponent(`${garageScooter.brand} ${garageScooter.model}`)}`}
-                className="font-mono"
-                style={{
-                  fontSize: "0.7rem",
-                  color: "var(--color-text-muted)",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                REPARATION
-                <ChevronRight style={{ width: 12, height: 12 }} />
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      <GarageBanner />
 
       {/* ================================================================
           SECTION 3 — FEATURED PRODUCTS
@@ -375,56 +305,7 @@ export default function HomePage() {
           <div className="divider-neon" style={{ marginBottom: 32 }} />
 
           {/* Product grid */}
-          {loading ? (
-            <div
-              className="products-grid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: 16,
-              }}
-            >
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="product-card"
-                  style={{ opacity: 0.4 }}
-                >
-                  <div
-                    className="product-card-image"
-                    style={{ background: "var(--color-surface)" }}
-                  >
-                    <div style={{ width: "100%", height: "100%" }} />
-                  </div>
-                  <div className="product-card-body">
-                    <div
-                      style={{
-                        height: 8,
-                        background: "var(--color-border)",
-                        width: "50%",
-                        marginBottom: 8,
-                      }}
-                    />
-                    <div
-                      style={{
-                        height: 12,
-                        background: "var(--color-border)",
-                        width: "80%",
-                        marginBottom: 10,
-                      }}
-                    />
-                    <div
-                      style={{
-                        height: 20,
-                        background: "var(--color-border)",
-                        width: "40%",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : featuredProducts.length > 0 ? (
+          {featuredProducts.length > 0 ? (
             <div
               className="products-grid"
               style={{
@@ -805,45 +686,7 @@ export default function HomePage() {
           <h2 className="heading-lg" style={{ flex: "0 0 auto" }}>
             RESTEZ CONNECTÉ
           </h2>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const form = e.currentTarget;
-              const input = form.querySelector("input") as HTMLInputElement;
-              const email = input?.value?.trim();
-              if (!email) return;
-              try {
-                await fetch("/api/v1/analytics/events/public", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ events: [{ type: "diagnostic_category_selected", properties: { action: "newsletter_signup", email } }] }),
-                });
-              } catch { /* silent */ }
-              input.value = "";
-              const btn = form.querySelector("button") as HTMLButtonElement;
-              if (btn) { btn.textContent = "INSCRIT ✓"; setTimeout(() => { btn.textContent = "S'INSCRIRE"; }, 3000); }
-            }}
-            style={{
-              display: "flex",
-              flex: 1,
-              minWidth: 280,
-              gap: 0,
-            }}
-          >
-            <input
-              type="email"
-              required
-              placeholder="Votre adresse email"
-              className="input-dark"
-              style={{
-                flex: 1,
-                borderRight: "none",
-              }}
-            />
-            <button type="submit" className="btn-neon" style={{ whiteSpace: "nowrap" }}>
-              S&apos;INSCRIRE
-            </button>
-          </form>
+          <NewsletterForm />
         </div>
       </section>
 
