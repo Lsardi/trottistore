@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Search, ShoppingCart, User, Menu, X } from "lucide-react";
 import { brand } from "@/lib/brand";
@@ -23,6 +23,41 @@ const NAV_ITEMS = [
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Escape key closes mobile menu
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [menuOpen]);
+
+  // Focus trap for mobile menu
+  useEffect(() => {
+    if (!menuOpen || !mobileMenuRef.current) return;
+    const panel = mobileMenuRef.current;
+    const focusable = panel.querySelectorAll<HTMLElement>(
+      'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    first.focus();
+
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", trap);
+    return () => document.removeEventListener("keydown", trap);
+  }, [menuOpen]);
 
   useEffect(() => {
     let mounted = true;
@@ -314,6 +349,10 @@ export default function Header() {
       {/* ── Mobile Panel ── */}
       {menuOpen && (
         <div
+          ref={mobileMenuRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu de navigation"
           style={{
             position: "fixed",
             top: 0,
