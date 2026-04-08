@@ -22,7 +22,7 @@ import { stockRoutes } from "./routes/stock/index.js";
 import { checkoutRoutes } from "./routes/checkout/index.js";
 import { merchantRoutes } from "./routes/merchant/index.js";
 import { ZodError } from "zod";
-import { validateEnv, COMMON_ENV } from "@trottistore/shared";
+import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
 
 // Fail-fast if required env vars are missing
 validateEnv("ecommerce", [
@@ -67,8 +67,13 @@ async function start() {
 
   // Global error handler
   app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    const prismaAppError = mapPrismaError(error);
+    if (prismaAppError) {
+      error = prismaAppError as AppError & { statusCode?: number };
+    }
     const errorWithCode = error as { code?: unknown };
     const isZodError = error instanceof ZodError;
+    const zodError = isZodError ? (error as ZodError) : null;
     const statusCode = isZodError ? 400 : error.statusCode || 500;
     const customCode =
       statusCode < 500 && typeof errorWithCode.code === "string"
@@ -107,7 +112,7 @@ async function start() {
       error: {
         code,
         message,
-        ...(isZodError ? { details: error.flatten().fieldErrors } : {}),
+        ...(zodError ? { details: zodError.flatten().fieldErrors } : {}),
         ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
       },
     });
