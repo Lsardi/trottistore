@@ -374,12 +374,14 @@ export default function CheckoutPage() {
   if (successOrderId) {
     return (
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <p className="spec-label mb-3">COMMANDE VALIDEE</p>
-        <h1 className="heading-lg mb-4">Merci, votre commande est enregistrée</h1>
-        <p className="font-mono text-sm text-text-muted mb-8">Référence: {successOrderId}</p>
-        <Link href="/mon-compte" className="btn-neon">
-          VOIR MON COMPTE
-        </Link>
+        <p className="spec-label mb-3">COMMANDE CONFIRMÉE</p>
+        <h1 className="heading-lg mb-4">Merci pour votre commande !</h1>
+        <p className="font-mono text-sm text-text-muted mb-4">Référence : {successOrderId}</p>
+        <p className="font-mono text-xs text-text-dim mb-8">Un email de confirmation a été envoyé. Conservez votre référence pour le suivi.</p>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Link href="/produits" className="btn-neon">CONTINUER MES ACHATS</Link>
+          {!isGuest && <Link href="/mon-compte" className="btn-outline">MON COMPTE</Link>}
+        </div>
       </div>
     );
   }

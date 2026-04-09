@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -24,6 +25,14 @@ function normalize(text: string): string {
 }
 
 export default function AdminGlobalSearchPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-32"><p className="font-mono text-sm text-text-muted">Chargement...</p></div>}>
+      <SearchContent />
+    </Suspense>
+  );
+}
+
+function SearchContent() {
   const searchParams = useSearchParams();
   const query = (searchParams.get("q") || "").trim();
 
