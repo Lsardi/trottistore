@@ -235,7 +235,7 @@ function formatPrice(amount: string | number): string {
                   >
                     <div>
                       <p className="font-mono text-xs text-text">#{order.orderNumber}</p>
-                      <p className="font-mono text-[11px] text-text-dim">{order.status}</p>
+                      <p className="font-mono text-[11px] text-text-dim">{{ PENDING: "En attente", CONFIRMED: "Confirmée", PREPARING: "En préparation", SHIPPED: "Expédiée", DELIVERED: "Livrée", CANCELLED: "Annulée", REFUNDED: "Remboursée" }[order.status as string] || order.status}</p>
                     </div>
                     <p className="font-mono text-sm text-neon">{formatPrice(order.totalTtc)}</p>
                   </div>
@@ -260,7 +260,7 @@ function formatPrice(amount: string | number): string {
                   >
                     <div>
                       <p className="font-mono text-xs text-text">{ticket.productModel}</p>
-                      <p className="font-mono text-[11px] text-text-dim">{ticket.status}</p>
+                      <p className="font-mono text-[11px] text-text-dim">{{ RECU: "Reçu", DIAGNOSTIC: "Diagnostic", DEVIS_ENVOYE: "Devis envoyé", DEVIS_ACCEPTE: "Devis accepté", EN_REPARATION: "En réparation", EN_ATTENTE_PIECE: "En attente pièce", PRET: "Prêt", RECUPERE: "Récupéré" }[ticket.status as string] || ticket.status}</p>
                       {ticket.trackingToken ? (
                         <Link
                           href={`/mon-compte/suivi/${ticket.trackingToken}`}

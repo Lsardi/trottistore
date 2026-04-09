@@ -41,10 +41,10 @@ const STATS = [
 ];
 
 const CATEGORIES_SMALL = [
-  { name: "ÉCLAIRAGES", icon: Lightbulb, count: 48, slug: "eclairages" },
-  { name: "FREINAGE", icon: Disc, count: 92, slug: "freinage" },
-  { name: "CÂBLES", icon: Cable, count: 67, slug: "cables" },
-  { name: "DISPLAYS", icon: Monitor, count: 31, slug: "displays" },
+  { name: "ÉCLAIRAGES", icon: Lightbulb, count: 93, slug: "eclairages" },
+  { name: "CÂBLES", icon: Cable, count: 83, slug: "cables-connectiques" },
+  { name: "DISPLAYS", icon: Monitor, count: 74, slug: "displays" },
+  { name: "CONTRÔLEURS", icon: Disc, count: 114, slug: "controleur-et-carte-mere" },
 ];
 
 const REVIEWS = [
