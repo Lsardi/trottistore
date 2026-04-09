@@ -34,9 +34,9 @@ export default function MentionsLegalesPage() {
       <section className="space-y-3">
         <p className="spec-label">Hebergeur</p>
         <p className="font-mono text-sm text-text-muted">
-          [HÉBERGEUR À COMPLÉTER]
+          Railway Corp. — railway.app
           <br />
-          [ADRESSE HÉBERGEUR À COMPLÉTER]
+          548 Market St, San Francisco, CA 94104, USA
         </p>
       </section>
 
