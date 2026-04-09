@@ -33,14 +33,24 @@ function formatHT(priceHt: string): string {
   }).format(num);
 }
 
+/**
+ * Server-safe HTML sanitizer — strips dangerous tags and attributes.
+ * No DOM dependency, works in Node.js SSR + Edge.
+ */
 function sanitizeProductHtml(html?: string | null): string {
   if (!html) return "";
   return html
-    .replace(new RegExp("<script[\\s\\S]*?<\\/script>", "gi"), "")
-    .replace(new RegExp("<style[\\s\\S]*?<\\/style>", "gi"), "")
-    .replace(/ on[a-z]+="[^"]*"/gi, "")
-    .replace(/ on[a-z]+='[^']*'/gi, "")
-    .replace(/javascript:/gi, "");
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?>/gi, "")
+    .replace(/<link[\s\S]*?>/gi, "")
+    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/\s+on\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/javascript\s*:/gi, "blocked:")
+    .replace(/data\s*:\s*text\/html/gi, "blocked:")
+    .replace(/vbscript\s*:/gi, "blocked:");
 }
 
 async function fetchProductBySlug(slug: string): Promise<Product | null> {
@@ -335,7 +345,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <div className="divider mb-5" />
 
             {inStock ? (
-              <AddToCartSection productId={product.id} variantId={variant?.id} />
+              <AddToCartSection productId={product.id} variantId={variant?.id} maxQuantity={variant?.stockQuantity ?? 99} />
             ) : (
               <StockAlertForm productId={product.id} variantId={variant?.id} />
             )}

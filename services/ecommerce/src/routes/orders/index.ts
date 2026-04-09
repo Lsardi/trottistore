@@ -726,6 +726,18 @@ export async function orderRoutes(app: FastifyInstance) {
         },
       });
 
+      // Create CRM profile for guest
+      await tx.customerProfile.create({
+        data: {
+          userId: guestUser.id,
+          loyaltyTier: "BRONZE",
+          loyaltyPoints: 0,
+          totalOrders: 1,
+          totalSpent: Number(totalTtc),
+          source: "WEBSITE",
+        },
+      }).catch(() => {}); // ignore if profile table doesn't exist or constraint
+
       // Create shipping address
       const addr = await tx.address.create({
         data: {

@@ -29,7 +29,7 @@ function toErrorMessage(error: unknown): string {
     return "Le service catalogue est temporairement indisponible. Réessayez dans quelques instants.";
   }
   if (error instanceof TypeError) {
-    return "Le service catalogue ne répond pas. Vérifiez que l'API e-commerce est démarrée (port 3001).";
+    return "Le catalogue est momentanément indisponible. Veuillez réessayer dans quelques instants.";
   }
   return "Impossible de charger le catalogue pour le moment.";
 }

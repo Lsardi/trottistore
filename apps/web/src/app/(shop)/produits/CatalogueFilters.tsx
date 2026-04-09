@@ -116,7 +116,7 @@ export default function CatalogueFilters({
         return;
       }
       if (fetchError instanceof TypeError) {
-        setError("Le service catalogue ne répond pas. Vérifiez que l'API e-commerce est démarrée (port 3001).");
+        setError("Le catalogue est momentanément indisponible. Veuillez réessayer dans quelques instants.");
         return;
       }
       setError("Impossible de charger le catalogue pour le moment.");

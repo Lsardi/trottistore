@@ -115,7 +115,6 @@ async function start() {
         code,
         message,
         ...(zodError ? { details: zodError.flatten().fieldErrors } : {}),
-        ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
       },
     });
   });

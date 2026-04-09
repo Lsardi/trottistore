@@ -8,9 +8,11 @@ import { cartApi } from "@/lib/api";
 export default function AddToCartSection({
   productId,
   variantId,
+  maxQuantity = 99,
 }: {
   productId: string;
   variantId?: string;
+  maxQuantity?: number;
 }) {
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
@@ -27,11 +29,7 @@ export default function AddToCartSection({
       });
       window.dispatchEvent(new Event("trottistore:cart-updated"));
       setCartSuccess(true);
-      setCartMessage("Produit ajouté au panier");
-      setTimeout(() => {
-        setCartMessage("");
-        setCartSuccess(false);
-      }, 3000);
+      setCartMessage("Produit ajouté au panier !");
     } catch {
       setCartSuccess(false);
       setCartMessage("Erreur lors de l'ajout au panier");
@@ -70,7 +68,7 @@ export default function AddToCartSection({
             style={{ backgroundColor: "var(--color-surface)", color: "var(--color-text)", border: "none" }}
           />
           <button
-            onClick={() => setQuantity(quantity + 1)}
+            onClick={() => setQuantity(Math.min(maxQuantity, quantity + 1))}
             className="w-10 h-10 flex items-center justify-center transition-colors"
             style={{
               backgroundColor: "var(--color-surface)",
