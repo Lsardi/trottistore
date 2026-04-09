@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { FormEvent, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -10,6 +11,7 @@ import {
   Users,
   Wrench,
   BarChart3,
+  Search,
   ExternalLink,
   User,
 } from "lucide-react";
@@ -24,10 +26,20 @@ const NAV_ITEMS = [
   { label: "Clients", href: "/admin/clients", icon: Users },
   { label: "SAV", href: "/admin/sav", icon: Wrench },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+  { label: "Recherche", href: "/admin/recherche", icon: Search },
 ] as const;
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  function handleSearch(e: FormEvent) {
+    e.preventDefault();
+    const normalized = query.trim();
+    if (!normalized) return;
+    router.push(`/admin/recherche?q=${encodeURIComponent(normalized)}`);
+  }
 
   return (
     <div className="min-h-screen bg-void">
@@ -50,6 +62,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             Boutique
           </Link>
         </div>
+        <form onSubmit={handleSearch} className="px-3 pb-2">
+          <div className="relative">
+            <Search className="h-4 w-4 text-text-dim absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Recherche globale..."
+              className="input-dark w-full pl-9"
+            />
+          </div>
+        </form>
         <nav className="px-3 pb-3 overflow-x-auto">
           <div className="flex items-center gap-2 min-w-max">
             {NAV_ITEMS.map((item) => {
@@ -92,6 +115,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </Link>
         </div>
+
+        <form onSubmit={handleSearch} className="px-3 pb-3">
+          <div className="relative">
+            <Search className="h-4 w-4 text-text-dim absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Produits, commandes, clients..."
+              className="input-dark w-full pl-9"
+            />
+          </div>
+        </form>
 
         {/* Nav */}
         <nav className="flex-1 px-3 space-y-1">
