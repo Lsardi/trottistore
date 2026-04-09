@@ -33,24 +33,27 @@ function formatHT(priceHt: string): string {
   }).format(num);
 }
 
+import sanitizeHtml from "sanitize-html";
+
 /**
- * Server-safe HTML sanitizer — strips dangerous tags and attributes.
- * No DOM dependency, works in Node.js SSR + Edge.
+ * Server-safe HTML sanitizer using sanitize-html (no DOM dependency).
+ * Whitelist approach: only allow safe tags and attributes.
  */
 function sanitizeProductHtml(html?: string | null): string {
   if (!html) return "";
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
-    .replace(/<object[\s\S]*?<\/object>/gi, "")
-    .replace(/<embed[\s\S]*?>/gi, "")
-    .replace(/<link[\s\S]*?>/gi, "")
-    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
-    .replace(/\s+on\w+\s*=\s*[^\s>]+/gi, "")
-    .replace(/javascript\s*:/gi, "blocked:")
-    .replace(/data\s*:\s*text\/html/gi, "blocked:")
-    .replace(/vbscript\s*:/gi, "blocked:");
+  return sanitizeHtml(html, {
+    allowedTags: ["p", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li", "h2", "h3", "h4", "span", "div", "table", "thead", "tbody", "tr", "td", "th", "a", "img"],
+    allowedAttributes: {
+      a: ["href", "title", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+      span: ["class"],
+      div: ["class"],
+      td: ["colspan", "rowspan"],
+      th: ["colspan", "rowspan"],
+    },
+    allowedSchemes: ["http", "https"],
+    disallowedTagsMode: "discard",
+  });
 }
 
 async function fetchProductBySlug(slug: string): Promise<Product | null> {

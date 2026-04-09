@@ -19,10 +19,19 @@ const httpRequestDuration = new client.Histogram({
   buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
 });
 
+function resolveRouteLabel(request: { routeOptions?: { url?: string } }): string {
+  return request.routeOptions?.url || "__unmatched__";
+}
+
 export const metricsPlugin = fp(async (app: FastifyInstance) => {
   // Track request duration and count
   app.addHook("onResponse", (request, reply, done) => {
-    const route = request.routeOptions?.url || request.url.split("?")[0];
+    const route = resolveRouteLabel(request);
+    if (route === "/metrics" || route === "/health" || route === "/ready") {
+      done();
+      return;
+    }
+
     const labels = {
       method: request.method,
       route,
