@@ -16,6 +16,7 @@
     "@trottistore/shared": "workspace:*",
     "clsx": "^2.1.1",
     "dompurify": "^3.3.3",
+    "isomorphic-dompurify": "^3.8.0",
     "lucide-react": "^0.577.0",
     "next": "^15.3.0",
     "react": "^19.0.0",

@@ -33,14 +33,11 @@ function formatHT(priceHt: string): string {
   }).format(num);
 }
 
+import DOMPurify from "isomorphic-dompurify";
+
 function sanitizeProductHtml(html?: string | null): string {
   if (!html) return "";
-  return html
-    .replace(new RegExp("<script[\\s\\S]*?<\\/script>", "gi"), "")
-    .replace(new RegExp("<style[\\s\\S]*?<\\/style>", "gi"), "")
-    .replace(/ on[a-z]+="[^"]*"/gi, "")
-    .replace(/ on[a-z]+='[^']*'/gi, "")
-    .replace(/javascript:/gi, "");
+  return DOMPurify.sanitize(html);
 }
 
 async function fetchProductBySlug(slug: string): Promise<Product | null> {
@@ -335,7 +332,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <div className="divider mb-5" />
 
             {inStock ? (
-              <AddToCartSection productId={product.id} variantId={variant?.id} />
+              <AddToCartSection productId={product.id} variantId={variant?.id} maxQuantity={variant?.stockQuantity ?? 99} />
             ) : (
               <StockAlertForm productId={product.id} variantId={variant?.id} />
             )}
