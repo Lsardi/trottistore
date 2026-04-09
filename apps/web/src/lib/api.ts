@@ -371,6 +371,43 @@ export const adminProductsApi = {
     }),
 };
 
+export interface AdminCategoryPayload {
+  name: string;
+  slug?: string;
+  parentId?: string | null;
+}
+
+export interface AdminCategory {
+  id: string;
+  name: string;
+  slug: string;
+  parentId?: string | null;
+  productCount: number;
+  createdAt: string;
+}
+
+export const adminCategoriesApi = {
+  list: () =>
+    apiFetch<{ success: boolean; data: AdminCategory[] }>('ecommerce', '/admin/categories'),
+
+  create: (body: AdminCategoryPayload) =>
+    apiFetch<{ success: boolean; data: AdminCategory }>('ecommerce', '/admin/categories', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  update: (id: string, body: Partial<AdminCategoryPayload>) =>
+    apiFetch<{ success: boolean; data: AdminCategory }>('ecommerce', `/admin/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean }>('ecommerce', `/admin/categories/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
 // ─── AUTH ──────────────────────────────────────────────────
 
 export const authApi = {
