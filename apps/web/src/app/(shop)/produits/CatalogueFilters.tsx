@@ -83,7 +83,14 @@ export default function CatalogueFilters({
   const [totalPages, setTotalPages] = useState(initialTotalPages);
   const [sort, setSort] = useState(initialSort);
   const [search, setSearch] = useState(initialSearch);
+  const [searchInput, setSearchInput] = useState(initialSearch);
   const [categorySlug, setCategorySlug] = useState(initialCategorySlug);
+
+  // Debounce search: wait 400ms after typing stops
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -168,9 +175,9 @@ export default function CatalogueFilters({
             <input
               type="text"
               placeholder="Rechercher..."
-              value={search}
+              value={searchInput}
               onChange={(e) => {
-                setSearch(e.target.value);
+                setSearchInput(e.target.value);
                 setPage(1);
               }}
               className="w-full h-full pl-10 pr-4 py-3 outline-none font-mono text-sm bg-surface text-text border-none border-r border-border"
