@@ -33,11 +33,24 @@ function formatHT(priceHt: string): string {
   }).format(num);
 }
 
-import DOMPurify from "isomorphic-dompurify";
-
+/**
+ * Server-safe HTML sanitizer — strips dangerous tags and attributes.
+ * No DOM dependency, works in Node.js SSR + Edge.
+ */
 function sanitizeProductHtml(html?: string | null): string {
   if (!html) return "";
-  return DOMPurify.sanitize(html);
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?>/gi, "")
+    .replace(/<link[\s\S]*?>/gi, "")
+    .replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/\s+on\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/javascript\s*:/gi, "blocked:")
+    .replace(/data\s*:\s*text\/html/gi, "blocked:")
+    .replace(/vbscript\s*:/gi, "blocked:");
 }
 
 async function fetchProductBySlug(slug: string): Promise<Product | null> {
