@@ -36,9 +36,22 @@ validateEnv("ecommerce", [
 const PORT = parseInt(process.env.PORT_ECOMMERCE || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 
+function resolveTrustProxy(): boolean | string[] {
+  const configured = process.env.TRUSTED_PROXY_CIDRS?.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (configured && configured.length > 0) {
+    return configured;
+  }
+
+  // Secure-by-default in production: trust proxy headers only if explicitly configured.
+  return process.env.NODE_ENV === "production" ? false : true;
+}
+
 async function start() {
   const app = Fastify({
-    trustProxy: true,
+    trustProxy: resolveTrustProxy(),
     logger: {
       level: process.env.NODE_ENV === "production" ? "info" : "debug",
       transport:
@@ -59,6 +72,12 @@ async function start() {
   await app.register(rateLimit, {
     max: 100,
     timeWindow: "1 minute",
+    addHeaders: {
+      "x-ratelimit-limit": true,
+      "x-ratelimit-remaining": true,
+      "x-ratelimit-reset": true,
+      "retry-after": true,
+    },
   });
 
   // Plugins métier
@@ -143,6 +162,60 @@ async function start() {
   await app.register(checkoutRoutes, { prefix: "/api/v1" });
   await app.register(merchantRoutes, { prefix: "/api/v1" });
   await app.register(addressRoutes, { prefix: "/api/v1" });
+
+  // API docs — list available routes
+  app.get("/api/v1/docs", async () => ({
+    service: "ecommerce",
+    version: "1.0",
+    endpoints: {
+      auth: {
+        "POST /api/v1/auth/register": "Create account (email, password, firstName, lastName)",
+        "POST /api/v1/auth/login": "Login (email, password) → accessToken",
+        "POST /api/v1/auth/refresh": "Refresh token (cookie)",
+        "POST /api/v1/auth/logout": "Logout",
+        "GET /api/v1/auth/me": "Current user profile (Bearer token)",
+        "GET /api/v1/auth/export": "Export personal data (RGPD)",
+        "DELETE /api/v1/auth/account": "Delete account (RGPD)",
+      },
+      products: {
+        "GET /api/v1/products": "List products (?page, limit, sort, search, categorySlug)",
+        "GET /api/v1/products/:slug": "Product detail by slug",
+        "GET /api/v1/products/featured": "Featured products",
+      },
+      cart: {
+        "GET /api/v1/cart": "Get cart (x-session-id header or Bearer token)",
+        "POST /api/v1/cart/items": "Add item (productId, variantId?, quantity)",
+        "PUT /api/v1/cart/items/:productId": "Update quantity",
+        "DELETE /api/v1/cart/items/:productId": "Remove item",
+        "DELETE /api/v1/cart": "Clear cart",
+      },
+      orders: {
+        "POST /api/v1/orders": "Create order (auth required: shippingAddressId, paymentMethod, acceptedCgv)",
+        "POST /api/v1/orders/guest": "Guest order (email, shippingAddress, paymentMethod, acceptedCgv)",
+        "GET /api/v1/orders": "List user orders",
+      },
+      checkout: {
+        "GET /api/v1/checkout/config": "Stripe publishable key",
+        "POST /api/v1/checkout/payment-intent": "Create Stripe PaymentIntent",
+      },
+      categories: {
+        "GET /api/v1/categories": "List categories",
+      },
+      admin: {
+        "GET /api/v1/admin/orders": "List all orders (admin)",
+        "GET /api/v1/admin/orders/:id": "Order detail (admin)",
+        "PUT /api/v1/admin/orders/:id/status": "Change order status",
+        "PUT /api/v1/admin/orders/:id/tracking": "Add tracking number",
+        "GET /api/v1/admin/categories": "List categories with counts",
+        "POST /api/v1/admin/categories": "Create category",
+        "PUT /api/v1/admin/categories/:id": "Update category",
+        "DELETE /api/v1/admin/categories/:id": "Delete empty category",
+        "POST /api/v1/admin/products": "Create product",
+        "PUT /api/v1/admin/products/:id": "Update product",
+        "DELETE /api/v1/admin/products/:id": "Delete product",
+      },
+    },
+  }));
 
   // Démarrage
   try {

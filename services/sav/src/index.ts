@@ -27,8 +27,22 @@ validateEnv("sav", [
 const PORT = parseInt(process.env.PORT_SAV || "3004", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 
+function resolveTrustProxy(): boolean | string[] {
+  const configured = process.env.TRUSTED_PROXY_CIDRS?.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (configured && configured.length > 0) {
+    return configured;
+  }
+
+  // Secure-by-default in production: trust proxy headers only if explicitly configured.
+  return process.env.NODE_ENV === "production" ? false : true;
+}
+
 async function start() {
   const app = Fastify({
+    trustProxy: resolveTrustProxy(),
     logger: {
       level: process.env.NODE_ENV === "production" ? "info" : "debug",
       transport:
@@ -49,6 +63,7 @@ async function start() {
   await app.register(rateLimit, {
     max: 100,
     timeWindow: "1 minute",
+    addHeaders: { "x-ratelimit-limit": true, "x-ratelimit-remaining": true, "x-ratelimit-reset": true, "retry-after": true },
   });
 
   // Plugins metier
