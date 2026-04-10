@@ -1,6 +1,10 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { PrismaClient } from "@prisma/client";
 import Stripe from "stripe";
 import { z } from "zod";
+
+/** Transaction client type — PrismaClient minus connection/transaction methods. */
+type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends">;
 
 // --- Zod Schemas ---
 
@@ -32,13 +36,24 @@ function getStripe(): Stripe | null {
 // --- Routes ---
 
 export async function checkoutRoutes(app: FastifyInstance) {
-  // Register raw body parser for webhook route (Stripe signature requires exact raw body)
+  // Register raw body parser for webhook route (Stripe signature requires exact raw body).
+  // For non-webhook routes, parse the buffer as JSON so Zod validation works.
   app.addContentTypeParser(
     "application/json",
     { parseAs: "buffer" },
-    (_request, body, done) => {
-      // Store raw buffer for webhook signature verification
-      done(null, body);
+    (request, body, done) => {
+      if (request.url.includes("/checkout/webhook")) {
+        // Webhook needs raw buffer for Stripe signature verification
+        done(null, body);
+      } else {
+        // All other routes need parsed JSON
+        try {
+          const parsed = JSON.parse(body.toString());
+          done(null, parsed);
+        } catch (err) {
+          done(err as Error, undefined);
+        }
+      }
     },
   );
 
@@ -335,9 +350,81 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
         note: `Paiement Stripe confirme (${pi.id})`,
       },
     });
+
+    // Award loyalty points (1 point per EUR spent)
+    await awardLoyaltyPoints(tx, orderId, pi.amount / 100, app);
   });
 
   app.log.info({ orderId, paymentIntentId: pi.id, amount: pi.amount / 100 }, "Payment confirmed, order updated");
+}
+
+/**
+ * Award loyalty points to the customer after a confirmed purchase.
+ * 1 point per EUR spent. Updates the tier based on total points.
+ *
+ * Tiers: BRONZE (0-499), SILVER (500-1999), GOLD (2000+)
+ */
+async function awardLoyaltyPoints(
+  tx: TransactionClient,
+  orderId: string,
+  amountEur: number,
+  app: FastifyInstance,
+): Promise<void> {
+  try {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { customerId: true },
+    });
+    if (!order) return;
+
+    const profile = await tx.customerProfile.findUnique({
+      where: { userId: order.customerId },
+    });
+    if (!profile) return;
+
+    const points = Math.floor(amountEur);
+    if (points <= 0) return;
+
+    // Idempotence: don't award twice for the same order (webhook retry protection)
+    const alreadyAwarded = await tx.loyaltyPoint.findFirst({
+      where: { profileId: profile.id, referenceId: orderId, type: "PURCHASE" },
+    });
+    if (alreadyAwarded) {
+      app.log.info({ orderId }, "Loyalty points already awarded (idempotent skip)");
+      return;
+    }
+
+    // Award points
+    await tx.loyaltyPoint.create({
+      data: {
+        profileId: profile.id,
+        points,
+        type: "PURCHASE",
+        referenceId: orderId,
+        description: `Achat #${orderId.substring(0, 8)} — ${amountEur.toFixed(2)}€`,
+      },
+    });
+
+    // Update profile totals
+    const newPoints = profile.loyaltyPoints + points;
+    const newTier = newPoints >= 2000 ? "GOLD" : newPoints >= 500 ? "SILVER" : "BRONZE";
+
+    await tx.customerProfile.update({
+      where: { id: profile.id },
+      data: {
+        loyaltyPoints: newPoints,
+        totalOrders: { increment: 1 },
+        totalSpent: { increment: amountEur },
+        lastOrderAt: new Date(),
+        loyaltyTier: newTier,
+      },
+    });
+
+    app.log.info({ userId: order.customerId, points, newTier }, "Loyalty points awarded");
+  } catch (err) {
+    // Non-blocking: loyalty errors should not fail the payment
+    app.log.error({ err, orderId }, "Failed to award loyalty points");
+  }
 }
 
 async function handlePaymentFailure(app: FastifyInstance, pi: Stripe.PaymentIntent): Promise<void> {

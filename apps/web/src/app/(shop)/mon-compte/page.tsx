@@ -5,13 +5,16 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ClipboardList, Loader2, Wrench } from "lucide-react";
+import AddressSection from "@/components/AddressSection";
 import GarageSection from "@/components/GarageSection";
 import LoyaltyCard from "@/components/LoyaltyCard";
 import {
   ApiError,
+  addressesApi,
   authApi,
   ordersApi,
   repairsApi,
+  type Address,
   type Order,
   type RepairTicket,
   type User,
@@ -45,6 +48,10 @@ function formatPrice(amount: string | number): string {
   const [tickets, setTickets] = useState<RepairTicket[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", phone: "" });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [registerForm, setRegisterForm] = useState({
     email: "",
@@ -218,6 +225,118 @@ function formatPrice(amount: string | number): string {
           />
         </div>
 
+        <section className="bg-surface border border-border p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <p className="spec-label">Mon profil</p>
+            {!editingProfile && (
+              <button
+                onClick={() => {
+                  setProfileForm({
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    phone: user.phone || "",
+                  });
+                  setEditingProfile(true);
+                  setProfileMsg("");
+                }}
+                className="font-mono text-xs text-neon underline"
+              >
+                Modifier
+              </button>
+            )}
+          </div>
+          {editingProfile ? (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setProfileSaving(true);
+                setProfileMsg("");
+                try {
+                  const res = await authApi.updateProfile({
+                    firstName: profileForm.firstName,
+                    lastName: profileForm.lastName,
+                    phone: profileForm.phone || null,
+                  });
+                  if (res.success && res.data?.user) {
+                    setUser({ ...user, ...res.data.user });
+                    setEditingProfile(false);
+                    setProfileMsg("Profil mis à jour.");
+                  }
+                } catch {
+                  setProfileMsg("Erreur lors de la mise à jour.");
+                } finally {
+                  setProfileSaving(false);
+                }
+              }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
+              <div>
+                <label htmlFor="profile-firstName" className="block font-mono text-xs text-text-muted mb-1">Prénom</label>
+                <input
+                  id="profile-firstName"
+                  type="text"
+                  required
+                  value={profileForm.firstName}
+                  onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                  className="input-dark w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="profile-lastName" className="block font-mono text-xs text-text-muted mb-1">Nom</label>
+                <input
+                  id="profile-lastName"
+                  type="text"
+                  required
+                  value={profileForm.lastName}
+                  onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                  className="input-dark w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="profile-phone" className="block font-mono text-xs text-text-muted mb-1">Téléphone</label>
+                <input
+                  id="profile-phone"
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                  className="input-dark w-full"
+                  placeholder="06 12 34 56 78"
+                />
+              </div>
+              <div className="md:col-span-3 flex gap-3">
+                <button type="submit" disabled={profileSaving} className="btn-neon disabled:opacity-50">
+                  {profileSaving ? "Enregistrement..." : "ENREGISTRER"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingProfile(false)}
+                  className="btn-outline"
+                >
+                  ANNULER
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="font-mono text-xs text-text-muted">Prénom</p>
+                <p className="font-mono text-sm text-text">{user.firstName}</p>
+              </div>
+              <div>
+                <p className="font-mono text-xs text-text-muted">Nom</p>
+                <p className="font-mono text-sm text-text">{user.lastName}</p>
+              </div>
+              <div>
+                <p className="font-mono text-xs text-text-muted">Téléphone</p>
+                <p className="font-mono text-sm text-text">{user.phone || "Non renseigné"}</p>
+              </div>
+              {profileMsg && (
+                <p className="md:col-span-3 font-mono text-xs text-neon">{profileMsg}</p>
+              )}
+            </div>
+          )}
+        </section>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="bg-surface border border-border p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -282,30 +401,13 @@ function formatPrice(amount: string | number): string {
           <GarageSection />
         </div>
 
-        <section className="bg-surface border border-border p-5 mt-6">
-          <p className="spec-label mb-4">Adresses</p>
-          {!user.addresses || user.addresses.length === 0 ? (
-            <p className="font-mono text-sm text-text-muted">Aucune adresse enregistrée.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {user.addresses.map((address) => (
-                <div key={address.id} className="border border-border p-4">
-                  <p className="font-mono text-xs text-text mb-1">
-                    {address.firstName} {address.lastName}
-                  </p>
-                  <p className="font-mono text-xs text-text-dim">{address.street}</p>
-                  {address.street2 ? (
-                    <p className="font-mono text-xs text-text-dim">{address.street2}</p>
-                  ) : null}
-                  <p className="font-mono text-xs text-text-dim">
-                    {address.postalCode} {address.city}
-                  </p>
-                  <p className="font-mono text-xs text-text-dim">{address.country}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        <AddressSection
+          addresses={user.addresses || []}
+          onUpdate={async () => {
+            const meRes = await authApi.me();
+            setUser(meRes.data);
+          }}
+        />
       </div>
     );
   }
@@ -374,7 +476,7 @@ function formatPrice(amount: string | number): string {
                     className="input-dark w-full"
                   />
                   <a
-                    href={`mailto:${brand.email}?subject=Mot%20de%20passe%20oubli%C3%A9`}
+                    href="/mot-de-passe-oublie"
                     className="mt-2 inline-block font-mono text-xs text-text-muted underline hover:text-text"
                   >
                     Mot de passe oublié ?

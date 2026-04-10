@@ -440,6 +440,65 @@ export const authApi = {
       success: res.success,
       data: res.data.user,
     })),
+
+  updateProfile: (body: { firstName?: string; lastName?: string; phone?: string | null }) =>
+    apiFetch<{ success: boolean; data: { user: User } }>('ecommerce', '/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  forgotPassword: (body: { email: string }) =>
+    apiFetch<{ success: boolean; data: { message: string } }>('ecommerce', '/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  resetPassword: (body: { token: string; newPassword: string }) =>
+    apiFetch<{ success: boolean; data: { message: string } }>('ecommerce', '/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+};
+
+// ─── Reviews ─────────────────────────────────────────────
+
+export interface ReviewData {
+  id: string;
+  rating: number;
+  title: string | null;
+  content: string;
+  serviceTag: string | null;
+  verifiedPurchase: boolean;
+  createdAt: string;
+  user: { firstName: string; lastName: string };
+  product?: { name: string; slug: string } | null;
+}
+
+export const reviewsApi = {
+  list: (params?: { page?: number; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    return apiFetch<{ success: boolean; data: ReviewData[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(
+      'ecommerce', `/reviews?${qs.toString()}`,
+    );
+  },
+
+  stats: () =>
+    apiFetch<{ success: boolean; data: { averageRating: number; totalReviews: number } }>(
+      'ecommerce', '/reviews/stats',
+    ),
+
+  forProduct: (slug: string) =>
+    apiFetch<{ success: boolean; data: ReviewData[]; stats: { averageRating: number; totalReviews: number } }>(
+      'ecommerce', `/products/${slug}/reviews`,
+    ),
+
+  create: (body: { productId?: string; rating: number; title?: string; content: string; serviceTag?: string }) =>
+    apiFetch<{ success: boolean; data: ReviewData }>('ecommerce', '/reviews', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 // ─── SAV ──────────────────────────────────────────────────
@@ -482,6 +541,22 @@ export const repairsApi = {
       method: 'PUT',
       body: JSON.stringify({ trackingToken }),
     }),
+
+  diagnosticStats: () =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        categories: Array<{
+          category: string;
+          count: number;
+          avgCost: number | null;
+          minCost: number | null;
+          maxCost: number | null;
+          avgDays: number | null;
+        }>;
+        totalRepairs: number;
+      };
+    }>('sav', '/repairs/diagnostic-stats'),
 };
 
 export const appointmentsApi = {
