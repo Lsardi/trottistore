@@ -125,6 +125,50 @@ function generateBankReference(): string {
   return `TS-${year}-${rand}`;
 }
 
+class InsufficientStockError extends Error {
+  readonly statusCode = 409;
+  readonly code = "INSUFFICIENT_STOCK";
+
+  constructor(variantId: string) {
+    super(`Insufficient stock for variant ${variantId}`);
+    this.name = "InsufficientStockError";
+  }
+}
+
+type StockGuardTransactionClient = {
+  productVariant: {
+    updateMany(args: {
+      where: {
+        id: string;
+        stockQuantity: { gte: number };
+      };
+      data: {
+        stockQuantity: { decrement: number };
+      };
+    }): Promise<{ count: number }>;
+  };
+};
+
+async function decrementStockOrThrow(
+  tx: StockGuardTransactionClient,
+  variantId: string,
+  quantity: number,
+): Promise<void> {
+  const result = await tx.productVariant.updateMany({
+    where: {
+      id: variantId,
+      stockQuantity: { gte: quantity },
+    },
+    data: {
+      stockQuantity: { decrement: quantity },
+    },
+  });
+
+  if (result.count === 0) {
+    throw new InsufficientStockError(variantId);
+  }
+}
+
 interface CartItem {
   productId: string;
   variantId: string | null;
@@ -476,11 +520,8 @@ export async function orderRoutes(app: FastifyInstance) {
             data: { stockReserved: { increment: item.quantity } },
           });
         } else {
-          // For immediate payments, decrement stock
-          await tx.productVariant.update({
-            where: { id: item.variantId },
-            data: { stockQuantity: { decrement: item.quantity } },
-          });
+          // Atomic stock guard prevents concurrent oversell.
+          await decrementStockOrThrow(tx, item.variantId, item.quantity);
         }
       }
 
@@ -797,10 +838,7 @@ export async function orderRoutes(app: FastifyInstance) {
             data: { stockReserved: { increment: item.quantity } },
           });
         } else {
-          await tx.productVariant.update({
-            where: { id: item.variantId },
-            data: { stockQuantity: { decrement: item.quantity } },
-          });
+          await decrementStockOrThrow(tx, item.variantId, item.quantity);
         }
       }
 
@@ -1806,10 +1844,7 @@ export async function orderRoutes(app: FastifyInstance) {
       // Decrement stock
       for (const item of body.items) {
         if (item.variantId) {
-          await tx.productVariant.update({
-            where: { id: item.variantId },
-            data: { stockQuantity: { decrement: item.quantity } },
-          });
+          await decrementStockOrThrow(tx, item.variantId, item.quantity);
         }
       }
 

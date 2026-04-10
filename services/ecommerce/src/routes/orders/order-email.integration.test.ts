@@ -126,6 +126,7 @@ function buildApp(): FastifyInstance {
     productVariant: {
       findMany: vi.fn().mockResolvedValue([MOCK_VARIANT]),
       update: vi.fn().mockResolvedValue(MOCK_VARIANT),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     order: {
       create: vi.fn().mockResolvedValue(MOCK_ORDER),

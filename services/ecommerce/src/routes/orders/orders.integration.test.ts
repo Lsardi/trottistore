@@ -27,6 +27,7 @@ function buildTestApp(): FastifyInstance {
     productVariant: {
       findMany: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     orderItem: {
       findMany: vi.fn().mockResolvedValue([]),
