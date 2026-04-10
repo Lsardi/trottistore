@@ -65,6 +65,22 @@ function buildTestApp(): FastifyInstance {
     set: vi.fn().mockResolvedValue("OK"),
   });
 
+  // Test helper: inject a synthetic authenticated user via the
+  // `x-test-user` header (JSON-encoded). In production this user comes
+  // from app.authenticate (global onRequest hook in services/sav/src/index.ts).
+  // Doing it via header keeps the test matrix flat — each `it` declares
+  // its own caller.
+  app.addHook("onRequest", async (request) => {
+    const raw = request.headers["x-test-user"];
+    if (typeof raw === "string" && raw.length > 0) {
+      try {
+        (request as { user?: unknown }).user = JSON.parse(raw);
+      } catch {
+        // ignore — leaves request.user undefined
+      }
+    }
+  });
+
   return app;
 }
 
@@ -183,5 +199,115 @@ describe("SAV Tickets integration tests", () => {
     const body = res.json();
     expect(body.success).toBe(true);
     expect(body).toHaveProperty("data");
+  });
+
+  // ── PUT /api/v1/repairs/:id/quote/accept ─────────────────────
+  //
+  // Security regression tests for AUDIT_ATOMIC.md#P1-2: TECHNICIAN must
+  // only accept quotes on tickets they are assigned to. The route
+  // already follows this pattern for status transitions, quote send,
+  // parts add (lines 552, 591, 708, 980, 1059) — but the quote/accept
+  // path at line 838 was missing the check.
+
+  describe("PUT /api/v1/repairs/:id/quote/accept — assignedTo guard", () => {
+    const TICKET_ID = "ticket-quote-1";
+    const ASSIGNED_TECH = "00000000-0000-0000-0000-00000000A001";
+    const OTHER_TECH = "00000000-0000-0000-0000-00000000A002";
+    const TICKET_ON_DEVIS = {
+      id: TICKET_ID,
+      status: "DEVIS_ENVOYE",
+      assignedTo: ASSIGNED_TECH,
+      customerId: "cust-1",
+    };
+
+    it("TECHNICIAN assigned to the ticket can accept the quote (200)", async () => {
+      (app.prisma.repairTicket.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(TICKET_ON_DEVIS);
+      (app.prisma.repairTicket.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...TICKET_ON_DEVIS,
+        status: "DEVIS_ACCEPTE",
+      });
+
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/repairs/${TICKET_ID}/quote/accept`,
+        headers: {
+          "x-test-user": JSON.stringify({ userId: ASSIGNED_TECH, role: "TECHNICIAN" }),
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().success).toBe(true);
+    });
+
+    it("TECHNICIAN NOT assigned is rejected (403)", async () => {
+      (app.prisma.repairTicket.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(TICKET_ON_DEVIS);
+
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/repairs/${TICKET_ID}/quote/accept`,
+        headers: {
+          "x-test-user": JSON.stringify({ userId: OTHER_TECH, role: "TECHNICIAN" }),
+        },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe("FORBIDDEN");
+      // The ticket must NOT have been updated
+      expect(app.prisma.repairTicket.update).not.toHaveBeenCalled();
+    });
+
+    it("MANAGER can accept any quote regardless of assignedTo (200)", async () => {
+      (app.prisma.repairTicket.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(TICKET_ON_DEVIS);
+      (app.prisma.repairTicket.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...TICKET_ON_DEVIS,
+        status: "DEVIS_ACCEPTE",
+      });
+
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/repairs/${TICKET_ID}/quote/accept`,
+        headers: {
+          "x-test-user": JSON.stringify({ userId: "manager-1", role: "MANAGER" }),
+        },
+      });
+      expect(res.statusCode).toBe(200);
+    });
+
+    it("STAFF can accept any quote (200, matches existing pattern)", async () => {
+      (app.prisma.repairTicket.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(TICKET_ON_DEVIS);
+      (app.prisma.repairTicket.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...TICKET_ON_DEVIS,
+        status: "DEVIS_ACCEPTE",
+      });
+
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/repairs/${TICKET_ID}/quote/accept`,
+        headers: {
+          "x-test-user": JSON.stringify({ userId: "staff-1", role: "STAFF" }),
+        },
+      });
+      expect(res.statusCode).toBe(200);
+    });
+
+    it("CLIENT is rejected (403) — existing guard, regression coverage", async () => {
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/repairs/${TICKET_ID}/quote/accept`,
+        headers: {
+          "x-test-user": JSON.stringify({ userId: "client-1", role: "CLIENT" }),
+        },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("unauthenticated (no request.user) is rejected (403)", async () => {
+      // Defense in depth: the global SAV onRequest hook enforces auth
+      // on this path in production, but the route itself must also
+      // reject a missing user rather than fall through.
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/repairs/${TICKET_ID}/quote/accept`,
+      });
+      expect(res.statusCode).toBe(403);
+    });
   });
 });
