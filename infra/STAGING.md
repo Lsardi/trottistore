@@ -45,6 +45,10 @@ NEXT_PUBLIC_BRAND_OG_URL=https://staging.trottistore.fr
 PORT_ECOMMERCE=3001
 BASE_URL=https://staging.trottistore.fr
 COOKIE_SECRET=<generer: openssl rand -hex 32>
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+FEATURE_CHECKOUT_EXPRESS=true
 ```
 
 ### crm
@@ -114,7 +118,7 @@ curl https://analytics-staging.trottistore.fr/health
 curl https://ecommerce-staging.trottistore.fr/ready
 
 # Seed staging data
-railway run --service ecommerce --environment staging -- pnpm db:push
+railway run --service ecommerce --environment staging -- pnpm db:deploy
 railway run --service ecommerce --environment staging -- pnpm db:seed:demo
 ```
 
