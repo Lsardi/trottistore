@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { repairRoutes } from "./index.js";
 
@@ -99,6 +99,14 @@ describe("SAV Tickets integration tests", () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  // Reset mock call history between each test. Without this, assertions
+  // like `expect(update).not.toHaveBeenCalled()` pick up calls made by
+  // earlier tests in the file and produce false-fails that depend on
+  // test order.
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   // ── GET /api/v1/repairs ──────────────────────────────────────
