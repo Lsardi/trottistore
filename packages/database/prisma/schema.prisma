@@ -30,8 +30,10 @@ model User {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  refreshTokens   RefreshToken[]
-  addresses       Address[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  addresses           Address[]
+  reviews             Review[]
   orders          Order[]
   customerProfile CustomerProfile?
   repairTickets   RepairTicket[]
@@ -62,6 +64,40 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+  @@schema("shared")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz()
+  usedAt     DateTime? @map("used_at") @db.Timestamptz()
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+  @@schema("shared")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  userName     String?  @map("user_name") @db.VarChar(200)
+  action       String   @db.VarChar(50)  // CREATE, UPDATE, DELETE, REFUND, STATUS_CHANGE, LOGIN, etc.
+  resource     String   @db.VarChar(50)  // user, order, product, ticket, campaign, etc.
+  resourceId   String?  @map("resource_id") @db.VarChar(100)
+  details      String?  @db.Text
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([userId])
+  @@index([resource])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
   @@schema("shared")
 }
 
@@ -157,6 +193,7 @@ model Product {
   variants   ProductVariant[]
   stockAlerts StockAlert[]
   orderItems OrderItem[]
+  reviews    Review[]
 
   @@index([sku])
   @@index([slug])
@@ -190,6 +227,31 @@ model ProductImage {
 
   @@index([productId])
   @@map("product_images")
+  @@schema("ecommerce")
+}
+
+model Review {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  productId        String?  @map("product_id") @db.Uuid
+  rating           Int      // 1-5
+  title            String?  @db.VarChar(200)
+  content          String   @db.Text
+  status           String   @default("PENDING") @db.VarChar(20) // PENDING, APPROVED, REJECTED
+  verifiedPurchase Boolean  @default(false) @map("verified_purchase")
+  serviceTag       String?  @map("service_tag") @db.VarChar(30) // Achat, Réparation, Pièces, SAV
+  adminNote        String?  @map("admin_note") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, productId]) // 1 review per product per user
+  @@index([productId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("reviews")
   @@schema("ecommerce")
 }
 
@@ -566,8 +628,28 @@ model EmailCampaign {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
 
+  sends CampaignSend[]
+
   @@index([status])
   @@map("email_campaigns")
+  @@schema("crm")
+}
+
+model CampaignSend {
+  id          String    @id @default(uuid()) @db.Uuid
+  campaignId  String    @map("campaign_id") @db.Uuid
+  customerId  String    @map("customer_id") @db.Uuid
+  email       String    @db.VarChar(255)
+  status      String    @default("SENT") @db.VarChar(20) // SENT, DELIVERED, FAILED, BOUNCED
+  sentAt      DateTime  @default(now()) @map("sent_at") @db.Timestamptz()
+  errorMessage String?  @map("error_message") @db.Text
+
+  campaign EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, customerId]) // Idempotence: 1 send per customer per campaign
+  @@index([campaignId])
+  @@index([customerId])
+  @@map("campaign_sends")
   @@schema("crm")
 }
 

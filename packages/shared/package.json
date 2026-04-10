@@ -9,13 +9,18 @@
     ".": "./src/index.ts",
     "./events": "./src/events.ts",
     "./auth": "./src/auth.ts",
-    "./errors": "./src/errors.ts"
+    "./errors": "./src/errors.ts",
+    "./notifications": "./src/notifications/index.ts"
   },
   "scripts": {
     "build": "tsc",
     "lint": "tsc --noEmit"
   },
+  "dependencies": {
+    "nodemailer": "^8.0.4"
+  },
   "devDependencies": {
+    "@types/nodemailer": "^7.0.11",
     "typescript": "^5.7.0"
   }
 }
