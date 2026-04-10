@@ -124,35 +124,43 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
+      # Railway service names match the workspace package.json names
+      # (confirmed during the 2026-04-10 Railway rehab and Codex review of PR #96):
+      #   apps/web/package.json              → @trottistore/web
+      #   services/ecommerce/package.json    → @trottistore/service-ecommerce
+      #   services/crm/package.json          → @trottistore/service-crm
+      #   services/sav/package.json          → @trottistore/service-sav
+      #   services/analytics/package.json    → @trottistore/service-analytics
+
       - name: Deploy Web (Next.js)
         if: inputs.service == 'all' || inputs.service == 'web'
         run: |
           cd apps/web
-          railway up --service web --environment production --detach -p "$RAILWAY_PROJECT_ID"
+          railway up --service '@trottistore/web' --environment production --detach -p "$RAILWAY_PROJECT_ID"
 
       - name: Deploy Ecommerce Service
         if: inputs.service == 'all' || inputs.service == 'ecommerce'
         run: |
           cd services/ecommerce
-          railway up --service ecommerce --environment production --detach -p "$RAILWAY_PROJECT_ID"
+          railway up --service '@trottistore/service-ecommerce' --environment production --detach -p "$RAILWAY_PROJECT_ID"
 
       - name: Deploy CRM Service
         if: inputs.service == 'all' || inputs.service == 'crm'
         run: |
           cd services/crm
-          railway up --service crm --environment production --detach -p "$RAILWAY_PROJECT_ID"
+          railway up --service '@trottistore/service-crm' --environment production --detach -p "$RAILWAY_PROJECT_ID"
 
       - name: Deploy SAV Service
         if: inputs.service == 'all' || inputs.service == 'sav'
         run: |
           cd services/sav
-          railway up --service sav --environment production --detach -p "$RAILWAY_PROJECT_ID"
+          railway up --service '@trottistore/service-sav' --environment production --detach -p "$RAILWAY_PROJECT_ID"
 
       - name: Deploy Analytics Service
         if: inputs.service == 'all' || inputs.service == 'analytics'
         run: |
           cd services/analytics
-          railway up --service analytics --environment production --detach -p "$RAILWAY_PROJECT_ID"
+          railway up --service '@trottistore/service-analytics' --environment production --detach -p "$RAILWAY_PROJECT_ID"
 
   healthcheck:
     name: Post-deploy healthchecks (prod)
