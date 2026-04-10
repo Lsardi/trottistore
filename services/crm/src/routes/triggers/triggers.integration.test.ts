@@ -24,7 +24,7 @@ const TRIGGER_FIXTURE = {
   updatedAt: new Date(),
 };
 
-function buildApp(): FastifyInstance {
+function buildApp(role: string = "MANAGER"): FastifyInstance {
   const app = Fastify({ logger: false });
 
   app.decorate("prisma", {
@@ -45,9 +45,9 @@ function buildApp(): FastifyInstance {
 
   app.decorate("redis", { get: vi.fn(), set: vi.fn(), del: vi.fn() });
 
-  // Simulate authenticated MANAGER user for all requests
+  // Simulate authenticated user with the requested role for all requests
   app.addHook("onRequest", async (request) => {
-    request.user = { userId: "manager-1", role: "MANAGER" };
+    request.user = { userId: `${role.toLowerCase()}-1`, role };
   });
 
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
@@ -105,5 +105,67 @@ describe("Trigger routes", () => {
       headers: { "x-internal-cron": "true" },
     });
     expect(res.statusCode).toBe(200);
+  });
+});
+
+/**
+ * Security regression tests for CVE-equivalent: x-internal-cron auth bypass.
+ *
+ * Bug: the route at services/crm/src/routes/triggers/index.ts:88 originally
+ * compared `request.headers["x-internal-cron"]` to the literal string "true".
+ * Any authenticated non-MANAGER user (TECHNICIAN, STAFF, …) could send that
+ * header and bypass the role check, executing all automated triggers (mass
+ * email/SMS dispatch).
+ *
+ * After fix: the comparison must be against `app.cronSecret`, a 32-byte
+ * random nonce generated at boot and never exposed to clients.
+ */
+describe("Trigger routes — security: cron header cannot be spoofed", () => {
+  let staffApp: FastifyInstance;
+  let technicianApp: FastifyInstance;
+
+  beforeAll(async () => {
+    staffApp = buildApp("STAFF");
+    await staffApp.register(triggerRoutes, { prefix: "/api/v1" });
+    await staffApp.ready();
+
+    technicianApp = buildApp("TECHNICIAN");
+    await technicianApp.register(triggerRoutes, { prefix: "/api/v1" });
+    await technicianApp.ready();
+  });
+
+  afterAll(async () => {
+    await staffApp.close();
+    await technicianApp.close();
+  });
+
+  it("STAFF role with literal x-internal-cron:true is rejected (403)", async () => {
+    const res = await staffApp.inject({
+      method: "POST",
+      url: "/api/v1/triggers/run",
+      headers: { "x-internal-cron": "true" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().success).toBe(false);
+    expect(res.json().error.code).toBe("FORBIDDEN");
+  });
+
+  it("TECHNICIAN role with literal x-internal-cron:true is rejected (403)", async () => {
+    const res = await technicianApp.inject({
+      method: "POST",
+      url: "/api/v1/triggers/run",
+      headers: { "x-internal-cron": "true" },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe("FORBIDDEN");
+  });
+
+  it("STAFF role with random spoofed secret is rejected (403)", async () => {
+    const res = await staffApp.inject({
+      method: "POST",
+      url: "/api/v1/triggers/run",
+      headers: { "x-internal-cron": "guess-the-secret-lol" },
+    });
+    expect(res.statusCode).toBe(403);
   });
 });
