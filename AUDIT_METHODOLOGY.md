@@ -14,6 +14,81 @@ Inspiré de :
 
 ---
 
+## Système à deux étages — Audit Lite + Audit Full Passport
+
+**Pourquoi deux étages.** La méthodologie complète décrite plus bas (7 layers, 3 passes A/B/C, passport signé) est calibrée pour une release normale. Elle est trop lourde pour une phase de hotfix ou de réparation infra. Sans alternative légère, on retombe par défaut sur "rien" — c'est exactement ce qui s'est passé pendant la rehab Railway 2026-04-10 (cf. `docs/audits/2026-04-11-railway-rehab-lite.md`). Le mauvais couplage à corriger est entre **niveau de formalisme** et **phase opérationnelle**, pas entre "audit" et "pas d'audit".
+
+Règle : **chaque changement qui touche `main` passe par un audit. Le seul choix est lequel des deux.**
+
+| | **Audit Lite** | **Audit Full Passport** |
+|---|---|---|
+| **Quand** | Hotfix prod, repair infra, démo, fix isolé < 50 LOC, doc-only | Release normale, change sensible (auth, paiement, RBAC, migration), nouveau service, refacto > 200 LOC |
+| **Budget** | 15-30 min max | 1-3h |
+| **Layers couvertes** | 1 (types/lint via CI) + 2 (SCA via CI) + grep adversarial ciblé | 1 → 7 (toutes) |
+| **Tests requis** | CI verte sur le commit + smoke runtime live (`/health` 200) | CI verte + red-test-before-fix par finding + property/fuzz si applicable + threat model delta |
+| **Review** | 1 review adversariale async (Codex), non-bloquante mais obligatoire dans 24h | Review adversariale bloquante avant merge, 3 passes A/B/C (delta, smoke invariants, adversarial) |
+| **Sortie** | 1 fichier court `docs/audits/YYYY-MM-DD-<scope>-lite.md` | Passport signé, attaché en release asset (cf. PROD_ROADMAP §5.5) |
+| **Gate CI** | `audit-gate.yml` exige la présence d'un fichier d'audit lié au PR (path-glob `docs/audits/*-lite.md` modifié OU `docs/passports/*` modifié) | idem + signature passport vérifiée |
+
+### Quand choisir Lite — critères durs
+
+Tous les critères doivent être remplis :
+
+1. Le change ne touche **aucun** des chemins sensibles : `auth/`, `checkout/`, `webhook`, RBAC role checks, migrations destructrices, secrets, CI/CD config
+2. Diff total < 50 lignes de logique métier (les Dockerfiles, lockfiles, docs, configs ne comptent pas)
+3. Aucun nouveau endpoint public
+4. Aucun changement de schéma sans heal documenté
+5. Le contexte est un **incident en cours** ou une démo bloquée — décision tracée dans le commit message
+
+Si **un seul** critère manque → Full Passport obligatoire.
+
+### Format de sortie Audit Lite
+
+Template minimal — copier `docs/audits/2026-04-11-railway-rehab-lite.md` :
+
+```markdown
+# Audit Lite — <scope>
+- Tier: Lite
+- Trigger: <hotfix|repair|demo|isolated-fix>
+- Run by: <agent>
+- Run date: <YYYY-MM-DD>
+- Reviewer: pending — <Codex|Claude>
+- Scope (commits): <sha1> <sha2> …
+- Time budget: 30 min  /  Time spent: Xmin
+
+## What was checked
+| Check | How | Result |
+…
+
+## Findings
+### F1 — <title> (severity: <P0|P1|P2|cosmetic>)
+**Location**: file:line
+**Why this matters**: …
+**Recommendation**: …
+
+## Non-findings (explicitly checked, nothing wrong)
+- …
+
+## What I did NOT check
+- …  (this section is mandatory — declares the audit's blast radius)
+
+## Verdict
+APPROVED | APPROVED-WITH-FOLLOWUPS | BLOCKED
+```
+
+La section **"What I did NOT check"** est obligatoire : elle déclare explicitement le rayon d'audit pour que le reviewer async sache où sont les trous.
+
+### Quand passer en Full Passport en cours de Lite
+
+Si pendant un Audit Lite tu découvres :
+- Un finding P0 ou P1 qui dépasse le scope du fix
+- Un soupçon de vulnérabilité dans un chemin sensible
+- Une dérive entre le code et la doc d'architecture
+
+→ **Stop the line**. Promouvoir en Full Passport ou ouvrir un ticket bloquant. Ne **jamais** clore un Lite avec un finding non traité dans `What was checked`.
+
+---
+
 ## Principe central — Defense in depth
 
 > Aucune méthode ne suffit seule. Chaque chose critique doit être validée par **au moins 2 mécanismes indépendants**.
