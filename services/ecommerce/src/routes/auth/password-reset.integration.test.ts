@@ -185,6 +185,8 @@ describe("Password reset flow", () => {
         usedAt: null,
         user: { id: "user-1", status: "ACTIVE" },
       });
+      // Atomic claim succeeds: token was unused, updateMany marks it used.
+      (app.prisma.passwordResetToken.updateMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ count: 1 });
 
       const res = await app.inject({
         method: "POST",
@@ -194,10 +196,50 @@ describe("Password reset flow", () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.json().success).toBe(true);
-      // Should update user password + mark token used + revoke refresh tokens
+      // Should atomically claim the token via updateMany, then update the
+      // user password, then revoke refresh tokens.
+      expect(app.prisma.passwordResetToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "reset-1", usedAt: null },
+          data: { usedAt: expect.any(Date) },
+        }),
+      );
       expect(app.prisma.user.update).toHaveBeenCalledOnce();
-      expect(app.prisma.passwordResetToken.update).toHaveBeenCalledOnce();
       expect(app.prisma.refreshToken.updateMany).toHaveBeenCalledOnce();
+    });
+
+    // Security regression for AUDIT_ATOMIC.md#P1-5:
+    // Two concurrent /reset-password requests with the same token must
+    // not both succeed. The previous implementation read usedAt, branched
+    // on it, then wrote — racy. The fix uses an atomic updateMany guarded
+    // by usedAt: null, and rejects the caller whose updateMany returns 0.
+    it("rejects concurrent reuse — second request loses the atomic claim (400 TOKEN_USED)", async () => {
+      const rawToken = "race-token-uuid";
+      (app.prisma.passwordResetToken.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: "reset-race",
+        userId: "user-1",
+        tokenHash: hashToken(rawToken),
+        expiresAt: new Date(Date.now() + 3600000),
+        usedAt: null, // still unused at read time
+        user: { id: "user-1", status: "ACTIVE" },
+      });
+      // The first (concurrent) request already claimed the token between
+      // our findUnique and our updateMany, so the atomic claim now finds
+      // zero rows matching { id, usedAt: null } and returns count: 0.
+      (app.prisma.passwordResetToken.updateMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ count: 0 });
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/reset-password",
+        payload: { token: rawToken, newPassword: "LoserPass9!" },
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe("TOKEN_USED");
+      // The user password MUST NOT have been overwritten by the loser.
+      expect(app.prisma.user.update).not.toHaveBeenCalled();
+      // Refresh tokens must NOT have been revoked either.
+      expect(app.prisma.refreshToken.updateMany).not.toHaveBeenCalled();
     });
 
     it("returns 400 for invalid token", async () => {
