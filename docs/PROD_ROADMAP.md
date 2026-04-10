@@ -713,9 +713,17 @@ Validées conjointement Claude ↔ Codex après revue terrain de Codex
 sur les outils 2026 (Rulesets, Merge Queue, Testcontainers, Neon,
 SLSA, ASVS, SSDF).
 
-1. **Ordre de merge** — ✅ validé tel que décrit §3 : governance
-   (4) → P0 (4) → P1 (4) → spec rétro (1). Pas de regroupement
-   stacked, merges linéaires, un par un.
+1. **Ordre de merge** — ✅ validé tel que décrit §3 :
+   - **Critical path semaine 0** : governance minimale (3 :
+     `codex/governance-spec-template`, `codex/methodology-threatmodel`,
+     `claude/audit-docs`) → P0 (4) → audit sweep → tag → staging → prod.
+   - **Post-prod** : P1 (4) + spec rétro (1) + `claude/governance-tooling`
+     via Merge Queue en semaine 1 (§12).
+   - Merges linéaires, un par un, pas de regroupement stacked.
+   - **Note** : une version antérieure de ce point listait "governance (4)
+     → P0 (4) → P1 (4) → spec rétro" en un seul bloc. Corrigé round 2
+     du 2026-04-10 (P1 et `claude/governance-tooling` retirés du
+     critical path semaine 0 pour minimiser le delta audité).
 
 2. **P0-A migration heal** — ✅ **heal existing negative stock AVANT
    le `CHECK` constraint**. La migration `20260410151000_stock_quantity_non_negative`
