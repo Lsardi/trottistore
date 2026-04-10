@@ -21,6 +21,10 @@ import { addressRoutes } from "./routes/addresses/index.js";
 import { stockRoutes } from "./routes/stock/index.js";
 import { checkoutRoutes } from "./routes/checkout/index.js";
 import { merchantRoutes } from "./routes/merchant/index.js";
+import { reviewRoutes } from "./routes/reviews/index.js";
+import { adminUserRoutes } from "./routes/admin-users/index.js";
+import { auditRoutes } from "./routes/admin-audit/index.js";
+import { invoiceRoutes } from "./routes/admin-invoices/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
@@ -162,6 +166,10 @@ async function start() {
   await app.register(checkoutRoutes, { prefix: "/api/v1" });
   await app.register(merchantRoutes, { prefix: "/api/v1" });
   await app.register(addressRoutes, { prefix: "/api/v1" });
+  await app.register(reviewRoutes, { prefix: "/api/v1" });
+  await app.register(adminUserRoutes, { prefix: "/api/v1" });
+  await app.register(auditRoutes, { prefix: "/api/v1" });
+  await app.register(invoiceRoutes, { prefix: "/api/v1" });
 
   // API docs — list available routes
   app.get("/api/v1/docs", async () => ({
@@ -220,7 +228,15 @@ async function start() {
   // Démarrage
   try {
     await app.listen({ port: PORT, host: HOST });
-    app.log.info(`🛒 Service E-commerce démarré sur http://${HOST}:${PORT}`);
+    app.log.info(`Service E-commerce demarre sur http://${HOST}:${PORT}`);
+
+    // Startup warnings for missing optional config
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      app.log.warn("STRIPE_WEBHOOK_SECRET not set — webhook signature verification disabled. Payment confirmations will fail in production.");
+    }
+    if (!process.env.STRIPE_SECRET_KEY) {
+      app.log.warn("STRIPE_SECRET_KEY not set — checkout disabled.");
+    }
   } catch (err) {
     app.log.error(err);
     process.exit(1);

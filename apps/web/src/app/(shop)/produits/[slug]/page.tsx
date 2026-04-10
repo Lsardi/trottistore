@@ -10,6 +10,7 @@ import type { Product } from "@/lib/api";
 import ProductGallery from "./ProductGallery";
 import AddToCartSection from "./AddToCartSection";
 import StockAlertForm from "./StockAlertForm";
+import ProductReviews from "./ProductReviews";
 
 interface ProductsListResponse {
   success?: boolean;
@@ -377,6 +378,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             )}
           </div>
         )}
+
+        <ProductReviews slug={product.slug} />
 
         {relatedProducts.length > 0 && (
           <div className="mt-16">

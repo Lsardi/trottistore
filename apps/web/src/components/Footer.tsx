@@ -200,7 +200,13 @@ export default function Footer() {
           </span>
           <span
             className="font-mono"
-            style={{ fontSize: "0.65rem", color: "var(--color-text-dim)" }}
+            style={{
+              fontSize: "0.65rem",
+              color: "var(--color-text-dim)",
+              maxWidth: "100%",
+              overflowWrap: "anywhere",
+              whiteSpace: "normal",
+            }}
           >
             CB &middot; APPLE PAY &middot; GOOGLE PAY &middot; VIREMENT &middot; 2X 3X 4X SANS FRAIS
           </span>

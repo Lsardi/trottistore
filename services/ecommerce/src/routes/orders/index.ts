@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { Decimal } from "@prisma/client/runtime/library";
-import { sendEmail } from "../../emails/send.js";
+import { sendEmail } from "@trottistore/shared/notifications";
 import { orderConfirmationEmail } from "../../emails/templates.js";
 
 // ─── Constants ───────────────────────────────────────────────
@@ -1505,5 +1505,317 @@ export async function orderRoutes(app: FastifyInstance) {
     });
 
     return { success: true, data: updated };
+  });
+
+  // ── POST /admin/orders/:id/refund — Refund an order (partial or full) ──
+  app.post("/admin/orders/:id/refund", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const user = request.user;
+    if (!isBackofficeRole(user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const id = orderIdParamsSchema.parse(request.params).id;
+    const body = z.object({
+      amount: z.number().positive().optional(), // Partial refund amount. If omitted = full refund.
+      reason: z.string().max(500).optional(),
+      restockItems: z.boolean().default(true),
+    }).parse(request.body);
+
+    const order = await app.prisma.order.findUnique({
+      where: { id },
+      include: {
+        payments: { where: { status: "CONFIRMED", provider: "stripe" } },
+        items: { select: { variantId: true, quantity: true } },
+      },
+    });
+
+    if (!order) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Commande introuvable" },
+      });
+    }
+
+    if (order.status === "REFUNDED") {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "ALREADY_REFUNDED", message: "Cette commande a déjà été remboursée" },
+      });
+    }
+
+    const refundAmount = body.amount ?? Number(order.totalTtc);
+    const isFullRefund = !body.amount || body.amount >= Number(order.totalTtc);
+
+    // Attempt Stripe refund if a Stripe payment exists
+    const stripePayment = order.payments[0];
+    let stripeRefundId: string | null = null;
+
+    if (stripePayment?.providerRef && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const Stripe = (await import("stripe")).default;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        const refund = await stripe.refunds.create({
+          payment_intent: stripePayment.providerRef,
+          amount: Math.round(refundAmount * 100),
+          reason: "requested_by_customer",
+        });
+        stripeRefundId = refund.id;
+      } catch (err) {
+        app.log.error({ err, orderId: id }, "Stripe refund failed");
+        return reply.status(502).send({
+          success: false,
+          error: { code: "STRIPE_REFUND_FAILED", message: "Le remboursement Stripe a échoué" },
+        });
+      }
+    }
+
+    // Update order in transaction
+    const userId = user.id ?? user.userId;
+    await app.prisma.$transaction(async (tx) => {
+      // Update order status
+      await tx.order.update({
+        where: { id },
+        data: {
+          status: isFullRefund ? "REFUNDED" : order.status,
+          paymentStatus: isFullRefund ? "REFUNDED" : "PARTIAL",
+        },
+      });
+
+      // Create payment record for refund
+      await tx.payment.create({
+        data: {
+          orderId: id,
+          provider: stripeRefundId ? "stripe" : "internal",
+          providerRef: stripeRefundId,
+          amount: -refundAmount, // Negative = refund
+          method: order.paymentMethod,
+          status: "CONFIRMED",
+          receivedAt: new Date(),
+        },
+      });
+
+      // Status history
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: id,
+          fromStatus: order.status,
+          toStatus: isFullRefund ? "REFUNDED" : order.status,
+          note: `Remboursement ${isFullRefund ? "total" : "partiel"}: ${refundAmount.toFixed(2)}€${body.reason ? ` — ${body.reason}` : ""}`,
+          changedBy: userId,
+        },
+      });
+
+      // Restock items if requested
+      if (body.restockItems && isFullRefund) {
+        for (const item of order.items) {
+          if (item.variantId) {
+            await tx.productVariant.update({
+              where: { id: item.variantId },
+              data: { stockQuantity: { increment: item.quantity } },
+            });
+          }
+        }
+      }
+    });
+
+    return {
+      success: true,
+      data: {
+        orderId: id,
+        refundAmount,
+        isFullRefund,
+        stripeRefundId,
+        restocked: body.restockItems && isFullRefund,
+      },
+    };
+  });
+
+  // ── POST /admin/orders/:id/notes — Add internal note to order ──
+  app.post("/admin/orders/:id/notes", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const user = request.user;
+    if (!isBackofficeRole(user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const id = orderIdParamsSchema.parse(request.params).id;
+    const body = z.object({
+      note: z.string().min(1).max(2000),
+    }).parse(request.body);
+
+    const order = await app.prisma.order.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+
+    if (!order) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Commande introuvable" },
+      });
+    }
+
+    const userId = user.id ?? user.userId;
+    const entry = await app.prisma.orderStatusHistory.create({
+      data: {
+        orderId: id,
+        fromStatus: order.status,
+        toStatus: order.status, // No status change — just a note
+        note: body.note,
+        changedBy: userId,
+      },
+    });
+
+    return { success: true, data: entry };
+  });
+
+  // ── POST /admin/orders — Create manual order (in-store, phone) ──
+  app.post("/admin/orders", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    const user = request.user;
+    if (!isBackofficeRole(user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const body = z.object({
+      customerId: z.string().uuid(),
+      items: z.array(z.object({
+        productId: z.string().uuid(),
+        variantId: z.string().uuid().optional(),
+        quantity: z.number().int().positive(),
+      })).min(1),
+      paymentMethod: z.enum(["CASH", "CHECK", "CARD", "BANK_TRANSFER"]),
+      shippingMethod: z.enum(["DELIVERY", "STORE_PICKUP"]).default("STORE_PICKUP"),
+      notes: z.string().max(1000).optional(),
+    }).parse(request.body);
+
+    // Validate customer exists
+    const customer = await app.prisma.user.findUnique({
+      where: { id: body.customerId },
+      select: { id: true, status: true },
+    });
+    if (!customer || customer.status !== "ACTIVE") {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "CUSTOMER_NOT_FOUND", message: "Client introuvable ou inactif" },
+      });
+    }
+
+    // Fetch products and variants
+    const productIds = [...new Set(body.items.map((i) => i.productId))];
+    const variantIds = body.items.map((i) => i.variantId).filter((id): id is string => !!id);
+
+    const [products, variants] = await Promise.all([
+      app.prisma.product.findMany({ where: { id: { in: productIds }, status: "ACTIVE" } }),
+      variantIds.length > 0
+        ? app.prisma.productVariant.findMany({ where: { id: { in: variantIds }, isActive: true } })
+        : Promise.resolve([]),
+    ]);
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const variantMap = new Map(variants.map((v) => [v.id, v]));
+
+    // Build items and calculate totals
+    const orderItems: Array<{
+      productId: string;
+      variantId: string | null;
+      quantity: number;
+      unitPriceHt: typeof Decimal.prototype;
+      tvaRate: typeof Decimal.prototype;
+      totalHt: typeof Decimal.prototype;
+    }> = [];
+
+    for (const item of body.items) {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "PRODUCT_UNAVAILABLE", message: `Produit ${item.productId} introuvable` },
+        });
+      }
+
+      const unitPriceHt = item.variantId && variantMap.get(item.variantId)?.priceOverride
+        ? variantMap.get(item.variantId)!.priceOverride!
+        : product.priceHt;
+
+      orderItems.push({
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        quantity: item.quantity,
+        unitPriceHt: new Decimal(unitPriceHt),
+        tvaRate: product.tvaRate,
+        totalHt: new Decimal(unitPriceHt).mul(item.quantity),
+      });
+    }
+
+    const subtotalHt = orderItems.reduce((sum, i) => sum.add(i.totalHt), new Decimal(0));
+    const tvaAmount = subtotalHt.mul(TVA_RATE).div(100);
+    const shippingCost = body.shippingMethod === "STORE_PICKUP" ? new Decimal(0)
+      : subtotalHt.gte(FREE_SHIPPING_THRESHOLD) ? new Decimal(0) : DEFAULT_SHIPPING_COST;
+    const totalTtc = subtotalHt.add(tvaAmount).add(shippingCost);
+
+    // Create order in transaction
+    const userId = user.id ?? user.userId;
+    const order = await app.prisma.$transaction(async (tx) => {
+      const newOrder = await tx.order.create({
+        data: {
+          customerId: body.customerId,
+          status: "CONFIRMED", // Manual orders are confirmed immediately
+          paymentMethod: body.paymentMethod,
+          paymentStatus: body.paymentMethod === "BANK_TRANSFER" ? "PENDING" : "PAID",
+          shippingMethod: body.shippingMethod,
+          shippingAddress: {}, // Store pickup = no address needed
+          billingAddress: {},
+          subtotalHt,
+          tvaAmount,
+          shippingCost,
+          totalTtc,
+          notes: body.notes ? `[Commande manuelle] ${body.notes}` : "[Commande manuelle]",
+          items: {
+            create: orderItems.map((i) => ({
+              productId: i.productId,
+              variantId: i.variantId,
+              quantity: i.quantity,
+              unitPriceHt: i.unitPriceHt,
+              tvaRate: i.tvaRate,
+              totalHt: i.totalHt,
+            })),
+          },
+          statusHistory: {
+            create: {
+              fromStatus: "NEW",
+              toStatus: "CONFIRMED",
+              note: `Commande manuelle créée par ${user.email}`,
+              changedBy: userId,
+            },
+          },
+        },
+        include: { items: true },
+      });
+
+      // Decrement stock
+      for (const item of body.items) {
+        if (item.variantId) {
+          await tx.productVariant.update({
+            where: { id: item.variantId },
+            data: { stockQuantity: { decrement: item.quantity } },
+          });
+        }
+      }
+
+      return newOrder;
+    });
+
+    return reply.status(201).send({ success: true, data: order });
   });
 }

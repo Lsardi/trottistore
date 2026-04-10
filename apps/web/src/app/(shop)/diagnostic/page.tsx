@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Zap, Battery, Disc, Monitor, Settings, AlertTriangle,
-  ChevronRight, RotateCcw, Wrench, ArrowRight, CheckCircle2, Phone
+  ChevronRight, RotateCcw, Wrench, ArrowRight, CheckCircle2, Phone, BarChart3
 } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 import { trackFunnelEvent } from "@/lib/funnel-tracking";
+import { repairsApi } from "@/lib/api";
 
 const SYMPTOM_CATEGORIES = [
   {
@@ -104,15 +105,52 @@ const SOLUTIONS: Record<string, { title: string; description: string; estimatedC
 
 type DiagStep = "category" | "symptom" | "result";
 
+interface CategoryStats {
+  category: string;
+  count: number;
+  avgCost: number | null;
+  minCost: number | null;
+  maxCost: number | null;
+  avgDays: number | null;
+}
+
 export default function DiagnosticPage() {
   const [step, setStep] = useState<DiagStep>("category");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSymptom, setSelectedSymptom] = useState("");
+  const [realStats, setRealStats] = useState<CategoryStats[]>([]);
+  const [totalRepairs, setTotalRepairs] = useState(0);
+
+  useEffect(() => {
+    repairsApi.diagnosticStats().then((res) => {
+      setRealStats(res.data.categories);
+      setTotalRepairs(res.data.totalRepairs);
+    }).catch(() => { /* fallback to static estimates */ });
+  }, []);
 
   const category = SYMPTOM_CATEGORIES.find((c) => c.id === selectedCategory);
   const symptom = category?.symptoms.find((s) => s.id === selectedSymptom);
   const solution = selectedSymptom ? SOLUTIONS[selectedSymptom] : null;
   const severityConfig = symptom ? SEVERITY_CONFIG[symptom.severity as Severity] : null;
+
+  /** Get real stats for the selected category, if available. */
+  const categoryRealStats = realStats.find((s) => s.category === selectedCategory);
+
+  /** Estimated cost: use real data when available, fallback to static. */
+  function getEstimatedCost(): string {
+    if (categoryRealStats && categoryRealStats.count >= 3 && categoryRealStats.avgCost !== null) {
+      return `${categoryRealStats.minCost} - ${categoryRealStats.maxCost} EUR`;
+    }
+    return solution?.estimatedCost || "Sur devis";
+  }
+
+  /** Estimated duration: use real data when available. */
+  function getEstimatedDuration(): string | null {
+    if (categoryRealStats && categoryRealStats.avgDays !== null && categoryRealStats.count >= 3) {
+      return categoryRealStats.avgDays <= 1 ? "~1 jour" : `~${categoryRealStats.avgDays} jours`;
+    }
+    return null;
+  }
 
   function reset() {
     setStep("category");
@@ -125,9 +163,9 @@ export default function DiagnosticPage() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="heading-lg mb-3">DIAGNOSTIC</h1>
+          <h1 className="heading-lg mb-3">GUIDE DE DÉPANNAGE</h1>
           <p className="font-mono text-sm text-text-muted">
-            Repondez en 2 clics. On vous donne le diagnostic, le cout estime et la solution.
+            Décrivez votre problème en 2 clics. On vous donne une estimation basée sur {totalRepairs > 0 ? `${totalRepairs} réparations réelles` : "notre expérience"}.
           </p>
         </div>
 
@@ -239,11 +277,11 @@ export default function DiagnosticPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-surface-2 border border-border p-4 text-center">
                     <p className="spec-label mb-1">Coût estimé</p>
-                    <p className="price-main text-base">{solution.estimatedCost}</p>
+                    <p className="price-main text-base">{getEstimatedCost()}</p>
                   </div>
                   <div className="bg-surface-2 border border-border p-4 text-center">
                     <p className="spec-label mb-1">Durée</p>
-                    <p className="font-mono text-sm font-bold text-text">{severityConfig.estimate}</p>
+                    <p className="font-mono text-sm font-bold text-text">{getEstimatedDuration() || severityConfig.estimate}</p>
                   </div>
                   <div className="bg-surface-2 border border-border p-4 text-center">
                     <p className="spec-label mb-1">Faisable soi-même ?</p>
@@ -252,6 +290,12 @@ export default function DiagnosticPage() {
                     </p>
                   </div>
                 </div>
+                {categoryRealStats && categoryRealStats.count >= 3 && (
+                  <p className="flex items-center gap-1 font-mono text-[11px] text-neon mt-2">
+                    <BarChart3 className="w-3 h-3" />
+                    Estimation basée sur {categoryRealStats.count} réparations réelles
+                  </p>
+                )}
 
                 {/* Devis cliquable */}
                 <div className="border-t-2 border-t-neon bg-surface-2 -mx-6 -mb-6 p-6 mt-6">
@@ -262,7 +306,7 @@ export default function DiagnosticPage() {
 
                   <div className="flex items-baseline justify-between mb-1">
                     <span className="font-mono text-sm text-text-muted">{solution.title}</span>
-                    <span className="price-main text-lg">{solution.estimatedCost}</span>
+                    <span className="price-main text-lg">{getEstimatedCost()}</span>
                   </div>
                   <p className="font-mono text-xs text-text-dim mb-5">
                     Diagnostic gratuit. Prix final apres examen en atelier.

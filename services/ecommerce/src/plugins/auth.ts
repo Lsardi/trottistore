@@ -2,8 +2,8 @@ import fp from "fastify-plugin";
 import fjwt from "@fastify/jwt";
 import cookie from "@fastify/cookie";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { Role, JwtAccessPayload } from "@trottistore/shared";
-import { ROLES } from "@trottistore/shared";
+import type { Role, Permission, JwtAccessPayload } from "@trottistore/shared";
+import { ROLES, hasPermission } from "@trottistore/shared";
 
 // ─── Type augmentation ─────────────────────────────────────
 declare module "fastify" {
@@ -104,6 +104,38 @@ export function requireRole(...roles: Role[]) {
         error: {
           code: "FORBIDDEN",
           message: "Permissions insuffisantes",
+        },
+      });
+    }
+  };
+}
+
+/**
+ * Creates a preHandler that checks if the user has one of the required permissions.
+ * Uses the ROLE_PERMISSIONS matrix from @trottistore/shared.
+ *
+ * Usage:
+ *   { preHandler: [app.authenticate, requirePermission('orders:write', 'orders:manage')] }
+ */
+export function requirePermission(...permissions: Permission[]) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = request.user;
+    if (!user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Authentification requise" },
+      });
+    }
+
+    const role = user.role as Role;
+    const hasAccess = permissions.some((p) => hasPermission(role, p));
+
+    if (!hasAccess) {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: `Permission requise : ${permissions.join(" ou ")}`,
         },
       });
     }

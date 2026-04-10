@@ -103,15 +103,15 @@ pg_dump -h localhost -U trottistore -d trottistore_dev \
 
 ```bash
 # Stopper les services
-podman compose -f docker-compose.dev.yml stop
+docker compose -f docker-compose.dev.yml stop
 
 # Restaurer
 pg_restore -h localhost -U trottistore -d trottistore_dev \
   --clean --if-exists backup_YYYYMMDD_HHMMSS.dump
 
 # Relancer et vérifier
-podman compose -f docker-compose.dev.yml start
-pnpm db:push  # réaligner le schema si nécessaire
+docker compose -f docker-compose.dev.yml start
+pnpm db:deploy  # appliquer les migrations (JAMAIS db:push en prod)
 curl http://localhost:3001/ready
 curl http://localhost:3002/ready
 curl http://localhost:3003/ready

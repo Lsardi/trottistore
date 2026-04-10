@@ -583,4 +583,151 @@ export async function adminRoutes(app: FastifyInstance) {
       });
     }
   });
+
+  // ═══════════════════════════════════════════════════════════
+  // ADMIN CATEGORIES CRUD
+  // ═══════════════════════════════════════════════════════════
+
+  const createCategorySchema = z.object({
+    name: z.string().min(1).max(200),
+    description: z.string().optional().nullable(),
+    parentId: z.string().uuid().optional().nullable(),
+    imageUrl: z.string().url().optional().nullable(),
+    position: z.number().int().nonnegative().default(0),
+    isActive: z.boolean().default(true),
+    metaTitle: z.string().max(200).optional().nullable(),
+    metaDesc: z.string().max(500).optional().nullable(),
+  });
+
+  const updateCategorySchema = createCategorySchema.partial();
+
+  // GET /admin/categories — List all categories with product counts
+  app.get("/admin/categories", adminOnly, async () => {
+    const categories = await app.prisma.category.findMany({
+      include: {
+        parent: { select: { id: true, name: true } },
+        _count: { select: { products: true } },
+      },
+      orderBy: [{ position: "asc" }, { name: "asc" }],
+    });
+
+    const data = categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      description: c.description,
+      imageUrl: c.imageUrl,
+      parentId: c.parentId,
+      parent: c.parent,
+      position: c.position,
+      isActive: c.isActive,
+      metaTitle: c.metaTitle,
+      metaDesc: c.metaDesc,
+      productCount: c._count.products,
+      createdAt: c.createdAt,
+    }));
+
+    return { success: true, data };
+  });
+
+  // POST /admin/categories — Create category
+  app.post("/admin/categories", adminOnly, async (request, reply) => {
+    const parsed = createCategorySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "Invalid category data", details: parsed.error.flatten().fieldErrors },
+      });
+    }
+
+    const slug = slugify(parsed.data.name);
+    const existingSlug = await app.prisma.category.findUnique({ where: { slug } });
+    const finalSlug = existingSlug ? `${slug}-${Date.now().toString(36)}` : slug;
+
+    const category = await app.prisma.category.create({
+      data: {
+        name: parsed.data.name,
+        slug: finalSlug,
+        description: parsed.data.description ?? null,
+        parentId: parsed.data.parentId ?? null,
+        imageUrl: parsed.data.imageUrl ?? null,
+        position: parsed.data.position,
+        isActive: parsed.data.isActive,
+        metaTitle: parsed.data.metaTitle ?? null,
+        metaDesc: parsed.data.metaDesc ?? null,
+      },
+    });
+
+    return reply.status(201).send({ success: true, data: category });
+  });
+
+  // PUT /admin/categories/:id — Update category
+  app.put("/admin/categories/:id", adminOnly, async (request, reply) => {
+    const id = parseIdParam(request.params);
+    const parsed = updateCategorySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "Invalid category data" },
+      });
+    }
+
+    const existing = await app.prisma.category.findUnique({ where: { id } });
+    if (!existing) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Category not found" },
+      });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (parsed.data.name !== undefined) {
+      updateData.name = parsed.data.name;
+      updateData.slug = slugify(parsed.data.name);
+    }
+    if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+    if (parsed.data.parentId !== undefined) updateData.parentId = parsed.data.parentId;
+    if (parsed.data.imageUrl !== undefined) updateData.imageUrl = parsed.data.imageUrl;
+    if (parsed.data.position !== undefined) updateData.position = parsed.data.position;
+    if (parsed.data.isActive !== undefined) updateData.isActive = parsed.data.isActive;
+    if (parsed.data.metaTitle !== undefined) updateData.metaTitle = parsed.data.metaTitle;
+    if (parsed.data.metaDesc !== undefined) updateData.metaDesc = parsed.data.metaDesc;
+
+    const category = await app.prisma.category.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return { success: true, data: category };
+  });
+
+  // DELETE /admin/categories/:id — Delete category (only if no products)
+  app.delete("/admin/categories/:id", adminOnly, async (request, reply) => {
+    const id = parseIdParam(request.params);
+
+    const existing = await app.prisma.category.findUnique({
+      where: { id },
+      include: { _count: { select: { products: true } } },
+    });
+
+    if (!existing) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Category not found" },
+      });
+    }
+
+    if (existing._count.products > 0) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "CATEGORY_NOT_EMPTY",
+          message: `Category contains ${existing._count.products} product(s). Remove them first.`,
+        },
+      });
+    }
+
+    await app.prisma.category.delete({ where: { id } });
+    return { success: true, data: { message: "Category deleted" } };
+  });
 }

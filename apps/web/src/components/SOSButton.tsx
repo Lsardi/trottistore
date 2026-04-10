@@ -276,6 +276,7 @@ export default function SOSButton() {
           right: 16,
           zIndex: 999,
           width: open ? 48 : "auto",
+          maxWidth: "calc(100vw - 32px)",
           height: 48,
           padding: open ? 0 : "0 20px",
           display: "flex",
@@ -303,7 +304,17 @@ export default function SOSButton() {
           <>
             <Wrench style={{ width: 18, height: 18 }} />
             <span>SOS</span>
-            <span style={{ fontSize: "0.62rem", opacity: 0.8 }}>{getStoreStatusLabel()}</span>
+            <span
+              style={{
+                fontSize: "0.62rem",
+                opacity: 0.8,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {getStoreStatusLabel()}
+            </span>
           </>
         )}
       </button>

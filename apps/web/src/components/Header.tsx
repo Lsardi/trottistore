@@ -95,10 +95,10 @@ export default function Header() {
         }}
       >
         <div
+          className="px-3 md:px-6"
           style={{
             maxWidth: 1280,
             margin: "0 auto",
-            padding: "0 24px",
             height: "100%",
             display: "flex",
             alignItems: "center",
@@ -170,7 +170,18 @@ export default function Header() {
           }}
         >
           {/* Left: Logo */}
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+          <Link
+            href="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              textDecoration: "none",
+              minWidth: 0,
+              maxWidth: "calc(100% - 132px)",
+              overflow: "hidden",
+            }}
+          >
             <span
               style={{
                 width: 6,
@@ -184,12 +195,17 @@ export default function Header() {
               className="font-display"
               style={{
                 fontWeight: 800,
-                fontSize: "1.3rem",
+                fontSize: "clamp(1rem, 6vw, 1.3rem)",
                 letterSpacing: "-0.02em",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               <span style={{ color: "var(--color-neon)" }}>{brand.nameParts[0]}</span>
-              <span style={{ color: "var(--color-text)" }}>{brand.nameParts[1]}</span>
+              <span className="hidden sm:inline" style={{ color: "var(--color-text)" }}>
+                {brand.nameParts[1]}
+              </span>
             </span>
           </Link>
 

@@ -18,7 +18,7 @@ test.describe("Navigation", () => {
 
   test("navigates to /diagnostic", async ({ page }) => {
     await page.goto("/diagnostic");
-    await expect(page.locator("h1")).toContainText(/diagnostic/i);
+    await expect(page.locator("h1")).toContainText(/diagnostic|dépannage|depannage/i);
   });
 
   test("navigates to /reparation", async ({ page }) => {

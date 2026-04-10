@@ -98,6 +98,56 @@ export function orderConfirmationEmail(data: OrderConfirmData): { subject: strin
   };
 }
 
+export function passwordResetEmail(name: string, resetUrl: string): { subject: string; html: string } {
+  const html = layout(`
+    <h2 style="color: #111; font-size: 18px;">Réinitialisation de votre mot de passe</h2>
+    <p style="color: #555;">Bonjour ${name},</p>
+    <p style="color: #555;">
+      Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau :
+    </p>
+    <p>
+      <a href="${resetUrl}" style="display: inline-block; background: #00CCa8; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold;">
+        RÉINITIALISER MON MOT DE PASSE
+      </a>
+    </p>
+    <p style="color: #888; font-size: 13px;">
+      Ce lien est valable 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.
+    </p>
+  `);
+
+  return {
+    subject: `Réinitialisation de mot de passe — ${BRAND}`,
+    html,
+  };
+}
+
+export function staffInvitationEmail(
+  name: string,
+  role: string,
+  resetUrl: string,
+): { subject: string; html: string } {
+  const html = layout(`
+    <h2 style="color: #111; font-size: 18px;">Bienvenue dans l'équipe ${BRAND} !</h2>
+    <p style="color: #555;">Bonjour ${name},</p>
+    <p style="color: #555;">
+      Un compte <strong>${role}</strong> a été créé pour vous. Cliquez ci-dessous pour définir votre mot de passe et accéder au back-office :
+    </p>
+    <p>
+      <a href="${resetUrl}" style="display: inline-block; background: #00CCa8; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold;">
+        DÉFINIR MON MOT DE PASSE
+      </a>
+    </p>
+    <p style="color: #888; font-size: 13px;">
+      Ce lien est valable 72 heures. Si vous n'avez pas reçu cette invitation, ignorez cet email.
+    </p>
+  `);
+
+  return {
+    subject: `Invitation équipe ${BRAND} — Configurez votre accès`,
+    html,
+  };
+}
+
 export function welcomeEmail(name: string): { subject: string; html: string } {
   const html = layout(`
     <h2 style="color: #111; font-size: 18px;">Bienvenue chez ${BRAND} !</h2>
