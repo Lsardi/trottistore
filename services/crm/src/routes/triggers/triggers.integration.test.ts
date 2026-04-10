@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { triggerRoutes } from "./index.js";
+import { isInternalCronCall } from "../../lib/cron-auth.js";
 
 vi.mock("@trottistore/shared/notifications", () => ({
   sendEmail: vi.fn().mockResolvedValue(true),
@@ -197,6 +198,139 @@ describe("Trigger routes — security: cron header cannot be spoofed", () => {
         headers: { "x-internal-cron": "" },
       });
       expect(res.statusCode).toBe(403);
+    } finally {
+      await brokenApp.close();
+    }
+  });
+});
+
+/**
+ * Full-service integration — reproduces the PRODUCTION onRequest hook
+ * from services/crm/src/index.ts. Tests that the in-process cron can
+ * actually reach POST /triggers/run through the global auth hook,
+ * without any JWT, using only app.cronSecret.
+ *
+ * Without this test, C was broken operationally: the global auth hook
+ * would reject the cron call with 401 before it reached the route,
+ * even though the route's own secret check was correct.
+ *
+ * Identified by Codex during adversarial review of C on 2026-04-10.
+ */
+function buildFullApp(cronSecret: string | undefined = TEST_CRON_SECRET): FastifyInstance {
+  const app = Fastify({ logger: false });
+
+  app.decorate("prisma", {
+    automatedTrigger: {
+      findMany: vi.fn().mockResolvedValue([TRIGGER_FIXTURE]),
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue(TRIGGER_FIXTURE),
+      update: vi.fn().mockResolvedValue(TRIGGER_FIXTURE),
+    },
+    repairTicket: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    notificationLog: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue(null),
+    },
+  });
+
+  app.decorate("redis", { get: vi.fn(), set: vi.fn(), del: vi.fn() });
+  app.decorate("cronSecret", cronSecret);
+
+  // Mirror services/crm/src/index.ts onRequest hook exactly. This is the
+  // contract the production server implements.
+  app.addHook("onRequest", async (request, reply) => {
+    const path = request.url.split("?")[0];
+    if (
+      path === "/health" ||
+      path === "/metrics" ||
+      path === "/ready" ||
+      path.startsWith("/api/v1/health") ||
+      path.startsWith("/api/v1/metrics") ||
+      path.startsWith("/api/v1/ready")
+    ) {
+      return;
+    }
+
+    if (isInternalCronCall(request.headers["x-internal-cron"], app.cronSecret)) {
+      (request as { user?: unknown }).user = {
+        id: "system-cron",
+        userId: "system-cron",
+        email: "cron@trottistore.local",
+        role: "SYSTEM",
+      };
+      return;
+    }
+
+    // No JWT, no cron secret → fail auth the way production would.
+    return reply.status(401).send({
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Missing token" },
+    });
+  });
+
+  app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
+    const isZodError = error instanceof ZodError;
+    reply.status(isZodError ? 400 : error.statusCode || 500).send({
+      success: false,
+      error: { code: isZodError ? "VALIDATION_ERROR" : "REQUEST_ERROR", message: error.message },
+    });
+  });
+
+  return app;
+}
+
+describe("Trigger routes — full-service integration (onRequest hook + route)", () => {
+  let fullApp: FastifyInstance;
+
+  beforeAll(async () => {
+    fullApp = buildFullApp();
+    await fullApp.register(triggerRoutes, { prefix: "/api/v1" });
+    await fullApp.ready();
+  });
+
+  afterAll(() => fullApp.close());
+
+  it("cron with valid secret traverses the global auth hook without JWT (200)", async () => {
+    // No Authorization header. The only credential is the cron secret.
+    const res = await fullApp.inject({
+      method: "POST",
+      url: "/api/v1/triggers/run",
+      headers: { "x-internal-cron": TEST_CRON_SECRET },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().success).toBe(true);
+  });
+
+  it("cron with wrong secret is rejected at the hook (401)", async () => {
+    const res = await fullApp.inject({
+      method: "POST",
+      url: "/api/v1/triggers/run",
+      headers: { "x-internal-cron": "wrong-secret" },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("request without any credentials is rejected at the hook (401)", async () => {
+    const res = await fullApp.inject({
+      method: "POST",
+      url: "/api/v1/triggers/run",
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("undefined cronSecret fails closed — any header value still 401", async () => {
+    const brokenApp = buildFullApp(undefined);
+    await brokenApp.register(triggerRoutes, { prefix: "/api/v1" });
+    await brokenApp.ready();
+    try {
+      const res = await brokenApp.inject({
+        method: "POST",
+        url: "/api/v1/triggers/run",
+        headers: { "x-internal-cron": "anything" },
+      });
+      expect(res.statusCode).toBe(401);
     } finally {
       await brokenApp.close();
     }

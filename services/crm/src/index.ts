@@ -19,6 +19,7 @@ import cron from "node-cron";
 import crypto from "node:crypto";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
+import { isInternalCronCall } from "./lib/cron-auth.js";
 
 validateEnv("crm", [
   ...COMMON_ENV,
@@ -92,6 +93,21 @@ async function start() {
     ) {
       return;
     }
+
+    // In-process cron calls authenticate via app.cronSecret — a 32-byte
+    // random nonce generated at boot. We verify it here (constant time)
+    // and exempt the call from JWT authentication. The route handler
+    // re-verifies the secret as defense in depth.
+    if (isInternalCronCall(request.headers["x-internal-cron"], app.cronSecret)) {
+      request.user = {
+        id: "system-cron",
+        userId: "system-cron",
+        email: "cron@trottistore.local",
+        role: "SYSTEM",
+      } as unknown as typeof request.user;
+      return;
+    }
+
     await app.authenticate(request, reply);
     if (request.user?.role === "CLIENT") {
       return reply.status(403).send({

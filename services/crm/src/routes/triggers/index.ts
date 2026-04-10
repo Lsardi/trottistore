@@ -1,24 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { timingSafeEqual } from "node:crypto";
 import { parseIdParam } from "@trottistore/shared";
+import { isInternalCronCall } from "../../lib/cron-auth.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     cronSecret?: string;
   }
-}
-
-/**
- * Constant-time comparison between the inbound x-internal-cron header and the
- * per-process secret nonce. Fails closed on any mismatch (length, type, value).
- */
-function isInternalCronCall(headerValue: unknown, secret: string | undefined): boolean {
-  if (typeof headerValue !== "string" || !secret) return false;
-  const a = Buffer.from(headerValue);
-  const b = Buffer.from(secret);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
 }
 
 /**
