@@ -186,6 +186,11 @@ function getCartKey(request: FastifyRequest): string {
   return `cart:session:${sessionId}`;
 }
 
+function getSessionIdFromCartKey(cartKey: string): string | null {
+  if (!cartKey.startsWith("cart:session:")) return null;
+  return cartKey.slice("cart:session:".length) || null;
+}
+
 function requireAuth(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -840,6 +845,13 @@ export async function orderRoutes(app: FastifyInstance) {
 
       return newOrder;
     });
+
+    // Bind guest order to session for subsequent guest Stripe payment-intent calls.
+    // Short TTL to limit replay surface.
+    const guestSessionId = getSessionIdFromCartKey(cartKey);
+    if (guestSessionId) {
+      await app.redis.set(`checkout:guest-order:${order.id}`, guestSessionId, "EX", 60 * 30);
+    }
 
     // Clear cart
     await app.redis.del(cartKey);

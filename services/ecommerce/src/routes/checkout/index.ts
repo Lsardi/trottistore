@@ -17,12 +17,28 @@ const createPaymentIntentSchema = z.object({
 // --- Types ---
 
 type RequestUser = { userId: string; role: string };
+type CartItem = { productId: string; variantId?: string | null; quantity: number };
+type CartPayload = { items?: CartItem[] };
 
 function getRequestUser(request: { user?: unknown }): RequestUser | undefined {
   const user = request.user as Partial<RequestUser> | undefined;
   if (!user) return undefined;
   if (typeof user.userId !== "string" || typeof user.role !== "string") return undefined;
   return { userId: user.userId, role: user.role };
+}
+
+function getSessionId(request: FastifyRequest): string | undefined {
+  const sessionHeader = request.headers["x-session-id"];
+  if (typeof sessionHeader === "string") return sessionHeader;
+  if (Array.isArray(sessionHeader) && typeof sessionHeader[0] === "string") return sessionHeader[0];
+  return request.cookies?.sessionId;
+}
+
+function getCartKey(request: FastifyRequest, user?: RequestUser): string {
+  if (user?.userId) return `cart:${user.userId}`;
+  const sessionId = getSessionId(request);
+  if (!sessionId) throw new Error("MISSING_SESSION_ID");
+  return `cart:session:${sessionId}`;
 }
 
 // --- Stripe client ---
@@ -57,12 +73,6 @@ export async function checkoutRoutes(app: FastifyInstance) {
     },
   );
 
-  // Auth required for checkout (except webhook)
-  app.addHook("onRequest", async (request, reply) => {
-    if (request.url.includes("/checkout/webhook")) return;
-    await app.authenticate(request, reply);
-  });
-
   // POST /checkout/payment-intent — Create a Stripe PaymentIntent
   app.post("/checkout/payment-intent", async (request, reply) => {
     if (process.env.FEATURE_CHECKOUT_EXPRESS !== "true") {
@@ -80,18 +90,17 @@ export async function checkoutRoutes(app: FastifyInstance) {
       });
     }
 
-    const user = getRequestUser(request);
-    if (!user) {
-      return reply.status(401).send({
-        success: false,
-        error: { code: "UNAUTHORIZED", message: "Authentification requise" },
-      });
+    if (typeof request.headers.authorization === "string") {
+      await app.authenticate(request, reply);
+      if (reply.sent) return;
     }
+    const user = getRequestUser(request);
 
     const body = createPaymentIntentSchema.parse(request.body);
 
     let totalTtc: number;
     let amountCents: number;
+    let paymentOwnerId = user?.userId ?? "guest";
 
     if (body.orderId) {
       // Order-first flow: read amount from existing order
@@ -107,18 +116,44 @@ export async function checkoutRoutes(app: FastifyInstance) {
         });
       }
 
-      if (order.customerId !== user.userId) {
-        return reply.status(403).send({
-          success: false,
-          error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
-        });
+      if (user) {
+        if (order.customerId !== user.userId) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
+          });
+        }
+      } else {
+        const sessionId = getSessionId(request);
+        if (!sessionId) {
+          return reply.status(400).send({
+            success: false,
+            error: { code: "MISSING_SESSION_ID", message: "Missing x-session-id header" },
+          });
+        }
+        const linkedSessionId = await app.redis.get(`checkout:guest-order:${body.orderId}`);
+        if (linkedSessionId !== sessionId) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
+          });
+        }
       }
 
+      paymentOwnerId = order.customerId;
       totalTtc = Number(order.totalTtc);
       amountCents = Math.round(totalTtc * 100);
     } else {
       // Cart-first flow: calculate from Redis cart
-      const cartKey = `cart:${user.userId}`;
+      let cartKey: string;
+      try {
+        cartKey = getCartKey(request, user);
+      } catch {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "MISSING_SESSION_ID", message: "Missing x-session-id header" },
+        });
+      }
       const cartData = await app.redis.get(cartKey);
       if (!cartData) {
         return reply.status(400).send({
@@ -127,7 +162,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
         });
       }
 
-      const cart = JSON.parse(cartData);
+      const cart = JSON.parse(cartData) as CartPayload;
       if (!cart.items || cart.items.length === 0) {
         return reply.status(400).send({
           success: false,
@@ -135,9 +170,35 @@ export async function checkoutRoutes(app: FastifyInstance) {
         });
       }
 
+      const productIds = [...new Set(cart.items.map((i) => i.productId))];
+      const variantIds = cart.items
+        .map((i) => i.variantId)
+        .filter((id): id is string => typeof id === "string");
+      const [products, variants] = await Promise.all([
+        app.prisma.product.findMany({
+          where: { id: { in: productIds }, status: "ACTIVE" },
+          select: { id: true, priceHt: true },
+        }),
+        variantIds.length > 0
+          ? app.prisma.productVariant.findMany({
+              where: { id: { in: variantIds }, isActive: true },
+              select: { id: true, productId: true, priceOverride: true },
+            })
+          : Promise.resolve([]),
+      ]);
+      const productMap = new Map(products.map((p) => [p.id, p]));
+      const variantMap = new Map(variants.map((v) => [v.id, v]));
+
       let totalHt = 0;
       for (const item of cart.items) {
-        totalHt += (item.unitPriceHt || 0) * (item.quantity || 1);
+        const product = productMap.get(item.productId);
+        if (!product) continue;
+        const variant = item.variantId ? variantMap.get(item.variantId) : undefined;
+        const unitPriceHt =
+          variant && variant.productId === item.productId && variant.priceOverride != null
+            ? Number(variant.priceOverride)
+            : Number(product.priceHt);
+        totalHt += unitPriceHt * (item.quantity || 1);
       }
       const tvaRate = 0.20;
       const tvaAmount = Math.round(totalHt * tvaRate * 100) / 100;
@@ -172,10 +233,10 @@ export async function checkoutRoutes(app: FastifyInstance) {
           });
         }
       } else {
-        paymentIntent = await createPaymentIntent(stripe, amountCents, user.userId, body.orderId);
+        paymentIntent = await createPaymentIntent(stripe, amountCents, paymentOwnerId, body.orderId);
       }
     } else {
-      paymentIntent = await createPaymentIntent(stripe, amountCents, user.userId);
+      paymentIntent = await createPaymentIntent(stripe, amountCents, paymentOwnerId);
     }
 
     return {

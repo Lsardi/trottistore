@@ -67,7 +67,11 @@ function buildApp(): FastifyInstance {
     orderItem: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    product: {
+      findMany: vi.fn().mockResolvedValue([{ id: "p1", priceHt: 49.95 }]),
+    },
     productVariant: {
+      findMany: vi.fn().mockResolvedValue([{ id: "v1", productId: "p1", priceOverride: null }]),
       update: vi.fn().mockResolvedValue(null),
     },
     orderStatusHistory: {
@@ -159,12 +163,10 @@ describe("Checkout routes", () => {
   // -----------------------------------------------------------------------
 
   describe("GET /checkout/config", () => {
-    it("returns Stripe publishable key when authenticated", async () => {
-      const token = await getAuthToken(app);
+    it("returns Stripe publishable key (public endpoint)", async () => {
       const res = await app.inject({
         method: "GET",
         url: "/api/v1/checkout/config",
-        headers: { authorization: `Bearer ${token}` },
       });
       expect(res.statusCode).toBe(200);
       const json = res.json();
@@ -173,12 +175,14 @@ describe("Checkout routes", () => {
       expect(json.data.supportedMethods).toContain("card");
     });
 
-    it("returns 401 without authentication", async () => {
+    it("also works with authentication header", async () => {
+      const token = await getAuthToken(app);
       const res = await app.inject({
         method: "GET",
         url: "/api/v1/checkout/config",
+        headers: { authorization: `Bearer ${token}` },
       });
-      expect(res.statusCode).toBe(401);
+      expect(res.statusCode).toBe(200);
     });
   });
 
@@ -187,11 +191,12 @@ describe("Checkout routes", () => {
   // -----------------------------------------------------------------------
 
   describe("POST /checkout/payment-intent", () => {
-    it("returns 401 without authentication", async () => {
+    it("returns 400 without authentication when session id is missing", async () => {
       const res = await injectPost(app, "/api/v1/checkout/payment-intent", {
         paymentMethod: "CARD",
       });
-      expect(res.statusCode).toBe(401);
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe("MISSING_SESSION_ID");
     });
 
     it("returns 503 when feature flag is disabled", async () => {
@@ -301,6 +306,44 @@ describe("Checkout routes", () => {
       expect(res.json().error.code).toBe("ORDER_NOT_FOUND");
     });
 
+    it("returns 403 for guest when orderId is not linked to current session", async () => {
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        totalTtc: 119.88,
+        customerId: "guest-user-1",
+        status: "PENDING",
+      });
+      (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce("other-session");
+
+      const res = await injectPost(
+        app,
+        "/api/v1/checkout/payment-intent",
+        { paymentMethod: "CARD", orderId: "00000000-0000-0000-0000-000000000001" },
+        { "x-session-id": "guest-session-1" },
+      );
+
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe("FORBIDDEN");
+    });
+
+    it("creates PaymentIntent for guest when orderId is linked to current session", async () => {
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        totalTtc: 119.88,
+        customerId: "guest-user-1",
+        status: "PENDING",
+      });
+      (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce("guest-session-1");
+
+      const res = await injectPost(
+        app,
+        "/api/v1/checkout/payment-intent",
+        { paymentMethod: "CARD", orderId: "00000000-0000-0000-0000-000000000001" },
+        { "x-session-id": "guest-session-1" },
+      );
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().success).toBe(true);
+    });
+
     it("applies free shipping for store pickup", async () => {
       const token = await getAuthToken(app);
       const cart = {
@@ -309,6 +352,7 @@ describe("Checkout routes", () => {
         ],
       };
       (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(JSON.stringify(cart));
+      (app.prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ id: "p1", priceHt: 50 }]);
 
       const res = await injectPost(
         app,
