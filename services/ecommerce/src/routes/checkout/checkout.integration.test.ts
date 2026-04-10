@@ -3,11 +3,11 @@
  *
  * Covers: payment-intent creation (cart-first, order-first),
  * feature flag gating, Stripe config, validation errors,
- * and edge cases (empty cart, unauthorized, order ownership).
+ * and edge cases (empty cart, missing session id, order ownership).
  *
  * Note: checkoutRoutes registers a custom content type parser
  * (Buffer for webhook signature verification) and an onRequest
- * auth hook for all routes except /checkout/webhook.
+ * auth hook for the authenticated flows; guest flows use x-session-id.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -67,7 +67,11 @@ function buildApp(): FastifyInstance {
     orderItem: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    product: {
+      findMany: vi.fn().mockResolvedValue([{ id: "p1", priceHt: 49.95 }]),
+    },
     productVariant: {
+      findMany: vi.fn().mockResolvedValue([{ id: "v1", productId: "p1", priceOverride: null }]),
       update: vi.fn().mockResolvedValue(null),
     },
     orderStatusHistory: {
@@ -159,12 +163,10 @@ describe("Checkout routes", () => {
   // -----------------------------------------------------------------------
 
   describe("GET /checkout/config", () => {
-    it("returns Stripe publishable key when authenticated", async () => {
-      const token = await getAuthToken(app);
+    it("returns Stripe publishable key (public endpoint)", async () => {
       const res = await app.inject({
         method: "GET",
         url: "/api/v1/checkout/config",
-        headers: { authorization: `Bearer ${token}` },
       });
       expect(res.statusCode).toBe(200);
       const json = res.json();
@@ -173,12 +175,14 @@ describe("Checkout routes", () => {
       expect(json.data.supportedMethods).toContain("card");
     });
 
-    it("returns 401 without authentication", async () => {
+    it("also works with authentication header", async () => {
+      const token = await getAuthToken(app);
       const res = await app.inject({
         method: "GET",
         url: "/api/v1/checkout/config",
+        headers: { authorization: `Bearer ${token}` },
       });
-      expect(res.statusCode).toBe(401);
+      expect(res.statusCode).toBe(200);
     });
   });
 
@@ -187,11 +191,12 @@ describe("Checkout routes", () => {
   // -----------------------------------------------------------------------
 
   describe("POST /checkout/payment-intent", () => {
-    it("returns 401 without authentication", async () => {
+    it("returns 400 without authentication when session id is missing", async () => {
       const res = await injectPost(app, "/api/v1/checkout/payment-intent", {
         paymentMethod: "CARD",
       });
-      expect(res.statusCode).toBe(401);
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe("MISSING_SESSION_ID");
     });
 
     it("returns 503 when feature flag is disabled", async () => {
@@ -309,6 +314,7 @@ describe("Checkout routes", () => {
         ],
       };
       (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(JSON.stringify(cart));
+      (app.prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ id: "p1", priceHt: 50 }]);
 
       const res = await injectPost(
         app,
