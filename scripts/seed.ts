@@ -154,7 +154,7 @@ async function main() {
         email: "technicien@trottistore.fr",
         firstName: "Pierre",
         lastName: "Martin",
-        role: "TECHNICIEN",
+        role: "TECHNICIAN",
         passwordHash,
         emailVerified: true,
       },
@@ -180,7 +180,7 @@ async function main() {
     }
 
     const adminUser = users.find((u) => u.role === "SUPERADMIN")!;
-    const techUser = users.find((u) => u.role === "TECHNICIEN")!;
+    const techUser = users.find((u) => u.role === "TECHNICIAN")!;
     const clientUser = users.find((u) => u.role === "CLIENT")!;
 
     // ------------------------------------------------------------------
