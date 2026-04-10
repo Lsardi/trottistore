@@ -1,0 +1,185 @@
+# Custom Semgrep rules for TrottiStore
+#
+# These rules encode invariants that the automated LLM audits and the
+# manual code review kept catching. Each rule is tied to a concrete
+# production incident or near-miss documented in AUDIT_ATOMIC.md or
+# AUDIT_PRODUCTION_CRITICAL.md.
+#
+# Run locally:
+#   semgrep --config .semgrep/trottistore.yml services/ packages/ apps/
+#
+# Rules live in a single file so they're easy to review and version.
+# When a rule lands, bump AUDIT_METHODOLOGY.md section "Custom Semgrep
+# rules" with the rule id and the finding it prevents.
+
+rules:
+  # ────────────────────────────────────────────────────────────
+  # Rule 1 — IDOR detector on Prisma mutations
+  #
+  # Forbids updating a Prisma record using only an id lookup when a
+  # user-owned resource (orders, addresses, reviews, tickets, …) should
+  # be scoped to the caller's userId or role-checked explicitly.
+  #
+  # Refs: AUDIT_ATOMIC.md P1-1 (PUT /orders/:id/status missing ownership)
+  # ASVS V4.1.5, CWE-639.
+  # ────────────────────────────────────────────────────────────
+  - id: prisma-update-by-id-without-userid-scope
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $APP.prisma.$MODEL.update({
+                where: { id: $ID },
+                ...
+              })
+          - pattern: |
+              $TX.$MODEL.update({
+                where: { id: $ID },
+                ...
+              })
+      - metavariable-regex:
+          metavariable: $MODEL
+          regex: ^(order|address|review|repairTicket|paymentInstallment|customerInteraction)$
+    message: |
+      Prisma update by id without userId scope on a user-owned model.
+      Wrap the where clause with { id, userId: user.userId } OR verify
+      ownership via a preceding findUnique + explicit check, OR document
+      why a backoffice-only role is sufficient (preHandler requireRole).
+    languages: [typescript]
+    severity: WARNING
+
+  # ────────────────────────────────────────────────────────────
+  # Rule 2 — Float math on Prisma Decimal fields (money loss)
+  #
+  # Refs: AUDIT_ATOMIC.md P0-B (float math in cart-first checkout)
+  # ASVS V11.1, CWE-840.
+  # ────────────────────────────────────────────────────────────
+  - id: float-arithmetic-on-decimal
+    patterns:
+      - pattern-either:
+          - pattern: Number($X.priceHt) * $Y
+          - pattern: Number($X.totalTtc) * $Y
+          - pattern: Number($X.totalHt) * $Y
+          - pattern: Number($X.subtotalHt) * $Y
+          - pattern: Number($X.priceOverride) * $Y
+          - pattern: Number($X.totalSpent) * $Y
+          - pattern: Number($X.amount) * $Y
+          - pattern: Number($X.tvaAmount) * $Y
+    message: |
+      Float arithmetic on a Decimal money field. Use `new Decimal(...)`
+      and `.add/.sub/.mul/.div` instead. The final conversion to cents
+      for Stripe should be `decimal.mul(100).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber()`.
+    languages: [typescript]
+    severity: ERROR
+
+  # ────────────────────────────────────────────────────────────
+  # Rule 3 — Stock decrement outside a Prisma transaction
+  #
+  # Refs: AUDIT_ATOMIC.md P0-A (stock race oversell).
+  # The only allowed decrement path is decrementStockOrThrow(tx, …).
+  # ASVS V11.1.1, CWE-362.
+  # ────────────────────────────────────────────────────────────
+  - id: stock-decrement-without-transaction
+    patterns:
+      - pattern: |
+          $APP.prisma.productVariant.update({
+            ...,
+            data: { stockQuantity: { decrement: $N }, ... },
+          })
+    message: |
+      Direct stockQuantity decrement outside a transaction. Use
+      `decrementStockOrThrow(tx, variantId, quantity)` inside a
+      `prisma.$transaction(async (tx) => { ... })` callback. Concurrent
+      orders MUST NOT produce negative stock under any load.
+    languages: [typescript]
+    severity: ERROR
+
+  # ────────────────────────────────────────────────────────────
+  # Rule 4 — Unsafe cast on request.body / query / params
+  #
+  # Refs: AUDIT_ATOMIC.md zod coverage section (1 critical POST body,
+  # 6 medium GET casts). ASVS V5.1.
+  # ────────────────────────────────────────────────────────────
+  - id: request-body-unsafe-cast
+    patterns:
+      - pattern-either:
+          - pattern: request.body as $T
+          - pattern: request.query as $T
+          - pattern: request.params as $T
+    message: |
+      Unsafe type assertion on request input. Use a Zod schema and
+      `schema.parse(request.body)` / `safeParse(...)`. Input validation
+      MUST fail with 400 VALIDATION_ERROR before any business logic.
+    languages: [typescript]
+    severity: ERROR
+
+  # ────────────────────────────────────────────────────────────
+  # Rule 5 — Stripe webhook fail-open
+  #
+  # Refs: AUDIT_PRODUCTION_CRITICAL.md Stripe webhook section
+  # (confirmed clean, this rule prevents regression).
+  # ────────────────────────────────────────────────────────────
+  - id: stripe-webhook-missing-secret-check
+    patterns:
+      - pattern: |
+          $STRIPE.webhooks.constructEvent($BODY, $SIG, $SECRET)
+      - pattern-not-inside: |
+          if (!$SIG || !$SECRET) {
+            ...
+            return reply.status(400).send(...);
+            ...
+          }
+          ...
+    message: |
+      Stripe webhook signature verification must be preceded by an
+      explicit check that both `sig` and `webhookSecret` are non-empty,
+      and MUST return 400 if either is missing. Fail-closed is required.
+    languages: [typescript]
+    severity: ERROR
+
+  # ────────────────────────────────────────────────────────────
+  # Rule 6 — Auth token in localStorage (XSS exposure)
+  #
+  # Refs: AUDIT_ATOMIC.md P1-6 (access token in localStorage).
+  # Front-end policy: tokens MUST be in httpOnly cookies; if localStorage
+  # is used temporarily, justify inline.
+  # ASVS V3.4.1, CWE-922.
+  # ────────────────────────────────────────────────────────────
+  - id: localstorage-auth-token
+    patterns:
+      - pattern-either:
+          - pattern: localStorage.setItem($KEY, $TOKEN)
+          - pattern: localStorage.getItem($KEY)
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: (?i)(accesstoken|access_token|authtoken|auth_token|jwt|bearer)
+    message: |
+      Auth token in localStorage is XSS-exposed. Store in an httpOnly,
+      Secure, SameSite=Strict cookie instead. If you must use localStorage
+      for legacy reasons, add an inline justification comment and a
+      TODO referencing the security spec issue.
+    languages: [typescript, javascript]
+    severity: WARNING
+
+  # ────────────────────────────────────────────────────────────
+  # Rule 7 — Client-controlled header used as auth secret
+  #
+  # Refs: AUDIT_PRODUCTION_CRITICAL.md P0-3 (x-internal-cron bypass).
+  # Any boolean flag header that grants elevated access is spoofable.
+  # ASVS V2.1, CWE-287.
+  # ────────────────────────────────────────────────────────────
+  - id: literal-header-as-auth
+    patterns:
+      - pattern-either:
+          - pattern: request.headers[$KEY] === "true"
+          - pattern: request.headers[$KEY] === 'true'
+          - pattern: request.headers[$KEY] === "1"
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ^["'](x-|X-)
+    message: |
+      Comparing a request header to a literal string as an auth check
+      is spoofable by any client. Use a per-process secret nonce
+      (crypto.randomBytes at boot) + crypto.timingSafeEqual, or
+      authenticate the caller via JWT / mTLS.
+    languages: [typescript]
+    severity: ERROR
