@@ -14,30 +14,58 @@ DB : PostgreSQL multi-schema via Prisma. Cache/queue : Redis.
 
 Cette roadmap fonctionne en **deux temps** :
 
-- **Semaine 0** (aujourd'hui → demain matin) : ship contrôlé avec le
-  dispositif actuel. Réduit tout de suite le risque réel des 4 P0
-  identifiés par les audits. Détails en §1-§11.
+- **Semaine 0** (aujourd'hui → demain matin) : ship contrôlé des 4 P0
+  avec le dispositif actuel. Critical path minimal : **governance
+  minimale → P0 → audit sweep → tag → staging → prod**. Les P1 et
+  la spec rétro sont **explicitement reportés en post-prod** pour
+  réduire le delta audité et la surface de rollback. Détails §1-§11.
 
 - **Semaines 1-4** : industrialisation. Passe de "manual gates signés
   par Claude+Codex" à "policy-as-code, merge queue, artifact
-  attestations, testcontainers, Neon rehearsal". Détails en §12.
+  attestations, testcontainers, Neon rehearsal". Détails §12.
 
 Retarder la semaine 0 pour attendre l'industrialisation serait une
 erreur : les 4 P0 sont des vulnérabilités exposées en production
 actuellement. On ship d'abord, on durcit ensuite.
 
-Décisions validées par Codex le 2026-04-10 :
+Décisions finales (Claude ↔ Codex, 2026-04-10 après 2 rounds
+d'adversarial review) :
 
 | Question | Décision |
 |---|---|
 | Séquence en 2 temps | ✅ validée |
-| Tag de release | `v0.9.0-rc1` (pas de `v1.0.0` avant staging + sweep + prod OK) |
+| Tag de release | `v0.9.0-rc1` (référence **unique** partout dans le doc) |
 | Qui exécute audit sweep | Claude = passes A+B, Codex = passe C adversarial |
 | P0-A migration heal | heal existing negative stock **avant** `CHECK`, pas en follow-up |
-| Fenêtre de deploy | créneau faible trafic, surveillé des deux côtés, hors pic commercial |
-| Qui déclenche `workflow_dispatch` | @Lsardi seul, après lecture du passport pre-prod |
-| Audit tooling semaine 0 | agents Explore + revue humaine — **pas** d'Ollama 7b pour le gate critique |
-| Ordre de merge | governance → P0 → P1 → spec rétro (§3) |
+| Fenêtre de deploy | créneau faible trafic, surveillé, hors pic commercial |
+| Qui déclenche `workflow_dispatch` | @Lsardi seul, après lecture du passport |
+| Audit tooling semaine 0 | agents Explore + revue humaine — **pas** d'Ollama pour le gate |
+| Ordre de merge critical path | governance minimale → P0 → sweep → tag → staging → prod |
+| P1 et spec rétro | **post-prod** (après staging + prod OK, via Merge Queue semaine 1 si possible) |
+| Passport pre-prod | **hors main** — release asset attaché au tag via `gh release create` |
+| `claude/governance-tooling` | **reporté semaine 1** — sera réécrit pour merge_group + Rulesets |
+
+### Corrections apportées par l'adversarial review Codex
+
+Round 2 du 2026-04-10 — 3 findings bloquants que Codex a trouvés sur
+la version précédente de ce document et que j'ai corrigés :
+
+1. **Boucle auto-référentielle du passport** : la version précédente
+   versionnait le passport sur `main` via une PR dédiée, ce qui
+   changeait le HEAD audité après signature. Corrigé : le passport
+   est maintenant un artifact hors main, attaché au tag via
+   `gh release create` (§5.5).
+
+2. **P1 dans le critical path** : la version précédente mergeait les
+   4 P1 et la spec rétro avant l'audit sweep, élargissant le delta
+   audité et la surface de rollback. Corrigé : le critical path
+   semaine 0 contient uniquement governance minimale + P0 + sweep +
+   deploy. P1 et spec rétro sont en étapes post-prod (§3).
+
+3. **Tag incohérent** : la version précédente avait `v0.9.0-rc1`
+   dans les décisions mais `v1.0.0` dans la procédure de deploy.
+   Corrigé : `v0.9.0-rc1` est maintenant l'unique référence
+   opérationnelle (§4, §6, §10).
 
 ---
 
@@ -126,42 +154,87 @@ CONFORT dev (pas d'impact prod immédiat) :
 
 ## 3. Ordre de merge recommandé (critical path)
 
+**Principe** : le critical path semaine 0 contient **uniquement** ce qui
+est strictement nécessaire pour shipper les 4 P0 en toute sécurité. Les
+P1 et la spec rétro sont retirés du chemin critique pour **minimiser le
+delta audité**, **réduire la surface de rollback**, et **éviter qu'une
+migration P1-8 supplémentaire ne s'ajoute au bundle**. Correction suite
+à finding adversarial Codex du 2026-04-10.
+
 ```
-ÉTAPE 1 — Governance (rend le reste traçable)
-├── [1] codex/governance-spec-template       (template tout seul)
-├── [2] claude/governance-tooling            (tooling + rules)
-├── [3] codex/methodology-threatmodel        (threat model + runbook)
-└── [4] claude/audit-docs                    (docs audit)
+SEMAINE 0 — CRITICAL PATH (ship des 4 P0)
+
+ÉTAPE 1 — Governance minimale (rend le reste traçable, non intrusif)
+├── [1] codex/governance-spec-template       (template seul)
+├── [2] codex/methodology-threatmodel        (threat model + runbook)
+└── [3] claude/audit-docs                    (docs audit)
+
+  Note : claude/governance-tooling est REPORTÉ en semaine 1. La
+  branch protection legacy suffit pour la semaine 0. Ses Rulesets
+  + custom workflow seront repensés pour merge_group en semaine 1
+  (voir §12 semaine 1), il est contre-productif de les merger
+  maintenant puis de les réécrire dans 5 jours.
 
 ÉTAPE 2 — P0 (débloque la prod)
-├── [5] codex/fix-stock-race-oversell        ← stock
-├── [6] codex/fix-checkout-decimal-math      ← argent
-├── [7] claude/fix-crm-cron-bypass           ← auth
-└── [8] claude/fix-crm-customer-merge        ← data
+├── [4] codex/fix-stock-race-oversell        ← stock
+├── [5] codex/fix-checkout-decimal-math      ← argent
+├── [6] claude/fix-crm-cron-bypass           ← auth
+└── [7] claude/fix-crm-customer-merge        ← data
 
-ÉTAPE 3 — P1 (réduit le risque résiduel)
-├── [9]  claude/fix-orders-status-idor
-├── [10] claude/fix-sav-quote-accept-idor
-├── [11] claude/fix-password-reset-race
-└── [12] claude/fix-order-item-product-index ← contient une migration
+ÉTAPE 3 — Pre-prod audit sweep (OBLIGATOIRE avant tag)
+└── [8] Exécution des passes A/B/C — voir §5
+        Produit le passport (voir §5.5 pour le stockage)
 
-ÉTAPE 4 — Exemple spec (clôture boucle governance)
-└── [13] claude/spec-retro-p03
+ÉTAPE 4 — Tag + deploy
+├── [9]  git tag -a v0.9.0-rc1 -m "…"
+├── [10] gh workflow run deploy-staging.yml
+├── [11] Smoke staging (health + parcours critiques)
+└── [12] gh workflow run deploy-production.yml  ← @Lsardi seul
 
-ÉTAPE 5 — Pre-prod audit sweep (OBLIGATOIRE avant deploy)
-└── [14] Exécution des passes A/B/C — voir §5
-         Produit docs/audits/AUDIT_PREPROD_<date>.md signé
+─────────────────────────────────────────────────────────────────
+POST-PROD (semaine 0 suite, après go live confirmé)
 
-ÉTAPE 6 — Tag + deploy
-├── [15] git tag -a vX.Y.Z -m "…"
-└── [16] gh workflow run deploy-production.yml
+ÉTAPE 5 — P1 (réduit le risque résiduel)
+├── [13] claude/fix-orders-status-idor
+├── [14] claude/fix-sav-quote-accept-idor
+├── [15] claude/fix-password-reset-race
+└── [16] claude/fix-order-item-product-index ← contient une migration
+         ⚠ deuxième deploy nécessaire pour appliquer la migration
+         en prod. Peut attendre semaine 1 via Merge Queue.
+
+ÉTAPE 6 — Clôture boucle governance
+└── [17] claude/spec-retro-p03
 ```
 
-**Ordre = zéro conflit connu.** Aucune branche ne touche aux mêmes fichiers qu'une autre sauf les docs (audit-docs vs governance-tooling vs methodology-threatmodel) — et les docs sont additives, pas de collision.
+**Pourquoi P1 et spec rétro sont hors du critical path** :
 
-**Fenêtre réaliste** pour arriver jusqu'à l'étape 2 mergée : ~20 minutes de merges + CI si tout va bien.
+1. Les P1 ne bloquent pas la prod (par définition). Les inclure avant
+   l'audit sweep élargit le delta audité inutilement.
+2. `claude/fix-order-item-product-index` contient une migration
+   (`20260410160000_order_item_product_variant_indexes`). La merger
+   avant le sweep oblige à auditer un ALTER TABLE en plus des 4 P0.
+   Hors chemin critique, on peut la merger via la Merge Queue semaine 1
+   avec le rehearsal Neon actif.
+3. Rollback surface : si prod part mal après les P0, on revert les 4
+   P0. Avec 4 P1 + 1 spec en plus, le revert couvre 9 changements au
+   lieu de 4. Moins de precision, plus de risque d'effets bord.
+4. `claude/governance-tooling` est retiré aussi : il sera réécrit
+   semaine 1 pour cibler `merge_group` et les Rulesets. Le merger
+   semaine 0 crée de la dette immédiate.
 
-**Étape 5 (audit sweep) ajoute ~1h** wallclock mais est non négociable pour une release qui touche de l'argent. C'est le filet entre "CI verte" et "prod-ready".
+**Ordre = zéro conflit connu** sur les 3 étapes de la semaine 0. Les
+3 governance docs sont additives entre elles et avec les 4 P0. Les 4 P0
+touchent des fichiers distincts (stock dans `orders/`, decimal dans
+`checkout/` + `cart-totals.ts`, cron dans `crm/triggers/`, merge dans
+`crm/customers/`).
+
+**Fenêtre réaliste** :
+
+- Étapes 1-2 : ~20 min de merges + CI si tout va bien
+- Étape 3 (audit sweep) : ~1h wallclock, non négociable
+- Étape 4 (tag + deploy) : ~30 min avec staging + smoke + prod
+- **Total semaine 0 critical path : ~2h** entre "go" et "prod live"
+- Étapes 5-6 (post-prod) : à faire J+1 ou semaine 1
 
 ---
 
@@ -173,7 +246,7 @@ CONFORT dev (pas d'impact prod immédiat) :
 - [ ] CI verte sur le commit HEAD de `main` (lint + tests + smoke + build + security scan)
 - [ ] `pnpm audit --audit-level=high` passe
 - [ ] Aucun commit WIP ou `wip:` sur `main`
-- [ ] Git tag créé : `git tag -a vX.Y.Z -m "…" && git push origin vX.Y.Z`
+- [ ] Git tag créé : `git tag -a v0.9.0-rc1 -m "TrottiStore v0.9.0-rc1 — P0 fixes + governance" && git push origin v0.9.0-rc1`
 
 ### 4.2 Base de données
 
@@ -264,26 +337,34 @@ solide → on rollback le merge et on rouvre une PR pour corriger.
 ### 5.2 Commande concrète
 
 ```bash
-# Point de départ : main à jour, tous les P0/P1 mergés
+# Point de départ : main à jour, les 4 P0 mergés, rien d'autre
 git checkout main && git pull
 
 # Capturer le SHA baseline du dernier audit
 BASELINE_SHA="1bf9b5f"  # commit au moment de AUDIT_ATOMIC.md
-CURRENT_SHA=$(git rev-parse HEAD)
+TARGET_SHA=$(git rev-parse HEAD)
+TARGET_SHORT=$(git rev-parse --short=7 HEAD)
 
 # Liste des fichiers modifiés entre baseline et HEAD
-git diff --name-only "$BASELINE_SHA" "$CURRENT_SHA" \
+git diff --name-only "$BASELINE_SHA" "$TARGET_SHA" \
   | grep -E '\.(ts|tsx|prisma|sql)$' \
   > /tmp/audit-sweep-files.txt
 
-# Lancer la passe A (delta) via les agents atomiques
+# Lancer la passe A (delta) via les agents Explore
 # Voir AUDIT_METHODOLOGY.md section "Stratégie multi-LLM"
-# Un agent par question, code quoté, cross-validation humaine sur les P0
+# Un agent par question, code quoté, vérification humaine des
+# findings HIGH/CRITICAL
+
+# Écrire le passport dans /tmp, JAMAIS dans main
+mkdir -p /tmp/trottistore-passport
+PASSPORT=/tmp/trottistore-passport/AUDIT_PREPROD_${TARGET_SHORT}.md
 ```
 
-Alternative rapide si le temps presse : réutiliser
-`scripts/audit-code-llm.ts` (créé par claude/audit-docs) avec le flag
-`--files-from=/tmp/audit-sweep-files.txt`.
+**Outil d'audit pour la semaine 0 : agents Explore Claude/Codex
+uniquement.** L'Ollama 7b local est **explicitement exclu** du gate
+critique (décision §10 point 7). Il reste un outil de triage valide
+pour des investigations post-ship ou des surveys exploratoires, mais
+**jamais pour la décision de shipper**.
 
 ### 5.3 Critères de passage
 
@@ -313,31 +394,123 @@ On ouvre un ticket, on fixe, on re-audit, puis on reprend.
 - Passe C : 10 min par P0 (4 P0 × 10 min = 40 min), parallélisable
 - Total : **~1h wallclock** si on parallélise Passe A / B / C
 
-### 5.5 Résultat
+### 5.5 Résultat — passport de prod (hors main)
 
-Un nouveau fichier `docs/audits/AUDIT_PREPROD_<date>.md` versionné sur
-`main` (sur une PR dédiée `claude/preprod-audit-<date>`) qui documente :
+**Contrainte auto-référentielle** : la passe A audite le delta
+`BASELINE_SHA → CURRENT_SHA`. Si on versionne le passport sur `main`
+via une PR dédiée, HEAD change après l'audit, et le passport ne couvre
+plus exactement le commit qui sera taggé. Le passport devient
+invalidé par son propre acte de signature.
 
-- Commit baseline + commit HEAD
-- Liste des fichiers audités
-- Findings par passe (zéro si tout est vert)
-- Décisions d'adversarial review
-- Liste des checkboxes §5.3 cochées
-- Approval tag : `@Lsardi` + signature `Claude` + signature `Codex`
+**Solution semaine 0** : le passport est un **artifact hors main**.
+Concrètement :
 
-Ce fichier est le **passport de prod**. Sans lui signé, le
-`workflow_dispatch` prod est refusé par convention (et à terme par
-branch protection + custom GitHub Action).
+1. Le fichier s'appelle `AUDIT_PREPROD_<TARGET_SHA>.md`, où
+   `TARGET_SHA` est le 7 premiers caractères du commit qu'on va
+   tagger (pas `<date>`).
+2. Il est écrit dans `/tmp/trottistore-passport/` pendant l'audit,
+   **jamais** committé sur `main`.
+3. À la fin de l'audit, le fichier est uploadé comme release asset
+   sur le tag `v0.9.0-rc1` via `gh release create ... --attach` —
+   ou, alternative, attaché à un GitHub Issue dédié
+   `[Release v0.9.0-rc1] Pre-prod audit passport` pour traçabilité.
+4. Une copie est archivée par `@Lsardi` dans un stockage long-terme
+   (S3, drive, peu importe) pour audit trail réglementaire.
+
+**Alternative envisagée et rejetée** : re-signer le passport sur le
+SHA final avec un commit `chore(audit): passport for <sha>`. Rejetée
+parce que (a) ça demande un 2e passage d'audit sur le 2e SHA pour
+être cohérent, (b) ça relance la boucle auto-référentielle, (c) ça
+pollue l'historique `main`.
+
+**Format du passport** (contenu du fichier) :
+
+```markdown
+# Pre-prod audit passport — v0.9.0-rc1
+
+Target SHA: <40-char full SHA>
+Target tag: v0.9.0-rc1
+Baseline SHA: 1bf9b5f (last atomic audit)
+Audit window: <ISO8601 start> → <ISO8601 end>
+
+## Delta audité
+
+<git diff --name-only baseline target>
+
+## Passes
+
+### Passe A — Delta audit
+Executor: Claude
+Findings: <N> (HIGH: <n>, CRITICAL: <n>)
+Verdict: PASS | FAIL
+Details: <link or inline>
+
+### Passe B — Smoke audit
+Executor: Claude
+Findings: <N>
+Verdict: PASS | FAIL
+Details: <link or inline>
+
+### Passe C — Adversarial per P0
+Executor: Codex
+P0-A stock race:        PASS | ROLLBACK (reason)
+P0-B decimal math:      PASS | ROLLBACK (reason)
+P0-3 cron bypass:       PASS | ROLLBACK (reason)
+P0-4 customer merge:    PASS | ROLLBACK (reason)
+Verdict: PASS | FAIL
+
+## Gate §5.3
+
+- [x/ ] Pass A: 0 HIGH/CRITICAL
+- [x/ ] Pass B: 0 regression
+- [x/ ] Pass C: 0 rollback reason
+- [x/ ] pnpm test local
+- [x/ ] pnpm test:smoke local
+- [x/ ] pnpm build local (4 services + web)
+- [x/ ] prisma validate local
+- [x/ ] No TODO/FIXME/@ts-ignore added in delta
+
+## Approval
+
+- @Lsardi: <signature>
+- Claude: <signature>
+- Codex: <signature>
+```
+
+**Sans ce fichier signé par les trois parties, le
+`workflow_dispatch` prod ne doit pas être déclenché.** C'est une
+convention semaine 0 ; semaine 1+, la Merge Queue + un required
+status check automatisé s'en chargent mécaniquement et le passport
+devient un artifact attesté SLSA.
 
 ---
 
 ## 6. Procédure de déploiement
 
+**Précondition** : l'audit sweep §5 est vert, le passport
+`/tmp/trottistore-passport/AUDIT_PREPROD_<sha>.md` est signé par
+@Lsardi + Claude + Codex, les 4 P0 sont mergés sur `main`, aucune
+autre branche n'a été mergée depuis le début de l'audit (pour éviter
+la boucle auto-référentielle décrite en §5.5).
+
 ```bash
-# 1. Tagger la release
-git checkout main && git pull
-git tag -a v1.0.0 -m "TrottiStore v1.0.0 — P0 fixes + governance"
-git push origin v1.0.0
+# 0. Vérifier que le HEAD de main est bien celui qui a été audité
+TARGET_SHA=$(git rev-parse HEAD)
+PASSPORT=/tmp/trottistore-passport/AUDIT_PREPROD_$(git rev-parse --short=7 HEAD).md
+test -f "$PASSPORT" || { echo "ABORT: no passport for $TARGET_SHA"; exit 1; }
+grep -q "Claude: signed" "$PASSPORT" || { echo "ABORT: missing Claude signature"; exit 1; }
+grep -q "Codex: signed" "$PASSPORT" || { echo "ABORT: missing Codex signature"; exit 1; }
+grep -q "Lsardi: signed" "$PASSPORT" || { echo "ABORT: missing Lsardi signature"; exit 1; }
+
+# 1. Tagger la release (le tag pointe exactement sur le SHA audité)
+git tag -a v0.9.0-rc1 -m "TrottiStore v0.9.0-rc1 — P0 fixes + governance"
+git push origin v0.9.0-rc1
+
+# 1 bis. Attacher le passport au tag comme release asset
+gh release create v0.9.0-rc1 \
+  --title "v0.9.0-rc1 — P0 fixes + governance" \
+  --notes "Pre-prod audit passport attached. See docs/PROD_ROADMAP.md §5." \
+  "$PASSPORT"
 
 # 2. Staging d'abord (si tu as un env staging)
 gh workflow run deploy-staging.yml
@@ -535,14 +708,26 @@ Livrables :
 - [ ] Test sur une PR non-critique (par ex. un fix typo) pour valider
   que la Merge Queue tourne end-to-end avant de laisser les P1 passer
   dessus
+- [ ] **Audit des workflows existants** pour les assumptions de contexte :
+  tout workflow qui lit `github.event.pull_request.*` ou des champs
+  absents sur `merge_group` doit être corrigé. Risque identifié par
+  Codex dans sa review 2026-04-10 — le trigger `merge_group` est
+  documenté mais les workflows qui dépendent du contexte PR peuvent
+  planter silencieusement dans la queue. Buffer de 1-2 jours prévu
+  pour traquer ces cas.
 - [ ] Les 4 P1 (`claude/fix-orders-status-idor`,
   `claude/fix-sav-quote-accept-idor`,
   `claude/fix-password-reset-race`,
   `claude/fix-order-item-product-index`) passent via la Merge Queue
-  pour valider le setup en conditions réelles
+  pour valider le setup en conditions réelles. `fix-order-item-product-index`
+  déclenche en plus le rehearsal Neon de la semaine 3 si ce dernier
+  est en avance.
+
+Source : [GitHub Docs — events that trigger workflows (merge_group)](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
 
 Gate semaine 1 : une PR non-governance non-critique ne peut plus
-merger sans passer la Merge Queue.
+merger sans passer la Merge Queue, et aucun workflow ne crash sur
+`merge_group` faute de contexte PR.
 
 ### Semaine 2 — Tests qui prouvent la sémantique
 
@@ -584,28 +769,43 @@ d'atomicité, pas juste de pattern.
 **Objectif** : tester les migrations Prisma sur une copie anonymisée
 du dataset prod avant de les merger.
 
-Outil : [Neon branch](https://api-docs.neon.tech/reference/createprojectbranch)
-+ [anonymized branch](https://api-docs.neon.tech/reference/createprojectbranchanonymized).
-Une branche Neon se crée en secondes, contient la data prod anonymisée
-(PII strippée automatiquement), on rejoue les migrations dessus, on
-valide, on détruit la branche.
+**Décision infra** : on **ne migre pas** la prod de Railway vers Neon
+juste pour le branching. C'est un changement d'infra distinct avec son
+propre risque. Le bon compromis :
+
+- **Prod reste sur Railway Postgres** (pas touché)
+- **Rehearsal uniquement sur Neon** (ou instance Postgres dédiée sur
+  un autre provider, peu importe tant que ce n'est pas la prod)
+- Le rehearsal ingère un dump anonymisé de la prod nightly
+
+Outils : [Neon API — create branch](https://api-docs.neon.tech/reference/createprojectbranch)
++ [anonymized branch](https://api-docs.neon.tech/reference/createprojectbranchanonymized)
+pour la version Neon. Alternative no-Neon : cron nightly qui fait
+`pg_dump` de la prod Railway, `pg_anonymize` (ou équivalent home-made
+sur les colonnes PII identifiées via schéma Prisma), restore sur une
+instance rehearsal.
 
 Livrables :
 
-- [ ] Neon project configuré (ou équivalent — si le stack prod reste
-  sur Railway Postgres, étudier le provisioning d'une instance
-  Postgres dédiée rehearsal qui restaure nightly un dump anonymisé)
+- [ ] Choix tranché Neon vs "dedicated Postgres + pg_dump anonymized"
+  (arbitrage coût/simplicité à faire en ouverture de semaine 3)
+- [ ] Provider rehearsal configuré avec credentials séparés,
+  firewall-isolé de la prod
+- [ ] Pipeline d'anonymisation (colonnes PII identifiées, stratégies
+  de masking documentées dans `docs/MIGRATION_REHEARSAL.md`)
 - [ ] GitHub Action `migration-rehearsal.yml` qui, sur toute PR
-  touchant `packages/database/prisma/`, :
-  - Crée une branche Neon anonymized depuis main
+  touchant `packages/database/prisma/` :
+  - Provisionne une branche rehearsal (Neon) ou restaure un snapshot
+    anonymisé (Postgres dedicated)
   - Applique les migrations pending via `prisma migrate deploy`
   - Lance `prisma validate` + un subset des intégration tests
-  - Rapport posté comme comment PR
-  - Détruit la branche
+  - Rapport posté comme comment PR avec le timing + les `\d+` des
+    tables touchées
+  - Détruit la branche / drop la base
 - [ ] Gate : pas de merge d'une PR avec migration si le rehearsal
-  Neon fail (required status check)
-- [ ] Documentation : `docs/MIGRATION_REHEARSAL.md` qui explique le
-  workflow pour les futurs contributeurs
+  fail (required status check sur le Ruleset semaine 1)
+- [ ] `docs/MIGRATION_REHEARSAL.md` qui documente le workflow et
+  l'escape hatch (run manuel si la CI est down)
 
 Gate semaine 3 : aucune migration ne peut merger sans avoir été
 rejouée sur vraie data récente.
@@ -637,9 +837,15 @@ Livrables ASVS/SSDF :
 - [ ] Template `security-spec.md` augmenté pour exiger une citation
   [ASVS 5.0.0](https://owasp.org/www-project-application-security-verification-standard/)
   valide par MUST (déjà présent, à valider par une action custom)
+- [ ] **Source de vérité ASVS** : le CSV officiel v5.0.0 depuis le
+  [repo OWASP/ASVS](https://github.com/OWASP/ASVS) (le readme du repo
+  mentionne explicitement la publication CSV + une traduction française
+  officielle). Pas de parsing Markdown maison. Le CSV est committé
+  dans `packages/shared/asvs-v5.0.0.csv` et versionné avec checksum
+  SHA256 dans le workflow pour détecter un changement upstream.
 - [ ] GitHub Action `validate-asvs-refs.yml` qui vérifie sur chaque
   PR que les `Refs: ASVS V_._._` du body pointent vers des
-  requirements réels du JSON ASVS
+  requirements réels parsés depuis le CSV.
 - [ ] Intégration des 4 pratiques SSDF Rev.1 pertinentes dans
   `docs/GOVERNANCE.md` (PO.1, PO.3, PW.1, PW.7)
 - [ ] Spec rétroactive P0-3 (`docs/security-specs/P0-3-crm-cron-bypass.md`)
