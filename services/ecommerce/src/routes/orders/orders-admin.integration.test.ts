@@ -67,6 +67,7 @@ function buildApp(): FastifyInstance {
         isActive: true,
       }]),
       update: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     product: {
       findMany: vi.fn().mockResolvedValue([{
