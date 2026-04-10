@@ -21,6 +21,16 @@ export default defineConfig({
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "mobile-safari-responsive",
+      grep: /@responsive/,
+      use: { ...devices["iPhone 13"] },
+    },
+    {
+      name: "tablet-responsive",
+      grep: /@responsive/,
+      use: { ...devices["iPad Pro 11"] },
+    },
   ],
   webServer: {
     command: "pnpm --filter @trottistore/web exec next dev --hostname 127.0.0.1 --port 3000",

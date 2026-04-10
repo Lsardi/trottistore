@@ -40,6 +40,13 @@
     radial-gradient(circle at 85% -5%, rgba(0, 153, 255, 0.08), transparent 28%);
 }
 
+/* Prevent Safari/iOS horizontal bleed caused by transformed/fixed children. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 :root,
 [data-theme="atelier"] {
   --color-void: #0A0A0A;
@@ -228,12 +235,19 @@
 
 /* ─── BASE ─────────────────────────────────────────────────── */
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
 }
 
 body {
+  margin: 0;
   background-color: var(--color-void);
   background-image: var(--bg-gradient), var(--surface-pattern);
   background-size: auto, 16px 16px;
@@ -591,6 +605,10 @@ body {
 }
 
 @media (max-width: 480px) {
+  .products-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .footer-grid {
     grid-template-columns: 1fr !important;
   }
@@ -653,6 +671,17 @@ body {
   .newsletter-inner {
     flex-direction: column !important;
     align-items: flex-start !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .heading-xl {
+    font-size: clamp(1.8rem, 9vw, 2.7rem);
+    line-height: 0.96;
+  }
+
+  .products-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

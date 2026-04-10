@@ -138,7 +138,14 @@ export default async function HomePage() {
                 MOBILITÉ ÉLECTRIQUE ——
               </p>
 
-              <h1 className="heading-xl animate-slide-up stagger-2">
+              <h1
+                className="heading-xl animate-slide-up stagger-2"
+                style={{
+                  fontSize: "clamp(1.9rem, 10vw, 5rem)",
+                  overflowWrap: "anywhere",
+                  wordBreak: "break-word",
+                }}
+              >
                 {brand.heroTitle[0]}
                 <br />
                 {brand.heroTitle[1]}
@@ -227,8 +234,21 @@ export default async function HomePage() {
             zIndex: 2,
           }}
         >
-          <div className="marquee-track font-mono" style={{ fontSize: "0.65rem", color: "var(--color-border-light)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-            <span style={{ whiteSpace: "nowrap", paddingRight: 0 }}>{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}</span>
+          <div style={{ position: "relative", height: "1em", overflow: "hidden" }}>
+            <div
+              className="marquee-track font-mono"
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                fontSize: "0.65rem",
+                color: "var(--color-border-light)",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              <span style={{ whiteSpace: "nowrap", paddingRight: 0 }}>{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -506,11 +526,10 @@ export default async function HomePage() {
           ================================================================ */}
       <section style={{ backgroundColor: "var(--color-void)", padding: "80px 0" }}>
         <div
-          className="atelier-grid"
+          className="atelier-grid px-4 md:px-6"
           style={{
             maxWidth: 1280,
             margin: "0 auto",
-            padding: "0 24px",
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: 64,
