@@ -133,13 +133,26 @@ async function main() {
     // 3. Seed users
     // ------------------------------------------------------------------
     console.log("\nSeeding users...");
-    const passwordHash = await hash("password123", {
+    // SECURITY: never hardcode the SUPERADMIN password. The seed reads
+    // SEED_ADMIN_PASSWORD from env and fails loud if missing. The same
+    // password is used for all 3 seeded users (admin, technicien, client)
+    // — rotate them via the auth/password-reset flow after the first
+    // login if you need distinct credentials.
+    const seedPassword = process.env.SEED_ADMIN_PASSWORD;
+    if (!seedPassword || seedPassword.length < 12) {
+      throw new Error(
+        "SEED_ADMIN_PASSWORD env var is required and must be >= 12 chars. " +
+          "This seed creates a SUPERADMIN account; refusing to use a weak or " +
+          "missing password. Example: SEED_ADMIN_PASSWORD='<your-strong-pwd>' pnpm seed",
+      );
+    }
+    const passwordHash = await hash(seedPassword, {
       memoryCost: 19456,
       timeCost: 2,
       outputLen: 32,
       parallelism: 1,
     });
-    console.log("  Password hashed with argon2");
+    console.log("  Password hashed with argon2 (from SEED_ADMIN_PASSWORD)");
 
     const usersData = [
       {
