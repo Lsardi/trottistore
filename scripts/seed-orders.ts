@@ -14,6 +14,10 @@
  *    so the demo catalog quantities are not eroded by fake orders.
  *  - Idempotent guard: refuses to run twice if `orders` already has
  *    >= 10 rows (assume it's been seeded already)
+ *  - Marker: every seeded order has `notes: "DEMO_SEED_DATA"` and every
+ *    seeded payment has `providerRef: "demo-seed-payment-<i>"` so they
+ *    can be distinguished from real orders and removed later via:
+ *      DELETE FROM ecommerce.orders WHERE notes = 'DEMO_SEED_DATA';
  *
  * Run:
  *   DATABASE_URL='postgresql://...' pnpm --filter @trottistore/scripts \
@@ -151,6 +155,7 @@ async function main() {
         tvaAmount,
         totalTtc,
         shippingCost: 0,
+        notes: "DEMO_SEED_DATA",
         createdAt,
         deliveredAt: status === "DELIVERED" ? new Date(createdAt.getTime() + 3 * 86400000) : null,
         items: { create: items },
@@ -162,6 +167,7 @@ async function main() {
         data: {
           orderId: order.id,
           provider: "stripe",
+          providerRef: `demo-seed-payment-${i}`,
           amount: totalTtc,
           method: "CARD",
           status: "CONFIRMED",
