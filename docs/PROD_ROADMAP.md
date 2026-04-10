@@ -76,9 +76,8 @@ d'adversarial review) :
    classe de boucle auto-référentielle que le round 2 point 1,
    appliquée au workflow au lieu du passport. Corrigé : chaque
    `gh workflow run` passe désormais `--ref v0.9.0-rc1`, la
-   procédure vérifie `gh run view --json headSha` après chaque
-   déclenchement pour confirmer le SHA déployé, et un
-   durcissement workflow (`expected_sha` input) est planifié en
+   procédure vérifie le SHA déployé après chaque déclenchement, et
+   un durcissement workflow (`expected_sha` input) est planifié en
    semaine 1 (§12).
 
 5. **Migration P1-8 encore dans la checklist semaine 0** : §4.2
@@ -88,6 +87,31 @@ d'adversarial review) :
    cette migration avant le go P0. Corrigé : §4.2 ne liste plus
    que la migration P0-A, avec une note explicite que P1-8 est
    hors scope semaine 0.
+
+**Round 4** du 2026-04-10 — 1 finding bloquant sur la corrélation de runs :
+
+6. **Corrélation `gh run list --limit 1` racable** : la procédure
+   round 3 récupérait le run ID via `gh run list --limit 1 --jq '.[0]'`
+   après chaque `gh workflow run`. Si plusieurs runs du même workflow
+   partaient en parallèle ou en séquence rapprochée (par exemple
+   pendant les 5 déclenchements service-par-service initialement
+   prévus), le `.[0]` pouvait pointer sur un run antérieur ou parallèle
+   au lieu du run qu'on venait de déclencher. Risque : vérifier le
+   SHA du mauvais run et croire que le deploy est OK alors qu'il
+   part ailleurs.
+
+   Corrigé sur deux dimensions (recommandations Codex round 4) :
+   - **Simplification opérationnelle** : un seul `gh workflow run -f service=all`
+     au lieu de 5 runs séquentiels. Supprime la classe entière de bugs
+     multi-runs par construction. Plus un seul point de rollback.
+     Moins de fenêtres d'état intermédiaire.
+   - **Corrélation multi-critères robuste** : le `gh run list` filtre
+     maintenant par `headSha == TARGET_SHA` + `event == workflow_dispatch`
+     + `createdAt >= DISPATCH_TIME`. Aucun risque de capturer un run
+     antérieur ou concurrent.
+   - **Plan semaine 1** : ajout d'un input `deploy_token` (UUID)
+     et d'un `run-name` qui inclut le token, pour une corrélation
+     déterministe sans race même en scénario multi-run (§12).
 
 ---
 
@@ -561,11 +585,25 @@ gh release create v0.9.0-rc1 \
   --notes "Pre-prod audit passport attached. See docs/PROD_ROADMAP.md §5." \
   "$PASSPORT"
 
-# 2. Staging d'abord (pinné sur le tag, pas sur main HEAD)
-gh workflow run deploy-staging.yml --ref v0.9.0-rc1
+# 2. Staging d'abord — un seul run avec service=all
+#    Simplification volontaire pour la semaine 0 : un seul run par
+#    workflow supprime la classe entière de bugs de corrélation
+#    multi-runs (cf. Codex round 4 adversarial review). Semaine 1+
+#    utilisera un deploy_token unique par run pour corréler sans
+#    ambiguïté (§12).
+DISPATCH_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+gh workflow run deploy-staging.yml --ref v0.9.0-rc1 -f service=all
 
-# 2 bis. Vérifier que le run checkoute bien le bon SHA
-STAGING_RUN_ID=$(gh run list --workflow deploy-staging.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+# 2 bis. Corrélation robuste du run staging par (headSha, event,
+#    timestamp). Le filtre multi-critères élimine les runs concurrents
+#    ou antérieurs qui pourraient contaminer un `--limit 1` naïf.
+sleep 5  # Laisser le temps au dispatch d'apparaître dans l'API
+STAGING_RUN_ID=$(gh run list \
+  --workflow deploy-staging.yml \
+  --json databaseId,headSha,event,createdAt,status \
+  --jq "[.[] | select(.headSha == \"$TARGET_SHA\" and .event == \"workflow_dispatch\" and .createdAt >= \"$DISPATCH_TIME\")] | .[0].databaseId")
+test -n "$STAGING_RUN_ID" || { echo "ABORT: no staging run matching $TARGET_SHA since $DISPATCH_TIME"; exit 1; }
+
 STAGING_RUN_SHA=$(gh run view "$STAGING_RUN_ID" --json headSha --jq '.headSha')
 test "$STAGING_RUN_SHA" = "$TARGET_SHA" || { echo "ABORT: staging run on wrong SHA $STAGING_RUN_SHA"; exit 1; }
 
@@ -575,25 +613,32 @@ for port in 3001 3002 3003 3004; do
   curl -fsS https://<staging-host>:$port/health || exit 1
 done
 
-# 4. Prod — TOUJOURS pinné sur --ref v0.9.0-rc1
-gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=ecommerce
-# … vérifier /health, attendre 2 min
-gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=crm
-gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=sav
-gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=analytics
-gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=web
+# 4. Prod — un seul run avec service=all, même simplification
+PROD_DISPATCH_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=all
 
-# 4 bis. Vérifier que chaque run a bien checkouté v0.9.0-rc1
-PROD_RUN_ID=$(gh run list --workflow deploy-production.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+# 4 bis. Corrélation robuste du run prod
+sleep 5
+PROD_RUN_ID=$(gh run list \
+  --workflow deploy-production.yml \
+  --json databaseId,headSha,event,createdAt,status \
+  --jq "[.[] | select(.headSha == \"$TARGET_SHA\" and .event == \"workflow_dispatch\" and .createdAt >= \"$PROD_DISPATCH_TIME\")] | .[0].databaseId")
+test -n "$PROD_RUN_ID" || { echo "ABORT: no prod run matching $TARGET_SHA since $PROD_DISPATCH_TIME"; exit 1; }
+
 PROD_RUN_SHA=$(gh run view "$PROD_RUN_ID" --json headSha --jq '.headSha')
 test "$PROD_RUN_SHA" = "$TARGET_SHA" || { echo "ABORT: prod run on wrong SHA $PROD_RUN_SHA"; exit 1; }
+
+gh run watch "$PROD_RUN_ID"
 ```
 
-Ou en mode "push tout" si tu fais confiance à la CI :
+**Pourquoi `service=all` et pas service-par-service** (décision Codex round 4) :
+- 1 run = 0 ambiguïté de corrélation par construction
+- 1 point de rollback au lieu de 5
+- Plus simple à surveiller (un seul `gh run watch`)
+- Le workflow `deploy-production.yml` handle déjà `service=all` nativement (voir lignes 45-77 du workflow)
+- L'approche "service par service pour isoler un échec" est séduisante mais crée un risque de déploiement hétérogène si le 3e service échoue — on se retrouve avec 2 services sur v0.9.0-rc1 et 3 sur la version précédente, état dangereux.
 
-```bash
-gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=all
-```
+Rollback semaine 0 : si le run échoue à mi-parcours, on rollback via Railway UI (§8) sur **tous** les services ensemble, pas par service.
 
 ---
 
@@ -625,9 +670,15 @@ curl -fsS https://trottistore.fr/ | head -20
 # Railway Dashboard → service → Deployments → clic sur le précédent → "Redeploy"
 
 # Option 2 — revert commit + redeploy
+#   IMPORTANT: le redeploy doit être pinné sur le commit du revert,
+#   pas sur main HEAD. Même règle que §6 pour éviter la boucle
+#   auto-référentielle. Tagger explicitement un tag rollback.
 git revert <bad-commit-sha>
 git push origin main
-gh workflow run deploy-production.yml -f service=all
+REVERT_SHA=$(git rev-parse HEAD)
+git tag -a v0.9.0-rc1-rollback-1 "$REVERT_SHA" -m "Rollback of v0.9.0-rc1 — reason: <describe>"
+git push origin v0.9.0-rc1-rollback-1
+gh workflow run deploy-production.yml --ref v0.9.0-rc1-rollback-1 -f service=all
 
 # Option 3 — rollback schema si la migration a pété
 psql "$DATABASE_URL" < infra/backups/backup-<timestamp>.sql
@@ -783,15 +834,28 @@ Livrables :
   est en avance.
 
 - [ ] **Durcir `deploy-production.yml` et `deploy-staging.yml`** pour
-  fermer la brèche "workflow_dispatch sans ref pin" identifiée en
-  semaine 0 :
-  - Nouvel input obligatoire `expected_sha` (string, required: true)
-  - Premier step du job : `if [ "$GITHUB_SHA" != "${{ inputs.expected_sha }}" ]; then exit 1; fi`
-  - La procédure semaine 1+ passera `-f expected_sha=<sha>` à chaque
-    `gh workflow run`, et un mismatch fera échouer le run avant tout
-    deploy. Défense en profondeur par rapport au `--ref` CLI qui
-    peut être oublié par un opérateur humain.
-  - Refs: cf. §6 procédure semaine 0 où le `--ref` est exigé manuellement.
+  fermer les 2 brèches identifiées en semaine 0 (rounds 3 et 4
+  adversarial review) :
+  - **`expected_sha` input** (string, required: true) — défense
+    contre un opérateur qui oublie `--ref` sur le CLI.
+  - **Premier step du job** : `if [ "$GITHUB_SHA" != "${{ inputs.expected_sha }}" ]; then echo "SHA mismatch: got $GITHUB_SHA expected ${{ inputs.expected_sha }}"; exit 1; fi`.
+  - **`deploy_token` input** (string, required: true) — token unique
+    généré par l'opérateur à chaque dispatch (`uuidgen` ou `openssl rand -hex 16`).
+  - **`run-name`** au niveau workflow YAML :
+    ```yaml
+    run-name: "deploy ${{ inputs.service }} — ${{ inputs.expected_sha }} — ${{ inputs.deploy_token }}"
+    ```
+    Le token rend le `run-name` unique par dispatch, ce qui permet
+    une corrélation **déterministe et sans race** via :
+    ```bash
+    RUN_ID=$(gh run list --workflow deploy-production.yml \
+      --json databaseId,name --jq \
+      "[.[] | select(.name | contains(\"$DEPLOY_TOKEN\"))] | .[0].databaseId")
+    ```
+  - La procédure semaine 1+ passera `-f expected_sha=<sha> -f deploy_token=<uuid>`
+    à chaque `gh workflow run`.
+  - Refs : §6 procédure semaine 0 (pin `--ref` + corrélation multi-critères
+    pour la période transitoire).
 
 Source : [GitHub Docs — events that trigger workflows (merge_group)](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
 
