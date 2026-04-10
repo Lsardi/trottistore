@@ -4,13 +4,29 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: "Service to deploy (all, web, ecommerce, crm, sav, analytics)"
+        description: "Service to deploy (all, web, ecommerce, crm, sav, analytics, none)"
         required: false
         default: "all"
+      run_migrations:
+        description: "Run prisma migrate deploy against prod DB before deploy"
+        type: boolean
+        required: false
+        default: true
+      run_seed_catalog:
+        description: "Run scripts/seed.ts (731 products + 3 users). Idempotent via upsert. Requires SEED_ADMIN_PASSWORD secret."
+        type: boolean
+        required: false
+        default: false
+      run_seed_orders:
+        description: "Run scripts/seed-orders.ts (~30 demo orders for analytics). Idempotent guard at orders >= 10."
+        type: boolean
+        required: false
+        default: false
       run_healthchecks:
         description: "Run production healthchecks after deploy"
+        type: boolean
         required: false
-        default: "true"
+        default: true
 
 concurrency:
   group: deploy-production
@@ -21,10 +37,76 @@ env:
   RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
 
 jobs:
+  prepare-database:
+    name: Prepare prod DB (migrate + optional seed)
+    runs-on: ubuntu-latest
+    environment: production
+    if: inputs.run_migrations || inputs.run_seed_catalog || inputs.run_seed_orders
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate database secrets
+        env:
+          RAILWAY_DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
+        run: |
+          if [ -z "${RAILWAY_DATABASE_URL}" ]; then
+            echo "Missing required secret: RAILWAY_DATABASE_URL"
+            echo "Set it once via: gh secret set RAILWAY_DATABASE_URL --env production"
+            exit 1
+          fi
+          if [ "${{ inputs.run_seed_catalog }}" = "true" ] && [ -z "${SEED_ADMIN_PASSWORD}" ]; then
+            echo "Missing required secret: SEED_ADMIN_PASSWORD (required when run_seed_catalog=true)"
+            echo "Set it once via: gh secret set SEED_ADMIN_PASSWORD --env production"
+            echo "Must be >= 12 chars (enforced by scripts/seed.ts)"
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+        run: pnpm --filter @trottistore/database db:generate
+
+      - name: Run prisma migrate deploy
+        if: inputs.run_migrations
+        env:
+          DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+        run: pnpm --filter @trottistore/database db:deploy
+
+      - name: Seed catalog (731 products + 3 users)
+        if: inputs.run_seed_catalog
+        env:
+          DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
+        run: pnpm --filter @trottistore/scripts seed
+
+      - name: Seed demo orders (analytics dashboards)
+        if: inputs.run_seed_orders
+        env:
+          DATABASE_URL: ${{ secrets.RAILWAY_DATABASE_URL }}
+        run: pnpm --filter @trottistore/scripts seed:orders
+
   deploy:
     name: Deploy to Railway Production
     runs-on: ubuntu-latest
     environment: production
+    needs: prepare-database
+    if: |
+      always() &&
+      (needs.prepare-database.result == 'success' || needs.prepare-database.result == 'skipped') &&
+      inputs.service != 'none'
     steps:
       - uses: actions/checkout@v4
 
@@ -75,7 +157,7 @@ jobs:
   healthcheck:
     name: Post-deploy healthchecks (prod)
     needs: deploy
-    if: inputs.run_healthchecks == 'true'
+    if: inputs.run_healthchecks && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Wait for services to start
