@@ -22,21 +22,21 @@ COPY packages/ ./packages/
 COPY services/analytics/ ./services/analytics/
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN pnpm --filter @trottistore/database db:generate
-RUN pnpm --filter @trottistore/service-analytics build
+# Type-check only (no JS emit is consumed — see runner stage).
+RUN pnpm --filter @trottistore/service-analytics exec tsc --noEmit
 
 FROM node:22-alpine AS runner
 WORKDIR /app/services/analytics
 ENV NODE_ENV=production
-# pnpm stores real files under the root .pnpm/ directory, then creates
-# symlinks in each workspace's node_modules. The runner therefore needs
-# BOTH the root node_modules (containing .pnpm/) AND the service's own
-# node_modules (containing the symlinks that target .pnpm). Workspace
-# packages (packages/*) are also symlinked and must exist at their path.
+# See services/ecommerce/Dockerfile for the runtime strategy rationale.
+# tsx transpiles on the fly to avoid the ESM extension-required gap.
 COPY --from=build --chown=node:node /app/node_modules /app/node_modules
 COPY --from=build --chown=node:node /app/packages /app/packages
+COPY --from=build --chown=node:node /app/tsconfig.base.json /app/tsconfig.base.json
 COPY --from=build --chown=node:node /app/services/analytics/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/services/analytics/dist ./dist
+COPY --from=build --chown=node:node /app/services/analytics/src ./src
+COPY --from=build --chown=node:node /app/services/analytics/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/services/analytics/package.json ./package.json
 USER node
 EXPOSE 3003
-CMD ["node", "dist/index.js"]
+CMD ["node", "--import", "tsx", "src/index.ts"]
