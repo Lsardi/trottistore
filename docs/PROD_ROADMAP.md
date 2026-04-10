@@ -117,11 +117,21 @@ CONFORT dev (pas d'impact prod immédiat) :
 
 ÉTAPE 4 — Exemple spec (clôture boucle governance)
 └── [13] claude/spec-retro-p03
+
+ÉTAPE 5 — Pre-prod audit sweep (OBLIGATOIRE avant deploy)
+└── [14] Exécution des passes A/B/C — voir §5
+         Produit docs/audits/AUDIT_PREPROD_<date>.md signé
+
+ÉTAPE 6 — Tag + deploy
+├── [15] git tag -a vX.Y.Z -m "…"
+└── [16] gh workflow run deploy-production.yml
 ```
 
 **Ordre = zéro conflit connu.** Aucune branche ne touche aux mêmes fichiers qu'une autre sauf les docs (audit-docs vs governance-tooling vs methodology-threatmodel) — et les docs sont additives, pas de collision.
 
 **Fenêtre réaliste** pour arriver jusqu'à l'étape 2 mergée : ~20 minutes de merges + CI si tout va bien.
+
+**Étape 5 (audit sweep) ajoute ~1h** wallclock mais est non négociable pour une release qui touche de l'argent. C'est le filet entre "CI verte" et "prod-ready".
 
 ---
 
@@ -166,7 +176,120 @@ CONFORT dev (pas d'impact prod immédiat) :
 
 ---
 
-## 5. Procédure de déploiement
+## 5. Pre-prod audit sweep — **OBLIGATOIRE** avant tout deploy prod
+
+> Gate ajoutée suite au retour @Lsardi : la CI est mécanique, elle vérifie
+> que les règles syntaxiques/unitaires/intégration passent. Elle ne refait
+> pas un audit sémantique. Entre le dernier atomic audit (`AUDIT_ATOMIC.md`)
+> et maintenant, on a mergé ~12 branches — chaque merge est une occasion
+> de régression, de drift, ou d'interaction non prévue entre fixes. On
+> re-audit avant de pousser en prod. Non négociable.
+
+### 5.1 Périmètre de l'audit pré-prod
+
+Trois passes complémentaires, chacune avec un objectif distinct :
+
+**Passe A — Delta audit (obligatoire)**
+Comparer `main` au commit baseline (dernier atomic audit, soit
+`1bf9b5f` = merge de PR #88). Lancer un audit LLM atomic focalisé
+**uniquement sur les fichiers modifiés** par les 12 merges. But :
+attraper toute régression ou finding nouveau introduit par le process
+de merge lui-même.
+
+**Passe B — Smoke audit (obligatoire)**
+Relancer 3 à 5 agents atomiques sur les flows critiques tels qu'ils
+existent sur `main` post-merges, sans se limiter au delta. But :
+vérifier que les invariants métier (stock non-négatif, money en
+Decimal, auth via secret nonce, etc.) tiennent toujours end-to-end,
+pas seulement dans les fichiers touchés.
+
+Agents à relancer :
+- Stripe webhook signature (était ✅ clean — on vérifie qu'un merge
+  ne l'a pas cassé)
+- Stock invariants (P0-A a été mergé — on vérifie que les 3 call sites
+  sont bien tous passés par `decrementStockOrThrow`)
+- Money Decimal handling (P0-B mergé — on vérifie que cart-first
+  passe bien par `computeCartTotals`)
+- Auth bypass / cron / customer merge (P0-3 et P0-4 mergés)
+- Stripe webhook + idempotence (rien changé ici mais c'est la
+  surface d'argent — on audit quand même)
+
+**Passe C — Cross-validation adversarial (obligatoire)**
+Pour chaque P0 mergé, un agent adversarial relit le diff final sur
+`main` et tente de disprouver le fix. Si l'agent trouve une raison
+solide → on rollback le merge et on rouvre une PR pour corriger.
+
+### 5.2 Commande concrète
+
+```bash
+# Point de départ : main à jour, tous les P0/P1 mergés
+git checkout main && git pull
+
+# Capturer le SHA baseline du dernier audit
+BASELINE_SHA="1bf9b5f"  # commit au moment de AUDIT_ATOMIC.md
+CURRENT_SHA=$(git rev-parse HEAD)
+
+# Liste des fichiers modifiés entre baseline et HEAD
+git diff --name-only "$BASELINE_SHA" "$CURRENT_SHA" \
+  | grep -E '\.(ts|tsx|prisma|sql)$' \
+  > /tmp/audit-sweep-files.txt
+
+# Lancer la passe A (delta) via les agents atomiques
+# Voir AUDIT_METHODOLOGY.md section "Stratégie multi-LLM"
+# Un agent par question, code quoté, cross-validation humaine sur les P0
+```
+
+Alternative rapide si le temps presse : réutiliser
+`scripts/audit-code-llm.ts` (créé par claude/audit-docs) avec le flag
+`--files-from=/tmp/audit-sweep-files.txt`.
+
+### 5.3 Critères de passage
+
+L'audit pré-prod est **vert** si et seulement si :
+
+- [ ] Passe A ne trouve aucun finding de sévérité HIGH ou CRITICAL sur
+      le delta
+- [ ] Passe B confirme "clean" sur les 5 zones déjà validées par
+      AUDIT_ATOMIC.md
+- [ ] Passe C : zéro adversarial review trouve une raison de rollback
+- [ ] `pnpm test` passe localement sur `main`
+- [ ] `pnpm test:smoke` passe localement sur `main` (<= 1s, 18 tests)
+- [ ] `pnpm build` passe localement pour les 4 services + web
+- [ ] `prisma validate` passe sur `main`
+- [ ] Aucun `TODO: before prod`, `FIXME: P0`, ou `// @ts-ignore` ajouté
+      dans les fichiers du delta
+
+Si une seule de ces cases n'est pas cochée : **STOP, on ne deploy pas**.
+On ouvre un ticket, on fixe, on re-audit, puis on reprend.
+
+### 5.4 Durée estimée
+
+- Passe A : 10-15 min (3-4 agents atomiques en parallèle, delta ~12-15
+  fichiers)
+- Passe B : 15-20 min (5 agents en parallèle, scope complet zones
+  critiques)
+- Passe C : 10 min par P0 (4 P0 × 10 min = 40 min), parallélisable
+- Total : **~1h wallclock** si on parallélise Passe A / B / C
+
+### 5.5 Résultat
+
+Un nouveau fichier `docs/audits/AUDIT_PREPROD_<date>.md` versionné sur
+`main` (sur une PR dédiée `claude/preprod-audit-<date>`) qui documente :
+
+- Commit baseline + commit HEAD
+- Liste des fichiers audités
+- Findings par passe (zéro si tout est vert)
+- Décisions d'adversarial review
+- Liste des checkboxes §5.3 cochées
+- Approval tag : `@Lsardi` + signature `Claude` + signature `Codex`
+
+Ce fichier est le **passport de prod**. Sans lui signé, le
+`workflow_dispatch` prod est refusé par convention (et à terme par
+branch protection + custom GitHub Action).
+
+---
+
+## 6. Procédure de déploiement
 
 ```bash
 # 1. Tagger la release
@@ -200,7 +323,7 @@ gh workflow run deploy-production.yml -f service=all
 
 ---
 
-## 6. Post-deploy checks
+## 7. Post-deploy checks
 
 ```bash
 # Health
@@ -221,7 +344,7 @@ curl -fsS https://trottistore.fr/ | head -20
 
 ---
 
-## 7. Rollback (si ça tourne mal)
+## 8. Rollback (si ça tourne mal)
 
 ```bash
 # Option 1 — rollback via Railway UI (le plus rapide)
@@ -244,7 +367,7 @@ psql "$DATABASE_URL" < infra/backups/backup-<timestamp>.sql
 
 ---
 
-## 8. Ce qui peut attendre (post go-live)
+## 9. Ce qui peut attendre (post go-live)
 
 | Item | Pourquoi c'est post-prod |
 |---|---|
@@ -259,17 +382,18 @@ psql "$DATABASE_URL" < infra/backups/backup-<timestamp>.sql
 
 ---
 
-## 9. Décisions à prendre **maintenant**
+## 10. Décisions à prendre **maintenant**
 
 1. **Ordre de merge** : tu valides l'ordre section 3, ou tu veux changer quelque chose ?
 2. **Go / no-go P0-A migration** : on applique `UPDATE ... WHERE stock_quantity < 0` avant la migration en prod (safe) ou on part du principe que la data est propre (risk) ?
 3. **Release tag** : `v1.0.0` (fresh start) ou `v0.9.0-rc` (soft launch) ?
 4. **Fenêtre de deploy** : jour + heure bas trafic préféré ?
 5. **Qui garde la main sur le `workflow_dispatch`** : toi seul ou on automatise sur tag push ?
+6. **Pre-prod audit sweep (§5)** : qui exécute les passes A/B/C ? Moi seul ? Codex + moi en parallèle (recommandé) ? Dans quel worktree ?
 
 ---
 
-## 10. Ce que Claude fera pendant que tu réfléchis
+## 11. Ce que Claude fera pendant que tu réfléchis
 
 Par défaut, en attendant ton feu vert sur les décisions ci-dessus :
 
