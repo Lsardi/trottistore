@@ -47,8 +47,7 @@ d'adversarial review) :
 
 ### Corrections apportées par l'adversarial review Codex
 
-Round 2 du 2026-04-10 — 3 findings bloquants que Codex a trouvés sur
-la version précédente de ce document et que j'ai corrigés :
+**Round 2** du 2026-04-10 — 3 findings bloquants que Codex a trouvés :
 
 1. **Boucle auto-référentielle du passport** : la version précédente
    versionnait le passport sur `main` via une PR dédiée, ce qui
@@ -66,6 +65,29 @@ la version précédente de ce document et que j'ai corrigés :
    dans les décisions mais `v1.0.0` dans la procédure de deploy.
    Corrigé : `v0.9.0-rc1` est maintenant l'unique référence
    opérationnelle (§4, §6, §10).
+
+**Round 3** du 2026-04-10 — 2 findings bloquants supplémentaires :
+
+4. **Deploy non pin sur le SHA audité** : la procédure §6 précédente
+   utilisait `gh workflow run deploy-*.yml` sans `--ref`. Les
+   workflows checkoutent le ref du run via `actions/checkout@v4`.
+   Si `main` bougeait entre le tag et le `workflow_dispatch`, on
+   pouvait déployer un autre commit que celui du passport. Même
+   classe de boucle auto-référentielle que le round 2 point 1,
+   appliquée au workflow au lieu du passport. Corrigé : chaque
+   `gh workflow run` passe désormais `--ref v0.9.0-rc1`, la
+   procédure vérifie `gh run view --json headSha` après chaque
+   déclenchement pour confirmer le SHA déployé, et un
+   durcissement workflow (`expected_sha` input) est planifié en
+   semaine 1 (§12).
+
+5. **Migration P1-8 encore dans la checklist semaine 0** : §4.2
+   listait la migration `20260410160000_order_item_product_variant_indexes`
+   comme prérequis semaine 0, alors que P1-8 est maintenant
+   post-prod (§3 étape 5). Un opérateur aurait cru devoir appliquer
+   cette migration avant le go P0. Corrigé : §4.2 ne liste plus
+   que la migration P0-A, avec une note explicite que P1-8 est
+   hors scope semaine 0.
 
 ---
 
@@ -248,14 +270,25 @@ touchent des fichiers distincts (stock dans `orders/`, decimal dans
 - [ ] Aucun commit WIP ou `wip:` sur `main`
 - [ ] Git tag créé : `git tag -a v0.9.0-rc1 -m "TrottiStore v0.9.0-rc1 — P0 fixes + governance" && git push origin v0.9.0-rc1`
 
-### 4.2 Base de données
+### 4.2 Base de données (semaine 0)
+
+Seules les migrations liées aux P0 du critical path sont attendues
+en semaine 0. La migration `20260410160000_order_item_product_variant_indexes`
+appartient à `claude/fix-order-item-product-index` (P1-8) qui est
+**explicitement reporté en post-prod** (§3 étape 5). Ne pas l'appliquer
+dans la fenêtre semaine 0 — elle sera traitée en post-prod, idéalement
+via le rehearsal Neon de la semaine 3.
 
 - [ ] `prisma validate` passe sur `main`
-- [ ] Migration `20260410160000_order_item_product_variant_indexes` appliquée en staging d'abord
-- [ ] Migration `20260410151000_stock_quantity_non_negative` (P0-A) appliquée en staging d'abord
-  - ⚠️ Peut échouer en prod si rows avec `stock_quantity < 0` existent (suggestion A1 de Codex)
-  - Solution : exécuter `UPDATE product_variants SET stock_quantity = 0 WHERE stock_quantity < 0;` **avant** la migration
+- [ ] Migration `20260410151000_stock_quantity_non_negative` (P0-A)
+      **appliquée manuellement en staging en premier** pour valider
+      le heal des données négatives existantes et le `CHECK` constraint
+  - ⚠️ Peut échouer en prod si rows avec `stock_quantity < 0` existent
+  - Solution : la migration elle-même contient
+    `UPDATE product_variants SET stock_quantity = 0 WHERE stock_quantity < 0;`
+    **avant** le `ADD CONSTRAINT` (décision §10 point 2)
 - [ ] Backup DB fraîche (`infra/backup-db.sh` sur staging, pareil en prod)
+      **avant** le deploy prod, pas après
 
 ### 4.3 Environnement
 
@@ -493,47 +526,73 @@ devient un artifact attesté SLSA.
 autre branche n'a été mergée depuis le début de l'audit (pour éviter
 la boucle auto-référentielle décrite en §5.5).
 
+**Règle opérationnelle non négociable** : chaque `gh workflow run`
+ci-dessous utilise `--ref v0.9.0-rc1`. Le workflow
+`deploy-production.yml` (ligne 26) utilise `actions/checkout@v4` qui
+checkout par défaut le ref du run — donc sans `--ref`, un run lancé
+depuis n'importe où déploierait `main` actuel, **pas** le commit du
+tag audité. Si `main` bouge entre le tag et le `workflow_dispatch`
+(autre merge, force-push, hotfix parallèle), on déploierait autre
+chose que ce qui est dans le passport. **Toujours pin sur `--ref
+v0.9.0-rc1`.** Un durcissement workflow est planifié semaine 1
+(voir §12).
+
 ```bash
 # 0. Vérifier que le HEAD de main est bien celui qui a été audité
 TARGET_SHA=$(git rev-parse HEAD)
-PASSPORT=/tmp/trottistore-passport/AUDIT_PREPROD_$(git rev-parse --short=7 HEAD).md
+TARGET_SHORT=$(git rev-parse --short=7 HEAD)
+PASSPORT=/tmp/trottistore-passport/AUDIT_PREPROD_${TARGET_SHORT}.md
 test -f "$PASSPORT" || { echo "ABORT: no passport for $TARGET_SHA"; exit 1; }
 grep -q "Claude: signed" "$PASSPORT" || { echo "ABORT: missing Claude signature"; exit 1; }
 grep -q "Codex: signed" "$PASSPORT" || { echo "ABORT: missing Codex signature"; exit 1; }
 grep -q "Lsardi: signed" "$PASSPORT" || { echo "ABORT: missing Lsardi signature"; exit 1; }
 
 # 1. Tagger la release (le tag pointe exactement sur le SHA audité)
-git tag -a v0.9.0-rc1 -m "TrottiStore v0.9.0-rc1 — P0 fixes + governance"
+git tag -a v0.9.0-rc1 "$TARGET_SHA" -m "TrottiStore v0.9.0-rc1 — P0 fixes + governance"
 git push origin v0.9.0-rc1
 
-# 1 bis. Attacher le passport au tag comme release asset
+# 1 bis. Vérifier que le tag pointe bien sur le SHA audité (paranoïa)
+TAG_SHA=$(git rev-list -n 1 v0.9.0-rc1)
+test "$TAG_SHA" = "$TARGET_SHA" || { echo "ABORT: tag points to $TAG_SHA, audited $TARGET_SHA"; exit 1; }
+
+# 1 ter. Attacher le passport au tag comme release asset
 gh release create v0.9.0-rc1 \
   --title "v0.9.0-rc1 — P0 fixes + governance" \
   --notes "Pre-prod audit passport attached. See docs/PROD_ROADMAP.md §5." \
   "$PASSPORT"
 
-# 2. Staging d'abord (si tu as un env staging)
-gh workflow run deploy-staging.yml
+# 2. Staging d'abord (pinné sur le tag, pas sur main HEAD)
+gh workflow run deploy-staging.yml --ref v0.9.0-rc1
 
-# 3. Smoke tests staging
+# 2 bis. Vérifier que le run checkoute bien le bon SHA
+STAGING_RUN_ID=$(gh run list --workflow deploy-staging.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+STAGING_RUN_SHA=$(gh run view "$STAGING_RUN_ID" --json headSha --jq '.headSha')
+test "$STAGING_RUN_SHA" = "$TARGET_SHA" || { echo "ABORT: staging run on wrong SHA $STAGING_RUN_SHA"; exit 1; }
+
+# 3. Smoke tests staging (après que le run ait terminé)
+gh run watch "$STAGING_RUN_ID"
 for port in 3001 3002 3003 3004; do
   curl -fsS https://<staging-host>:$port/health || exit 1
 done
 
-# 4. Prod (un service à la fois si paranoïa)
-gh workflow run deploy-production.yml -f service=ecommerce
+# 4. Prod — TOUJOURS pinné sur --ref v0.9.0-rc1
+gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=ecommerce
 # … vérifier /health, attendre 2 min
-gh workflow run deploy-production.yml -f service=crm
-# … idem
-gh workflow run deploy-production.yml -f service=sav
-gh workflow run deploy-production.yml -f service=analytics
-gh workflow run deploy-production.yml -f service=web
+gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=crm
+gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=sav
+gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=analytics
+gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=web
+
+# 4 bis. Vérifier que chaque run a bien checkouté v0.9.0-rc1
+PROD_RUN_ID=$(gh run list --workflow deploy-production.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+PROD_RUN_SHA=$(gh run view "$PROD_RUN_ID" --json headSha --jq '.headSha')
+test "$PROD_RUN_SHA" = "$TARGET_SHA" || { echo "ABORT: prod run on wrong SHA $PROD_RUN_SHA"; exit 1; }
 ```
 
 Ou en mode "push tout" si tu fais confiance à la CI :
 
 ```bash
-gh workflow run deploy-production.yml -f service=all
+gh workflow run deploy-production.yml --ref v0.9.0-rc1 -f service=all
 ```
 
 ---
@@ -723,11 +782,23 @@ Livrables :
   déclenche en plus le rehearsal Neon de la semaine 3 si ce dernier
   est en avance.
 
+- [ ] **Durcir `deploy-production.yml` et `deploy-staging.yml`** pour
+  fermer la brèche "workflow_dispatch sans ref pin" identifiée en
+  semaine 0 :
+  - Nouvel input obligatoire `expected_sha` (string, required: true)
+  - Premier step du job : `if [ "$GITHUB_SHA" != "${{ inputs.expected_sha }}" ]; then exit 1; fi`
+  - La procédure semaine 1+ passera `-f expected_sha=<sha>` à chaque
+    `gh workflow run`, et un mismatch fera échouer le run avant tout
+    deploy. Défense en profondeur par rapport au `--ref` CLI qui
+    peut être oublié par un opérateur humain.
+  - Refs: cf. §6 procédure semaine 0 où le `--ref` est exigé manuellement.
+
 Source : [GitHub Docs — events that trigger workflows (merge_group)](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
 
 Gate semaine 1 : une PR non-governance non-critique ne peut plus
-merger sans passer la Merge Queue, et aucun workflow ne crash sur
-`merge_group` faute de contexte PR.
+merger sans passer la Merge Queue, aucun workflow ne crash sur
+`merge_group` faute de contexte PR, et aucun deploy ne peut partir
+sans `expected_sha` explicite.
 
 ### Semaine 2 — Tests qui prouvent la sémantique
 
