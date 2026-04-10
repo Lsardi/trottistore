@@ -118,11 +118,29 @@ export async function checkoutRoutes(app: FastifyInstance) {
         });
       }
 
-      if (user && order.customerId !== user.userId) {
-        return reply.status(403).send({
-          success: false,
-          error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
-        });
+      if (user) {
+        if (order.customerId !== user.userId) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
+          });
+        }
+      } else {
+        // Guest order: must present the session id that created it.
+        const sessionId = getSessionId(request);
+        if (!sessionId) {
+          return reply.status(400).send({
+            success: false,
+            error: { code: "MISSING_SESSION_ID", message: "Missing x-session-id header" },
+          });
+        }
+        const linkedSessionId = await app.redis.get(`checkout:guest-order:${body.orderId}`);
+        if (!linkedSessionId || linkedSessionId !== sessionId) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
+          });
+        }
       }
 
       paymentOwnerId = order.customerId;
@@ -372,20 +390,9 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
       },
     });
 
-    // Decrement stock for each order item
-    const items = await tx.orderItem.findMany({
-      where: { orderId },
-      select: { variantId: true, quantity: true },
-    });
-
-    for (const item of items) {
-      if (item.variantId) {
-        await tx.productVariant.update({
-          where: { id: item.variantId },
-          data: { stockQuantity: { decrement: item.quantity } },
-        });
-      }
-    }
+    // Stock was already decremented (or reserved, for installments) at order creation
+    // in routes/orders/index.ts. Decrementing here would cause a double-decrement
+    // on every Stripe payment. Webhook only confirms payment + order status.
 
     // Add status history
     await tx.orderStatusHistory.create({
