@@ -408,6 +408,19 @@ via le rehearsal Neon de la semaine 3.
 > de régression, de drift, ou d'interaction non prévue entre fixes. On
 > re-audit avant de pousser en prod. Non négociable.
 
+> **Système à deux étages — depuis 2026-04-11.** Le sweep décrit ici est
+> le **tier Full Passport** d'`AUDIT_METHODOLOGY.md` (passes A+B+C, passport
+> signé, blocking). Pour les hotfix, repair infra, démos bloquées, et fix
+> isolés < 50 LOC qui ne touchent ni auth/checkout/webhook/RBAC/migration,
+> utiliser le **tier Audit Lite** (15-30 min, 1 fichier `docs/audits/<date>-<scope>-lite.md`,
+> review async sous 24h). Les critères durs et le template Lite sont dans
+> `AUDIT_METHODOLOGY.md` §"Système à deux étages". **Hard rule : tout
+> change qui touche `main` passe par un audit. Le seul choix est lequel
+> des deux tiers.** La règle a été créée parce que la rehab Railway
+> 2026-04-10 a livré 4 PRs en prod sans aucun audit structuré — par défaut
+> on retombait sur "rien" quand le Full Passport semblait disproportionné.
+> Retro audit Lite : `docs/audits/2026-04-11-railway-rehab-lite.md`.
+
 > **Horizon semaine 0 (cette section)** : exécution manuelle par Claude
 > (passes A+B) et Codex (passe C adversarial), production d'un
 > `docs/audits/AUDIT_PREPROD_<date>.md` signé par les trois parties.
