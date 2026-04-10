@@ -3,8 +3,8 @@ import { z } from "zod";
 import { randomUUID, createHash } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { Role, JwtAccessPayload, JwtRefreshPayload } from "@trottistore/shared";
-import { sendEmail } from "../../emails/send.js";
-import { welcomeEmail } from "../../emails/templates.js";
+import { sendEmail } from "@trottistore/shared/notifications";
+import { welcomeEmail, passwordResetEmail } from "../../emails/templates.js";
 import { ROLES } from "@trottistore/shared";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
 
@@ -13,6 +13,7 @@ import type { InputJsonValue } from "@prisma/client/runtime/library";
 const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_DAYS = 30;
 const BCRYPT_ROUNDS = 12;
+const PASSWORD_RESET_EXPIRY_HOURS = 1;
 
 // ─── Validation schemas ────────────────────────────────────
 
@@ -30,6 +31,24 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email().max(255).toLowerCase().trim(),
   password: z.string().min(1).max(128),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email().max(255).toLowerCase().trim(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z
+    .string()
+    .min(8, "Le mot de passe doit contenir au moins 8 caractères")
+    .max(128),
+});
+
+const updateProfileSchema = z.object({
+  firstName: z.string().min(1).max(100).trim().optional(),
+  lastName: z.string().min(1).max(100).trim().optional(),
+  phone: z.string().max(20).trim().optional().nullable(),
 });
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -468,6 +487,55 @@ export async function authRoutes(app: FastifyInstance) {
     },
   );
 
+  // ── PUT /auth/profile — Update current user profile ─────
+  app.put(
+    "/auth/profile",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId } = request.user;
+
+      const parsed = updateProfileSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Données invalides",
+            details: parsed.error.flatten().fieldErrors,
+          },
+        });
+      }
+
+      // Filter out undefined values (only update provided fields)
+      const updateData: Record<string, unknown> = {};
+      if (parsed.data.firstName !== undefined) updateData.firstName = parsed.data.firstName;
+      if (parsed.data.lastName !== undefined) updateData.lastName = parsed.data.lastName;
+      if (parsed.data.phone !== undefined) updateData.phone = parsed.data.phone;
+
+      if (Object.keys(updateData).length === 0) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "NO_CHANGES", message: "Aucun champ à mettre à jour" },
+        });
+      }
+
+      const user = await app.prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          avatarUrl: true,
+        },
+      });
+
+      return { success: true, data: { user } };
+    },
+  );
+
   // ── GET /auth/export — RGPD data portability (art. 20) ──
   app.get(
     "/auth/export",
@@ -553,4 +621,125 @@ export async function authRoutes(app: FastifyInstance) {
       };
     },
   );
+
+  // ─── POST /auth/forgot-password ────────────────────────────
+  // Generates a reset token, sends an email with a reset link.
+  // Always returns 200 to prevent email enumeration.
+  app.post("/auth/forgot-password", {
+    config: { rateLimit: { max: 3, timeWindow: "15 minutes" } },
+  }, async (request, _reply) => {
+    const parsed = forgotPasswordSchema.safeParse(request.body);
+    if (!parsed.success) {
+      // Still return 200 to prevent enumeration
+      return { success: true, data: { message: "Si cette adresse existe, un email a été envoyé." } };
+    }
+
+    const user = await app.prisma.user.findUnique({
+      where: { email: parsed.data.email },
+      select: { id: true, firstName: true, email: true, status: true },
+    });
+
+    if (!user || user.status !== "ACTIVE") {
+      // Don't reveal whether the account exists
+      return { success: true, data: { message: "Si cette adresse existe, un email a été envoyé." } };
+    }
+
+    // Invalidate any existing unused reset tokens for this user
+    await app.prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    // Generate new token
+    const rawToken = randomUUID();
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(
+      Date.now() + PASSWORD_RESET_EXPIRY_HOURS * 60 * 60 * 1000,
+    );
+
+    await app.prisma.passwordResetToken.create({
+      data: { userId: user.id, tokenHash, expiresAt },
+    });
+
+    // Send reset email
+    const baseUrl = process.env.BASE_URL || "https://trottistore.fr";
+    const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
+    const { subject, html } = passwordResetEmail(user.firstName, resetUrl);
+
+    sendEmail(user.email, subject, html).catch((err) => {
+      app.log.error({ err, userId: user.id }, "Failed to send password reset email");
+    });
+
+    return { success: true, data: { message: "Si cette adresse existe, un email a été envoyé." } };
+  });
+
+  // ─── POST /auth/reset-password ─────────────────────────────
+  // Validates the reset token and updates the password.
+  app.post("/auth/reset-password", {
+    config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
+  }, async (request, reply) => {
+    const parsed = resetPasswordSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "Données invalides" },
+      });
+    }
+
+    const tokenHash = hashToken(parsed.data.token);
+
+    const resetToken = await app.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: { select: { id: true, status: true } } },
+    });
+
+    if (!resetToken) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "INVALID_TOKEN", message: "Lien invalide ou expiré" },
+      });
+    }
+
+    if (resetToken.usedAt) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "TOKEN_USED", message: "Ce lien a déjà été utilisé" },
+      });
+    }
+
+    if (resetToken.expiresAt < new Date()) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "TOKEN_EXPIRED", message: "Ce lien a expiré" },
+      });
+    }
+
+    if (resetToken.user.status !== "ACTIVE") {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "ACCOUNT_INACTIVE", message: "Compte inactif" },
+      });
+    }
+
+    // Update password and mark token as used
+    const newPasswordHash = await bcrypt.hash(parsed.data.newPassword, BCRYPT_ROUNDS);
+
+    await app.prisma.$transaction([
+      app.prisma.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash: newPasswordHash },
+      }),
+      app.prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      }),
+      // Revoke all refresh tokens (force re-login on all devices)
+      app.prisma.refreshToken.updateMany({
+        where: { userId: resetToken.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+
+    return { success: true, data: { message: "Mot de passe mis à jour. Vous pouvez vous connecter." } };
+  });
 }
