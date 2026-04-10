@@ -24,7 +24,9 @@ const TRIGGER_FIXTURE = {
   updatedAt: new Date(),
 };
 
-function buildApp(role: string = "MANAGER"): FastifyInstance {
+const TEST_CRON_SECRET = "deadbeef".repeat(8); // 64 chars, deterministic for tests
+
+function buildApp(role: string = "MANAGER", cronSecret: string | undefined = TEST_CRON_SECRET): FastifyInstance {
   const app = Fastify({ logger: false });
 
   app.decorate("prisma", {
@@ -44,6 +46,7 @@ function buildApp(role: string = "MANAGER"): FastifyInstance {
   });
 
   app.decorate("redis", { get: vi.fn(), set: vi.fn(), del: vi.fn() });
+  app.decorate("cronSecret", cronSecret);
 
   // Simulate authenticated user with the requested role for all requests
   app.addHook("onRequest", async (request) => {
@@ -87,22 +90,22 @@ describe("Trigger routes", () => {
     expect(res.statusCode).toBe(201);
   });
 
-  it("POST /triggers/run executes with internal cron header", async () => {
+  it("POST /triggers/run executes with valid x-internal-cron secret", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/triggers/run",
-      headers: { "x-internal-cron": "true" },
+      headers: { "x-internal-cron": TEST_CRON_SECRET },
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().success).toBe(true);
   });
 
-  it("POST /triggers/run works with internal cron even without user", async () => {
-    // The onRequest hook sets MANAGER, but the x-internal-cron header should also work
+  it("POST /triggers/run executes for MANAGER role without cron header", async () => {
+    // Manual trigger run by an authenticated MANAGER must still work without
+    // any x-internal-cron header at all.
     const res = await app.inject({
       method: "POST",
       url: "/api/v1/triggers/run",
-      headers: { "x-internal-cron": "true" },
     });
     expect(res.statusCode).toBe(200);
   });
@@ -167,5 +170,35 @@ describe("Trigger routes — security: cron header cannot be spoofed", () => {
       headers: { "x-internal-cron": "guess-the-secret-lol" },
     });
     expect(res.statusCode).toBe(403);
+  });
+
+  it("STAFF role with VALID cron secret is accepted (200)", async () => {
+    // The internal cron path bypasses the role check, so STAFF + valid
+    // secret must succeed. This proves the secret comparison works at all.
+    const res = await staffApp.inject({
+      method: "POST",
+      url: "/api/v1/triggers/run",
+      headers: { "x-internal-cron": TEST_CRON_SECRET },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().success).toBe(true);
+  });
+
+  it("Empty cronSecret on the app fails closed even with empty header", async () => {
+    // Defensive: if the boot somehow forgot to decorate cronSecret, the
+    // header check must fail rather than allow ALL requests through.
+    const brokenApp = buildApp("STAFF", undefined);
+    await brokenApp.register(triggerRoutes, { prefix: "/api/v1" });
+    await brokenApp.ready();
+    try {
+      const res = await brokenApp.inject({
+        method: "POST",
+        url: "/api/v1/triggers/run",
+        headers: { "x-internal-cron": "" },
+      });
+      expect(res.statusCode).toBe(403);
+    } finally {
+      await brokenApp.close();
+    }
   });
 });

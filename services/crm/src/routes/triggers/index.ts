@@ -1,6 +1,25 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { timingSafeEqual } from "node:crypto";
 import { parseIdParam } from "@trottistore/shared";
+
+declare module "fastify" {
+  interface FastifyInstance {
+    cronSecret?: string;
+  }
+}
+
+/**
+ * Constant-time comparison between the inbound x-internal-cron header and the
+ * per-process secret nonce. Fails closed on any mismatch (length, type, value).
+ */
+function isInternalCronCall(headerValue: unknown, secret: string | undefined): boolean {
+  if (typeof headerValue !== "string" || !secret) return false;
+  const a = Buffer.from(headerValue);
+  const b = Buffer.from(secret);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 /**
  * Automated triggers for SAV notifications.
@@ -84,8 +103,13 @@ export async function triggerRoutes(app: FastifyInstance) {
 
   // POST /triggers/run — Execute all active triggers (called by cron or MANAGER+ manually)
   app.post("/triggers/run", async (request, reply) => {
-    // Allow internal cron calls (same process via app.inject)
-    const isInternalCron = request.headers["x-internal-cron"] === "true";
+    // Allow in-process cron calls authenticated by app.cronSecret. The header
+    // value is compared constant-time against the per-process random nonce
+    // generated at boot in services/crm/src/index.ts. Clients cannot spoof it.
+    const isInternalCron = isInternalCronCall(
+      request.headers["x-internal-cron"],
+      app.cronSecret,
+    );
 
     if (!isInternalCron) {
       const user = getRequestUser(request);

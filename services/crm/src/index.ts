@@ -16,6 +16,7 @@ import { campaignRoutes } from "./routes/campaigns/index.js";
 import { triggerRoutes } from "./routes/triggers/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import cron from "node-cron";
+import crypto from "node:crypto";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
 
@@ -72,6 +73,12 @@ async function start() {
   await app.register(redisPlugin);
   await app.register(authPlugin);
   await app.register(metricsPlugin);
+
+  // Generate a per-process secret used to authenticate the in-process cron
+  // call to POST /triggers/run. The header value (x-internal-cron) is
+  // compared constant-time against this nonce, so a client cannot spoof it
+  // even with a valid JWT.
+  app.decorate("cronSecret", crypto.randomBytes(32).toString("hex"));
 
   app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0];
@@ -180,8 +187,8 @@ async function start() {
           method: "POST",
           url: "/api/v1/triggers/run",
           headers: {
-            // Internal call — bypass auth with system token
-            "x-internal-cron": "true",
+            // Per-process secret nonce — see app.cronSecret in start()
+            "x-internal-cron": app.cronSecret,
           },
         });
         app.log.info({ statusCode: res.statusCode }, "[cron] Triggers execution completed");
