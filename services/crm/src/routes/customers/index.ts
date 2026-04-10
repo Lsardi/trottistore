@@ -659,69 +659,90 @@ export async function customerRoutes(app: FastifyInstance) {
       });
     }
 
-    // Transfer all data from mergeUser to keepUser
-    await app.prisma.$transaction([
-      // Transfer orders
-      app.prisma.order.updateMany({
+    // Single transaction: every step must commit or roll back together so that
+    // a crash midway never leaves the system in a half-merged state. This also
+    // migrates loyalty point history (previously orphaned by the cascade delete
+    // on CustomerProfile) and deletes the merged profile to avoid zombie rows.
+    await app.prisma.$transaction(async (tx) => {
+      // 1. Transfer ownership of all related rows from mergeUser to keepUser.
+      await tx.order.updateMany({
         where: { customerId: body.mergeId },
         data: { customerId: body.keepId },
-      }),
-      // Transfer repair tickets
-      app.prisma.repairTicket.updateMany({
+      });
+      await tx.repairTicket.updateMany({
         where: { customerId: body.mergeId },
         data: { customerId: body.keepId },
-      }),
-      // Transfer addresses
-      app.prisma.address.updateMany({
+      });
+      await tx.address.updateMany({
         where: { userId: body.mergeId },
         data: { userId: body.keepId },
-      }),
-      // Transfer interactions
-      app.prisma.customerInteraction.updateMany({
+      });
+      await tx.customerInteraction.updateMany({
         where: { customerId: body.mergeId },
         data: { customerId: body.keepId },
-      }),
-      // Transfer reviews
-      app.prisma.review.updateMany({
+      });
+      await tx.review.updateMany({
         where: { userId: body.mergeId },
         data: { userId: body.keepId },
-      }),
-      // Deactivate merged account
-      app.prisma.user.update({
+      });
+
+      // 2. Merge customer profiles (loyalty totals + history reparent + deletion).
+      // Read both profiles inside the transaction so the totals we add are
+      // consistent with the rows we move.
+      const [keepProfile, mergeProfile] = await Promise.all([
+        tx.customerProfile.findUnique({ where: { userId: body.keepId } }),
+        tx.customerProfile.findUnique({ where: { userId: body.mergeId } }),
+      ]);
+
+      if (mergeProfile) {
+        if (keepProfile) {
+          // Reparent loyalty log rows BEFORE deleting mergeProfile, otherwise
+          // the cascade delete on CustomerProfile would wipe them.
+          await tx.loyaltyPoint.updateMany({
+            where: { profileId: mergeProfile.id },
+            data: { profileId: keepProfile.id },
+          });
+
+          await tx.customerProfile.update({
+            where: { id: keepProfile.id },
+            data: {
+              loyaltyPoints: keepProfile.loyaltyPoints + mergeProfile.loyaltyPoints,
+              totalOrders: keepProfile.totalOrders + mergeProfile.totalOrders,
+              totalSpent: { increment: Number(mergeProfile.totalSpent) },
+            },
+          });
+
+          // Now safe to delete the merged profile — its loyalty log has moved.
+          await tx.customerProfile.delete({ where: { id: mergeProfile.id } });
+        } else {
+          // No profile on the kept side: just reparent the existing profile.
+          await tx.customerProfile.update({
+            where: { id: mergeProfile.id },
+            data: { userId: body.keepId },
+          });
+        }
+      }
+
+      // 3. Deactivate the merged user account.
+      await tx.user.update({
         where: { id: body.mergeId },
         data: {
           status: "INACTIVE",
           email: `merged_${body.mergeId}@deleted.local`,
         },
-      }),
-      // Log the merge
-      app.prisma.customerInteraction.create({
+      });
+
+      // 4. Log the merge as a system interaction on the kept account.
+      await tx.customerInteraction.create({
         data: {
           customerId: body.keepId,
           type: "NOTE",
           channel: "SYSTEM",
           subject: "Fusion de compte",
-          content: `Compte ${body.mergeId} fusionné dans ce compte. Commandes, tickets et adresses transférés.`,
-        },
-      }),
-    ]);
-
-    // Merge loyalty points if profiles exist
-    const [keepProfile, mergeProfile] = await Promise.all([
-      app.prisma.customerProfile.findUnique({ where: { userId: body.keepId } }),
-      app.prisma.customerProfile.findUnique({ where: { userId: body.mergeId } }),
-    ]);
-
-    if (keepProfile && mergeProfile) {
-      await app.prisma.customerProfile.update({
-        where: { id: keepProfile.id },
-        data: {
-          loyaltyPoints: keepProfile.loyaltyPoints + mergeProfile.loyaltyPoints,
-          totalOrders: keepProfile.totalOrders + mergeProfile.totalOrders,
-          totalSpent: { increment: Number(mergeProfile.totalSpent) },
+          content: `Compte ${body.mergeId} fusionné dans ce compte. Commandes, tickets, adresses et points de fidélité transférés.`,
         },
       });
-    }
+    });
 
     return {
       success: true,
