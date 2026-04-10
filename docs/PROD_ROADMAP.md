@@ -10,6 +10,69 @@ Services déployés : `web`, `ecommerce`, `crm`, `sav`, `analytics`.
 Front : Next.js 15 (`apps/web`). Backend : 4 services Fastify.  
 DB : PostgreSQL multi-schema via Prisma. Cache/queue : Redis.
 
+## ⚠️ ALERTE BLOCKER DÉCOUVERT APRÈS GREEN LIGHT — 2026-04-10
+
+**État réel de Railway vérifié juste après le green light Codex sur
+commit `d2d62b0`** :
+
+```bash
+$ gh run list --workflow deploy-production.yml --limit 5
+[]                                   # JAMAIS déclenché
+
+$ gh run list --workflow deploy-staging.yml --limit 5
+5 runs, tous en "failure"            # Dernier: 2026-03-30 il y a ~11 jours
+```
+
+Cause racine des échecs staging (log du dernier run) :
+```
+Run cd apps/web && railway up --service web --environment staging ...
+Environment "staging" not found.
+Run `railway environment` to connect to an environment.
+##[error]Process completed with exit code 1.
+```
+
+Et `.github/workflows/deploy-staging.yml` lui-même contient
+explicitement :
+```yaml
+# DISABLED: auto-deploy needs Railway services configured first
+# Re-enable when staging environment is ready
+```
+
+**Donc la semaine 0 telle que décrite en §3-§6 ne peut PAS s'exécuter
+en l'état.** Le workflow assume l'existence d'un Railway project
+entièrement provisionné (environnements `staging` et `production`,
+5 services `web/ecommerce/crm/sav/analytics` avec variables d'env),
+et cette infrastructure n'existe pas.
+
+Le `RAILWAY_PROJECT_ID` `64a2a1d8-a50a-4f24-80dd-bbe5e0ef1b4d` est
+bien valide, mais le projet Railway derrière est soit vide, soit
+n'a que des environnements/services manquants ou nommés autrement.
+
+Ce qui est présent côté repo (OK) :
+- 5 `Dockerfile` (un par service)
+- 5 `railway.toml` (builder = DOCKERFILE, restartPolicy configuré)
+- 2 workflows GitHub Actions (staging, production)
+
+Ce qui manque côté Railway lui-même (à vérifier + provisionner) :
+- Environnement `staging` créé dans le projet
+- Environnement `production` créé dans le projet
+- 5 services créés dans chaque environnement (`web`, `ecommerce`,
+  `crm`, `sav`, `analytics`)
+- Variables d'env par service × environnement (Postgres, Redis,
+  Stripe, JWT secrets, etc.)
+- Domaines custom (pour `api.trottistore.fr`, `trottistore.fr`)
+- PostgreSQL + Redis provisionnés et liés aux services
+
+**Conséquence sur la semaine 0** : elle est **suspendue** jusqu'à
+résolution. Les 13 branches sont prêtes, les audits sont solides,
+mais on ne peut pas taper `gh workflow run deploy-production.yml`
+tant que l'infra Railway derrière n'existe pas.
+
+Voir §14 (nouveau) pour le plan de remise en état Railway avant
+d'envisager un quelconque go semaine 0.
+
+---
+
 ## 0. TL;DR — deux horizons
 
 Cette roadmap fonctionne en **deux temps** :
@@ -1058,3 +1121,151 @@ pas — on fix et on recommence. Pas de "on rattrapera plus tard".
 - `docs/security-specs/P0-3-crm-cron-bypass.md` — premier exemple de spec rempli
 - `.github/ISSUE_TEMPLATE/security-spec.md` — template Codex
 - `.semgrep/trottistore.yml` — custom rules auditées
+
+---
+
+## 14. Semaine -1 — Remise en état Railway (prérequis semaine 0)
+
+> Section créée le 2026-04-10 après découverte que Railway n'a jamais
+> effectivement déployé quoi que ce soit. Voir l'alerte en tête de ce
+> document. Cette semaine -1 doit se terminer avec un `deploy-staging.yml`
+> réellement vert avant d'envisager la semaine 0.
+
+### 14.1 Diagnostic à faire en premier
+
+**Avant tout code**, vérifier l'état du projet Railway dans le
+dashboard :
+
+```bash
+# Installer le CLI si nécessaire
+npm install -g @railway/cli
+
+# S'authentifier (ouvre un navigateur)
+railway login
+
+# Se linker au projet existant
+railway link 64a2a1d8-a50a-4f24-80dd-bbe5e0ef1b4d
+
+# Inventaire
+railway environment                  # liste les environnements existants
+railway service                      # liste les services
+railway variables --environment <env> # liste les variables d'env
+```
+
+Si `railway environment` retourne vide ou juste `production` (default) :
+les environnements `staging` et `production` nommés n'existent pas,
+il faut les créer. Si `railway service` retourne vide : aucun service
+n'est provisionné.
+
+### 14.2 Trois scénarios possibles
+
+**Scénario A — Projet Railway vide** (le plus probable vu les logs)
+
+Le projet existe (l'ID est valide) mais n'a rien dedans. Il faut tout
+provisionner. Étapes :
+
+1. Créer l'environnement staging :
+   ```bash
+   railway environment new staging
+   ```
+2. Créer les 5 services dans staging :
+   ```bash
+   railway environment staging
+   railway service create web
+   railway service create ecommerce
+   railway service create crm
+   railway service create sav
+   railway service create analytics
+   ```
+3. Ajouter les plugins managés :
+   ```bash
+   railway add --plugin postgresql
+   railway add --plugin redis
+   ```
+4. Configurer les variables d'env de chaque service (via dashboard
+   ou CLI, la liste est dans `.env.example`)
+5. Relinker les services aux Dockerfiles respectifs via les
+   `railway.toml` (déjà présents)
+6. Créer l'environnement production en clonant staging :
+   ```bash
+   railway environment new production --copy-from staging
+   ```
+
+Effort estimé : **4-8h** selon la maîtrise du dashboard Railway.
+
+**Scénario B — Projet Railway existe mais abandonné**
+
+Le projet a peut-être des services avec des noms différents (ex:
+`web-staging`, `ecommerce-prod`) qui ne matchent pas `--service web`
+dans le workflow. Solution : soit renommer les services Railway
+pour matcher le workflow, soit éditer le workflow pour matcher les
+noms existants.
+
+Effort : **1-2h** si on édite le workflow.
+
+**Scénario C — Pivoter vers un autre provider**
+
+Si Railway est un choix qu'on ne veut plus (coût, UX, missing
+features), on peut pivoter vers :
+
+- **Fly.io** : stack Docker similaire, `fly.toml` au lieu de
+  `railway.toml`, `flyctl deploy` au lieu de `railway up`. Conversion
+  est mécanique. Effort : **1-2j** pour migrer les 5 services.
+- **Render** : Git-based deploy, requires `render.yaml` au root.
+  Pas de CLI deploy imperatif, tout passe par le dashboard ou git
+  push. Effort : **1-2j**.
+- **Self-hosted Docker sur un VPS Hetzner** : `docker-compose.prod.yml`
+  existe déjà dans le repo, reste à provisionner un VPS, installer
+  Docker + Caddy (`infra/Caddyfile` existe), push via SSH ou registry.
+  Plus de contrôle, plus de responsabilité ops. Effort : **2-3j**.
+
+**Recommandation semaine -1** : commencer par diagnostiquer (14.1)
+pendant 30 min. Si on est en scénario A, provisionner Railway
+(4-8h). Si B, patcher le workflow (1-2h). Si on découvre qu'on veut
+pivoter, c'est une décision produit / cost que seul @Lsardi peut
+trancher — dans ce cas la semaine -1 devient 2-3j et la semaine 0
+est décalée d'autant.
+
+### 14.3 Test de bout en bout avant de passer à la semaine 0
+
+**Gate d'entrée semaine 0** : aucune des étapes de la roadmap
+principale ne démarre tant que ceci n'est pas vert :
+
+- [ ] `railway status` montre 5 services dans l'environnement
+  `staging`, tous healthy
+- [ ] `railway status` montre 5 services dans `production`, tous
+  healthy
+- [ ] Un deploy manuel de test depuis la CLI fonctionne :
+  ```bash
+  cd apps/web
+  railway up --service web --environment staging -p 64a2a1d8-... --detach
+  # → doit terminer sans erreur, et le service doit redémarrer
+  ```
+- [ ] Le même deploy via `gh workflow run deploy-staging.yml -f service=web`
+  tourne vert (zero failure dans `gh run list`)
+- [ ] `/health` de `web` répond 200 sur l'URL Railway-générée
+- [ ] On répète pour les 4 autres services (ecommerce, crm, sav,
+  analytics) — tous doivent faire `/health` 200 sur staging
+
+Tant que cette checklist n'est pas 5/5 verte sur staging, la
+semaine 0 reste **suspendue** et aucun `git tag v0.9.0-rc1` n'est
+créé. Pas de "on verra en prod", pas de "on rattrapera".
+
+### 14.4 Ce qui reste valide malgré l'alerte
+
+Même si la semaine 0 est suspendue, **les 13 branches restent valides
+et mergeable** quand l'infra sera prête. Les audits, les fixes P0,
+les tests, le passport process, tout le §5 audit sweep reste
+pertinent et applicable tel quel.
+
+La seule chose invalidée est la **cible de déploiement**. Le chemin
+"tag + workflow_dispatch" ne marchera pas tant que Railway n'est pas
+configuré — ou tant qu'on n'a pas pivoté vers un autre provider.
+
+### 14.5 Sources
+
+- [Railway CLI docs — environments](https://docs.railway.com/reference/cli-api#railway-environment)
+- [Railway CLI docs — services](https://docs.railway.com/reference/cli-api#railway-service)
+- [Railway docs — GitHub Actions integration](https://docs.railway.com/guides/github-actions)
+- `docker-compose.prod.yml` (alternative self-hosted)
+- `infra/Caddyfile` (reverse proxy si self-hosted)
