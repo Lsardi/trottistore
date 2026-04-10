@@ -3,11 +3,11 @@
  *
  * Covers: payment-intent creation (cart-first, order-first),
  * feature flag gating, Stripe config, validation errors,
- * and edge cases (empty cart, unauthorized, order ownership).
+ * and edge cases (empty cart, missing session id, order ownership).
  *
  * Note: checkoutRoutes registers a custom content type parser
  * (Buffer for webhook signature verification) and an onRequest
- * auth hook for all routes except /checkout/webhook.
+ * auth hook for the authenticated flows; guest flows use x-session-id.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";

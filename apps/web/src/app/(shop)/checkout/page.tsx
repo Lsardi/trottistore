@@ -285,7 +285,7 @@ export default function CheckoutPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-session-id": localStorage.getItem("sessionId") || "",
+            "x-session-id": localStorage.getItem("trottistore-session-id") || "",
           },
           body: JSON.stringify({
             email: guestEmail,

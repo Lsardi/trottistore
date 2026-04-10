@@ -698,7 +698,7 @@ export const customersApi = {
 
 export const triggersApi = {
   run: (body?: { dryRun?: boolean }) =>
-    apiFetch<{ success: boolean; data?: TriggerRunResult; message?: string }>("sav", "/triggers/run", {
+    apiFetch<{ success: boolean; data?: TriggerRunResult; message?: string }>("crm", "/triggers/run", {
       method: "POST",
       body: JSON.stringify(body ?? {}),
     }),

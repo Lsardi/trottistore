@@ -37,7 +37,9 @@ function getSessionId(request: FastifyRequest): string | undefined {
 function getCartKey(request: FastifyRequest, user?: RequestUser): string {
   if (user?.userId) return `cart:${user.userId}`;
   const sessionId = getSessionId(request);
-  if (!sessionId) throw new Error("MISSING_SESSION_ID");
+  if (!sessionId) {
+    throw new Error("MISSING_SESSION_ID");
+  }
   return `cart:session:${sessionId}`;
 }
 
@@ -116,28 +118,11 @@ export async function checkoutRoutes(app: FastifyInstance) {
         });
       }
 
-      if (user) {
-        if (order.customerId !== user.userId) {
-          return reply.status(403).send({
-            success: false,
-            error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
-          });
-        }
-      } else {
-        const sessionId = getSessionId(request);
-        if (!sessionId) {
-          return reply.status(400).send({
-            success: false,
-            error: { code: "MISSING_SESSION_ID", message: "Missing x-session-id header" },
-          });
-        }
-        const linkedSessionId = await app.redis.get(`checkout:guest-order:${body.orderId}`);
-        if (linkedSessionId !== sessionId) {
-          return reply.status(403).send({
-            success: false,
-            error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
-          });
-        }
+      if (user && order.customerId !== user.userId) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Cette commande ne vous appartient pas" },
+        });
       }
 
       paymentOwnerId = order.customerId;
@@ -186,9 +171,9 @@ export async function checkoutRoutes(app: FastifyInstance) {
             })
           : Promise.resolve([]),
       ]);
+
       const productMap = new Map(products.map((p) => [p.id, p]));
       const variantMap = new Map(variants.map((v) => [v.id, v]));
-
       let totalHt = 0;
       for (const item of cart.items) {
         const product = productMap.get(item.productId);
