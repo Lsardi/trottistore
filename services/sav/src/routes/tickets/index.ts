@@ -834,10 +834,14 @@ export async function repairRoutes(app: FastifyInstance) {
     return { success: true, data: updated };
   });
 
-  // PUT /repairs/:id/quote/accept — Accept quote
+  // PUT /repairs/:id/quote/accept — Accept quote (backoffice)
   app.put("/repairs/:id/quote/accept", async (request, reply) => {
     const user = getRequestUser(request);
-    if (user?.role === "CLIENT") {
+    // Backoffice-only endpoint. Unauthenticated requests, CLIENT role,
+    // and unauthenticated callers are all rejected here. The global
+    // onRequest hook in services/sav/src/index.ts enforces JWT auth on
+    // this path in production; this check is defense in depth.
+    if (!user || user.role === "CLIENT") {
       return reply.status(403).send({
         success: false,
         error: {
@@ -855,6 +859,20 @@ export async function repairRoutes(app: FastifyInstance) {
       return reply.status(404).send({
         success: false,
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
+      });
+    }
+
+    // A TECHNICIAN may only accept the quote on tickets they are
+    // assigned to — matches the existing pattern in the sibling routes
+    // (lines 552, 591, 708, 980, 1059). MANAGER+/STAFF bypass this check.
+    // Refs: AUDIT_ATOMIC.md#P1-2
+    if (user.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Only the assigned technician can accept this quote",
+        },
       });
     }
 
