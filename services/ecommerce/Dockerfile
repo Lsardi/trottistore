@@ -25,10 +25,19 @@ RUN pnpm --filter @trottistore/database db:generate
 RUN pnpm --filter @trottistore/service-ecommerce build
 
 FROM node:22-alpine AS runner
-WORKDIR /app
+WORKDIR /app/services/ecommerce
 ENV NODE_ENV=production
-COPY --from=build --chown=node:node /app/node_modules ./node_modules
+# pnpm stores real files under the root .pnpm/ directory, then creates
+# symlinks in each workspace's node_modules. The runner therefore needs
+# BOTH the root node_modules (containing .pnpm/) AND the service's own
+# node_modules (containing the symlinks that target .pnpm). Workspace
+# packages (packages/*) are also symlinked from the service's node_modules
+# and must exist at the paths the symlinks point to.
+COPY --from=build --chown=node:node /app/node_modules /app/node_modules
+COPY --from=build --chown=node:node /app/packages /app/packages
+COPY --from=build --chown=node:node /app/services/ecommerce/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/services/ecommerce/dist ./dist
+COPY --from=build --chown=node:node /app/services/ecommerce/package.json ./package.json
 USER node
 EXPOSE 3001
 CMD ["node", "dist/index.js"]
