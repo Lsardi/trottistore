@@ -8,16 +8,7 @@ import { cn } from "@/lib/utils";
 import { productsApi, type Product } from "@/lib/api";
 import { addScooterToGarage, getGarageScooters } from "@/lib/garage";
 
-const SCOOTER_BRANDS = [
-  { name: "Dualtron", models: ["Thunder 2", "Mini", "Victor", "Storm", "Eagle Pro", "Spider 2", "Compact", "Ultra 2"] },
-  { name: "Xiaomi", models: ["M365", "M365 Pro", "Pro 2", "Essential", "Mi 4", "Mi 4 Pro"] },
-  { name: "Ninebot", models: ["Max G30", "Max G30LP", "Max G2", "E2", "F2", "F2 Plus", "F2 Pro"] },
-  { name: "Kaabo", models: ["Mantis 10", "Mantis King GT", "Wolf Warrior 11", "Wolf King GT Pro"] },
-  { name: "Segway", models: ["Ninebot P65", "Ninebot P100S", "Ninebot GT2"] },
-  { name: "Vsett", models: ["8", "9+", "10+", "11+"] },
-  { name: "Inokim", models: ["OX", "OXO", "Quick 4", "Light 2"] },
-  { name: "Minimotors", models: ["Speedway 5", "Speedway Leger", "Dualtron"] },
-] as const;
+import { SCOOTER_BRANDS } from "./scooter-brands";
 
 type Step = "brand" | "model" | "results";
 
@@ -66,7 +57,10 @@ export default function CompatibilitePage() {
         <div className="text-center mb-12">
           <h1 className="heading-lg mb-3">COMPATIBILITÉ PIÈCES</h1>
           <p className="font-mono text-sm text-text-muted max-w-xl mx-auto">
-            Sélectionnez votre trottinette et on vous montre uniquement les pièces qui marchent avec.
+            Sélectionnez votre trottinette et on vous montre les pièces compatibles depuis notre catalogue.
+          </p>
+          <p className="font-mono text-[11px] text-text-dim mt-2">
+            Votre modèle n&apos;est pas listé ? Contactez-nous — on répare toutes les marques.
           </p>
         </div>
 

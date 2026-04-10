@@ -146,7 +146,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: web/Dockerfile
+      dockerfile: apps/web/Dockerfile
     container_name: trottistore-web
     restart: unless-stopped
     env_file: .env
