@@ -22,22 +22,36 @@ COPY packages/ ./packages/
 COPY services/ecommerce/ ./services/ecommerce/
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN pnpm --filter @trottistore/database db:generate
-RUN pnpm --filter @trottistore/service-ecommerce build
+# Type-check only (no JS emit is consumed — see runner stage).
+RUN pnpm --filter @trottistore/service-ecommerce exec tsc --noEmit
 
 FROM node:22-alpine AS runner
 WORKDIR /app/services/ecommerce
 ENV NODE_ENV=production
-# pnpm stores real files under the root .pnpm/ directory, then creates
-# symlinks in each workspace's node_modules. The runner therefore needs
-# BOTH the root node_modules (containing .pnpm/) AND the service's own
-# node_modules (containing the symlinks that target .pnpm). Workspace
-# packages (packages/*) are also symlinked from the service's node_modules
-# and must exist at the paths the symlinks point to.
+# Runtime strategy: use `tsx` as a Node import loader to transpile
+# TypeScript on the fly. Rationale: the repo's tsconfig uses
+# moduleResolution: "bundler" which does NOT enforce `.js` extensions
+# on relative imports, but every service has `"type": "module"` in
+# package.json so Node 22 runs the output in ESM mode, which DOES
+# require explicit extensions. `tsc` does not rewrite imports, so
+# `node dist/index.js` crashes at runtime with ERR_MODULE_NOT_FOUND on
+# the first extensionless relative import. `tsx` sidesteps this by
+# handling module resolution itself (file extensions, TS paths, JSX,
+# workspace packages). Cold start overhead ~500-800ms, acceptable
+# for the week-0 demo. A cleaner long-term fix is to migrate the
+# repo to moduleResolution: "nodenext" with explicit `.js` extensions
+# in all source imports — tracked for post-demo cleanup.
+#
+# pnpm layout: root node_modules has the flat .pnpm store, service
+# node_modules has symlinks into it, packages/* are workspace symlink
+# targets — all three must be present at their build-time paths.
 COPY --from=build --chown=node:node /app/node_modules /app/node_modules
 COPY --from=build --chown=node:node /app/packages /app/packages
+COPY --from=build --chown=node:node /app/tsconfig.base.json /app/tsconfig.base.json
 COPY --from=build --chown=node:node /app/services/ecommerce/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/services/ecommerce/dist ./dist
+COPY --from=build --chown=node:node /app/services/ecommerce/src ./src
+COPY --from=build --chown=node:node /app/services/ecommerce/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/services/ecommerce/package.json ./package.json
 USER node
 EXPOSE 3001
-CMD ["node", "dist/index.js"]
+CMD ["node", "--import", "tsx", "src/index.ts"]

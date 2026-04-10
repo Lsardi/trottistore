@@ -22,21 +22,21 @@ COPY packages/ ./packages/
 COPY services/sav/ ./services/sav/
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN pnpm --filter @trottistore/database db:generate
-RUN pnpm --filter @trottistore/service-sav build
+# Type-check only (no JS emit is consumed — see runner stage).
+RUN pnpm --filter @trottistore/service-sav exec tsc --noEmit
 
 FROM node:22-alpine AS runner
 WORKDIR /app/services/sav
 ENV NODE_ENV=production
-# pnpm stores real files under the root .pnpm/ directory, then creates
-# symlinks in each workspace's node_modules. The runner therefore needs
-# BOTH the root node_modules (containing .pnpm/) AND the service's own
-# node_modules (containing the symlinks that target .pnpm). Workspace
-# packages (packages/*) are also symlinked and must exist at their path.
+# See services/ecommerce/Dockerfile for the runtime strategy rationale.
+# tsx transpiles on the fly to avoid the ESM extension-required gap.
 COPY --from=build --chown=node:node /app/node_modules /app/node_modules
 COPY --from=build --chown=node:node /app/packages /app/packages
+COPY --from=build --chown=node:node /app/tsconfig.base.json /app/tsconfig.base.json
 COPY --from=build --chown=node:node /app/services/sav/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/services/sav/dist ./dist
+COPY --from=build --chown=node:node /app/services/sav/src ./src
+COPY --from=build --chown=node:node /app/services/sav/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/services/sav/package.json ./package.json
 USER node
 EXPOSE 3004
-CMD ["node", "dist/index.js"]
+CMD ["node", "--import", "tsx", "src/index.ts"]
