@@ -98,7 +98,18 @@ async function start() {
     // random nonce generated at boot. We verify it here (constant time)
     // and exempt the call from JWT authentication. The route handler
     // re-verifies the secret as defense in depth.
-    if (isInternalCronCall(request.headers["x-internal-cron"], app.cronSecret)) {
+    //
+    // SCOPE: the bypass is strictly limited to POST /api/v1/triggers/run,
+    // the only endpoint the in-process scheduler calls. A leaked secret
+    // would only authorize trigger execution, NEVER /customers, /segments,
+    // or /campaigns. Principle of least authority.
+    const isCronRunEndpoint =
+      request.method === "POST" &&
+      (path === "/api/v1/triggers/run" || path === "/triggers/run");
+    if (
+      isCronRunEndpoint &&
+      isInternalCronCall(request.headers["x-internal-cron"], app.cronSecret)
+    ) {
       request.user = {
         id: "system-cron",
         userId: "system-cron",

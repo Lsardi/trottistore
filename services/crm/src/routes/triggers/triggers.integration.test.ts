@@ -239,7 +239,8 @@ function buildFullApp(cronSecret: string | undefined = TEST_CRON_SECRET): Fastif
   app.decorate("cronSecret", cronSecret);
 
   // Mirror services/crm/src/index.ts onRequest hook exactly. This is the
-  // contract the production server implements.
+  // contract the production server implements. The cron bypass is
+  // path-scoped to POST /api/v1/triggers/run.
   app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0];
     if (
@@ -253,7 +254,13 @@ function buildFullApp(cronSecret: string | undefined = TEST_CRON_SECRET): Fastif
       return;
     }
 
-    if (isInternalCronCall(request.headers["x-internal-cron"], app.cronSecret)) {
+    const isCronRunEndpoint =
+      request.method === "POST" &&
+      (path === "/api/v1/triggers/run" || path === "/triggers/run");
+    if (
+      isCronRunEndpoint &&
+      isInternalCronCall(request.headers["x-internal-cron"], app.cronSecret)
+    ) {
       (request as { user?: unknown }).user = {
         id: "system-cron",
         userId: "system-cron",
@@ -263,12 +270,20 @@ function buildFullApp(cronSecret: string | undefined = TEST_CRON_SECRET): Fastif
       return;
     }
 
-    // No JWT, no cron secret → fail auth the way production would.
+    // No JWT, no cron secret (or wrong endpoint) → fail auth the way production would.
     return reply.status(401).send({
       success: false,
       error: { code: "UNAUTHORIZED", message: "Missing token" },
     });
   });
+
+  // Register a stub route on a sibling path to prove the cron bypass is
+  // strictly scoped to /triggers/run. If a leaked secret somehow reached
+  // the service, it MUST NOT authorize /customers, /segments, /campaigns,
+  // or any other CRM surface. The stub below lets the test assert 401
+  // even when the header is the correct secret.
+  app.get("/api/v1/customers/fake-scope-probe", async () => ({ success: true }));
+  app.post("/api/v1/triggers/run-fake", async () => ({ success: true }));
 
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
     const isZodError = error instanceof ZodError;
@@ -334,5 +349,45 @@ describe("Trigger routes — full-service integration (onRequest hook + route)",
     } finally {
       await brokenApp.close();
     }
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // Cron bypass scope — identified by Codex adversarial review 2026-04-10
+  //
+  // The bypass MUST be strictly scoped to POST /api/v1/triggers/run.
+  // A leaked secret must NOT grant access to any other CRM route.
+  // ──────────────────────────────────────────────────────────────
+
+  it("valid cron secret on /customers/* is rejected (scope = triggers/run only)", async () => {
+    // The stub route app.get("/api/v1/customers/fake-scope-probe") would
+    // return 200 if the hook let the request through. It must not.
+    const res = await fullApp.inject({
+      method: "GET",
+      url: "/api/v1/customers/fake-scope-probe",
+      headers: { "x-internal-cron": TEST_CRON_SECRET },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("valid cron secret on a lookalike path /triggers/run-fake is rejected", async () => {
+    // Exact path match — no prefix trick. "/triggers/run-fake" ≠ "/triggers/run".
+    const res = await fullApp.inject({
+      method: "POST",
+      url: "/api/v1/triggers/run-fake",
+      headers: { "x-internal-cron": TEST_CRON_SECRET },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("valid cron secret on GET /triggers (wrong method) is rejected", async () => {
+    // Method match — only POST to /triggers/run is exempt. GET /triggers
+    // is a list endpoint and must stay behind JWT auth.
+    const res = await fullApp.inject({
+      method: "GET",
+      url: "/api/v1/triggers",
+      headers: { "x-internal-cron": TEST_CRON_SECRET },
+    });
+    expect(res.statusCode).toBe(401);
   });
 });
