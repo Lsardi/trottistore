@@ -98,4 +98,85 @@ export async function statsRoutes(app: FastifyInstance) {
       },
     };
   });
+
+  // GET /repairs/diagnostic-stats — Aggregated repair data for the diagnostic tool.
+  // Groups closed tickets by issue keywords to provide real cost/duration estimates.
+  app.get("/repairs/diagnostic-stats", async () => {
+    const closedTickets = await app.prisma.repairTicket.findMany({
+      where: {
+        closedAt: { not: null },
+        actualCost: { not: null },
+      },
+      select: {
+        issueDescription: true,
+        diagnosis: true,
+        actualCost: true,
+        estimatedDays: true,
+        createdAt: true,
+        closedAt: true,
+        type: true,
+      },
+    });
+
+    // Keyword-based categorization matching the diagnostic tool's categories.
+    // Keywords cover both French and technical terms.
+    const categories: Record<string, { keyword: string; tickets: typeof closedTickets }> = {
+      electrical: { keyword: "electri|moteur|controll|controleur|accelerat|freinage electr|court-circuit|fusible|cablage|connecteur", tickets: [] },
+      battery: { keyword: "batter|batterie|charg|autonomi|tension|cellule|bms|accumulat|lithium|decharge", tickets: [] },
+      braking: { keyword: "frein|plaquette|disque|levier|cable frein|hydraulique|etrier|patins", tickets: [] },
+      display: { keyword: "ecran|display|affich|tableau|compteur|led|retroeclairage|ecran lcd", tickets: [] },
+      mechanical: { keyword: "pneu|roue|roulement|fourche|deck|direction|amortisseur|suspension|crevaison|chambre|pliage|collier|guidon|potence", tickets: [] },
+      other: { keyword: "", tickets: [] }, // Catch-all for uncategorized
+    };
+
+    for (const ticket of closedTickets) {
+      const text = `${ticket.issueDescription} ${ticket.diagnosis || ""}`.toLowerCase();
+      let matched = false;
+      for (const [catKey, cat] of Object.entries(categories)) {
+        if (catKey === "other") continue; // Skip catch-all during matching
+        const patterns = cat.keyword.split("|");
+        if (patterns.some((p) => text.includes(p))) {
+          cat.tickets.push(ticket);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        categories.other.tickets.push(ticket);
+      }
+    }
+
+    const stats = Object.entries(categories).map(([key, cat]) => {
+      const tickets = cat.tickets;
+      if (tickets.length === 0) {
+        return { category: key, count: 0, avgCost: null, avgDays: null, minCost: null, maxCost: null };
+      }
+
+      const costs = tickets.map((t) => Number(t.actualCost));
+      const days = tickets
+        .filter((t) => t.closedAt)
+        .map((t) => {
+          const diffMs = t.closedAt!.getTime() - t.createdAt.getTime();
+          return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        });
+
+      return {
+        category: key,
+        count: tickets.length,
+        avgCost: Math.round(costs.reduce((s, c) => s + c, 0) / costs.length),
+        minCost: Math.min(...costs),
+        maxCost: Math.max(...costs),
+        avgDays: days.length > 0 ? Math.round(days.reduce((s, d) => s + d, 0) / days.length) : null,
+      };
+    });
+
+    return {
+      success: true,
+      data: {
+        categories: stats,
+        totalRepairs: closedTickets.length,
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+  });
 }

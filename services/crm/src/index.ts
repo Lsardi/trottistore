@@ -15,6 +15,7 @@ import { segmentRoutes } from "./routes/segments/index.js";
 import { campaignRoutes } from "./routes/campaigns/index.js";
 import { triggerRoutes } from "./routes/triggers/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
+import cron from "node-cron";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
 
@@ -170,6 +171,26 @@ async function start() {
   try {
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`Service CRM demarre sur http://${HOST}:${PORT}`);
+
+    // Cron: execute automated triggers every hour
+    cron.schedule("0 * * * *", async () => {
+      app.log.info("[cron] Executing automated triggers...");
+      try {
+        const res = await app.inject({
+          method: "POST",
+          url: "/api/v1/triggers/run",
+          headers: {
+            // Internal call — bypass auth with system token
+            "x-internal-cron": "true",
+          },
+        });
+        app.log.info({ statusCode: res.statusCode }, "[cron] Triggers execution completed");
+      } catch (err) {
+        app.log.error({ err }, "[cron] Triggers execution failed");
+      }
+    });
+
+    app.log.info("[cron] Automated triggers scheduled (every hour at :00)");
   } catch (err) {
     app.log.error(err);
     process.exit(1);

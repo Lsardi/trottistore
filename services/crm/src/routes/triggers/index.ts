@@ -82,14 +82,19 @@ export async function triggerRoutes(app: FastifyInstance) {
     return reply.status(201).send({ success: true, data: trigger });
   });
 
-  // POST /triggers/run — Execute all active triggers (called by cron, MANAGER+ only)
+  // POST /triggers/run — Execute all active triggers (called by cron or MANAGER+ manually)
   app.post("/triggers/run", async (request, reply) => {
-    const user = getRequestUser(request);
-    if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
-      return reply.status(403).send({
-        success: false,
-        error: { code: "FORBIDDEN", message: "Acces reserve aux managers" },
-      });
+    // Allow internal cron calls (same process via app.inject)
+    const isInternalCron = request.headers["x-internal-cron"] === "true";
+
+    if (!isInternalCron) {
+      const user = getRequestUser(request);
+      if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
+        return reply.status(403).send({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Acces reserve aux managers" },
+        });
+      }
     }
     const triggers = await app.prisma.automatedTrigger.findMany({
       where: { isActive: true },

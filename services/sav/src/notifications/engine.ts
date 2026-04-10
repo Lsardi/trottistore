@@ -1,16 +1,26 @@
 /**
  * Notification engine for SAV status changes.
- * Sends email via SMTP (Mailpit in dev) or Brevo API (prod).
- * Sends SMS via Brevo transactional SMS API.
  *
- * Email routing:
- *   - If SMTP_HOST is set → nodemailer SMTP (Mailpit in dev, any SMTP in prod)
- *   - Else if BREVO_API_KEY is set → Brevo API
- *   - Else → skip (logged)
+ * Uses the shared transport layer (@trottistore/shared/notifications)
+ * for email (SMTP/Brevo) and SMS (Brevo) delivery.
+ *
+ * This module owns:
+ * - SAV-specific templates (per repair status)
+ * - Notification dispatch logic (which status triggers what)
+ * - The notifyStatusChange() entry point
  *
  * Feature flag: FEATURE_AUTO_NOTIFICATIONS (default: false)
  */
-import nodemailer from "nodemailer";
+import {
+  sendViaSmtp,
+  sendViaBrevo,
+  sendSms,
+  normalizePhone,
+} from "@trottistore/shared/notifications";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export interface NotificationPayload {
   ticketId: string;
@@ -28,12 +38,24 @@ export interface NotificationPayload {
 }
 
 export interface NotificationTemplate {
-  emailTemplateId: string | null; // Brevo template ID
+  emailTemplateId: string | null;
   smsContent: string | null;
   subject: string;
 }
 
+export interface NotificationResult {
+  email: boolean;
+  sms: boolean;
+  status: string;
+  ticketId: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Template mapping per status transition
+// ---------------------------------------------------------------------------
+
 const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplate> = {
   RECU: {
     emailTemplateId: process.env.BREVO_TPL_RECEPTION ?? null,
@@ -52,7 +74,7 @@ const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplate> = {
   },
   DEVIS_ACCEPTE: {
     emailTemplateId: process.env.BREVO_TPL_DEVIS_OK ?? null,
-    smsContent: null, // Pas de SMS pour validation interne
+    smsContent: null,
     subject: "Devis accepte — TrottiStore SAV",
   },
   EN_REPARATION: {
@@ -67,13 +89,17 @@ const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplate> = {
   },
   RECUPERE: {
     emailTemplateId: process.env.BREVO_TPL_RECUPERE ?? null,
-    smsContent: null, // Pas de SMS quand récupéré (le client est là)
+    smsContent: null,
     subject: "Merci — TrottiStore SAV",
   },
 };
 
-// Status transitions that should NOT trigger notifications
+/** Status transitions that should NOT trigger notifications. */
 const SILENT_TRANSITIONS = new Set(["EN_ATTENTE_PIECE", "REFUS_CLIENT", "IRREPARABLE"]);
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function interpolate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? "");
@@ -94,86 +120,17 @@ export function getTemplate(toStatus: string): NotificationTemplate | null {
   return NOTIFICATION_TEMPLATES[toStatus] ?? null;
 }
 
-// --- Brevo API integration ---
+// ---------------------------------------------------------------------------
+// Email dispatch (uses shared transport)
+// ---------------------------------------------------------------------------
 
-const BREVO_API_URL = "https://api.brevo.com/v3";
+const SAV_SENDER_NAME = "TrottiStore SAV";
+const SAV_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || "sav@trottistore.fr";
 
-async function brevoFetch(path: string, body: unknown): Promise<boolean> {
-  const apiKey = process.env.BREVO_API_KEY;
-  if (!apiKey) {
-    console.warn("[notifications] BREVO_API_KEY not set, skipping");
-    return false;
-  }
-
-  try {
-    const res = await fetch(`${BREVO_API_URL}${path}`, {
-      method: "POST",
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error(`[notifications] Brevo ${path} failed: ${res.status} ${text}`);
-      return false;
-    }
-
-    return true;
-  } catch (err) {
-    console.error("[notifications] Brevo request error:", err);
-    return false;
-  }
-}
-
-// --- SMTP transport (Mailpit in dev, any SMTP relay in prod) ---
-
-function getSmtpTransport() {
-  const host = process.env.SMTP_HOST;
-  if (!host) return null;
-
-  return nodemailer.createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT || "1025"),
-    secure: false, // Mailpit doesn't use TLS
-    ...(process.env.SMTP_USER ? {
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS || "",
-      },
-    } : {}),
-  });
-}
-
-async function sendEmailSmtp(
-  to: string,
-  toName: string,
-  subject: string,
-  text: string,
-): Promise<boolean> {
-  const transport = getSmtpTransport();
-  if (!transport) return false;
-
-  try {
-    await transport.sendMail({
-      from: `"TrottiStore SAV" <${process.env.BREVO_SENDER_EMAIL || "sav@trottistore.fr"}>`,
-      to: `"${toName}" <${to}>`,
-      subject,
-      text,
-    });
-    console.log(`[notifications] Email sent via SMTP to ${to}`);
-    return true;
-  } catch (err) {
-    console.error("[notifications] SMTP send error:", err);
-    return false;
-  }
-}
-
-// --- Email dispatch (SMTP first, then Brevo API fallback) ---
-
+/**
+ * Send a SAV notification email.
+ * Routes: SMTP → Brevo template → Brevo plain text.
+ */
 export async function sendEmail(payload: NotificationPayload): Promise<boolean> {
   const template = getTemplate(payload.toStatus);
   if (!template || !payload.customerEmail) return false;
@@ -190,23 +147,21 @@ export async function sendEmail(payload: NotificationPayload): Promise<boolean> 
 
   // Route 1: SMTP (Mailpit in dev, any SMTP relay)
   if (process.env.SMTP_HOST) {
-    return sendEmailSmtp(
-      payload.customerEmail,
-      payload.customerName,
-      template.subject,
-      textContent,
-    );
+    const from = `"${SAV_SENDER_NAME}" <${SAV_SENDER_EMAIL}>`;
+    const to = `"${payload.customerName}" <${payload.customerEmail}>`;
+    return sendViaSmtp(from, to, template.subject, { text: textContent });
   }
 
   // Route 2: Brevo API with template
   if (process.env.BREVO_API_KEY && template.emailTemplateId) {
-    return brevoFetch("/smtp/email", {
-      templateId: Number(template.emailTemplateId),
+    return sendViaBrevo({
+      sender: { name: SAV_SENDER_NAME, email: SAV_SENDER_EMAIL },
       to: [{ email: payload.customerEmail, name: payload.customerName }],
+      templateId: Number(template.emailTemplateId),
       params: {
         CUSTOMER_NAME: payload.customerName,
         PRODUCT_MODEL: payload.productModel,
-        TICKET_NUMBER: payload.ticketNumber,
+        TICKET_NUMBER: String(payload.ticketNumber),
         TRACKING_URL: trackingUrl,
         ESTIMATED_COST: payload.estimatedCost ? `${payload.estimatedCost}€` : "",
         ESTIMATED_DAYS: payload.estimatedDays ? `${payload.estimatedDays} jours` : "",
@@ -217,8 +172,8 @@ export async function sendEmail(payload: NotificationPayload): Promise<boolean> 
 
   // Route 3: Brevo API plain text fallback
   if (process.env.BREVO_API_KEY) {
-    return brevoFetch("/smtp/email", {
-      sender: { name: "TrottiStore SAV", email: process.env.BREVO_SENDER_EMAIL || "sav@trottistore.fr" },
+    return sendViaBrevo({
+      sender: { name: SAV_SENDER_NAME, email: SAV_SENDER_EMAIL },
       to: [{ email: payload.customerEmail, name: payload.customerName }],
       subject: template.subject,
       textContent,
@@ -229,31 +184,16 @@ export async function sendEmail(payload: NotificationPayload): Promise<boolean> 
   return false;
 }
 
-// --- Phone number normalization ---
+// ---------------------------------------------------------------------------
+// SMS dispatch (uses shared transport)
+// ---------------------------------------------------------------------------
 
 /**
- * Normalize French phone number to E.164 format for Brevo.
- * 0612345678 → +33612345678
- * +33612345678 → +33612345678
- * Returns null if invalid.
+ * Send a SAV notification SMS via the shared SMS transport.
  */
-function normalizePhone(phone: string): string | null {
-  const cleaned = phone.replace(/[\s\-\.\(\)]/g, "");
-  if (cleaned.startsWith("+") && cleaned.length >= 10) return cleaned;
-  if (cleaned.startsWith("0") && cleaned.length === 10) return `+33${cleaned.substring(1)}`;
-  if (cleaned.startsWith("33") && cleaned.length === 11) return `+${cleaned}`;
-  console.warn(`[notifications] Invalid phone format: ${phone}`);
-  return null;
-}
-
-// --- SMS dispatch ---
-
 export async function sendSMS(payload: NotificationPayload): Promise<boolean> {
   const template = getTemplate(payload.toStatus);
   if (!template?.smsContent || !payload.customerPhone) return false;
-
-  const recipient = normalizePhone(payload.customerPhone);
-  if (!recipient) return false;
 
   const trackingUrl = buildTrackingUrl(payload.trackingToken);
   const content = interpolate(template.smsContent, {
@@ -262,40 +202,16 @@ export async function sendSMS(payload: NotificationPayload): Promise<boolean> {
     trackingUrl,
   });
 
-  if (!process.env.BREVO_API_KEY) {
-    // Dev mode: log SMS content instead of sending
-    console.log(`[notifications] SMS (dev log, not sent) to ${recipient}: ${content}`);
-    return false;
-  }
-
-  const success = await brevoFetch("/transactionalSMS/sms", {
-    sender: "TrottiStore",
-    recipient,
-    content,
-    type: "transactional",
-  });
-
-  if (success) {
-    console.log(`[notifications] SMS sent to ${recipient} (status: ${payload.toStatus})`);
-  }
-
-  return success;
+  return sendSms(payload.customerPhone, content);
 }
 
-// --- Notification result type ---
-
-export interface NotificationResult {
-  email: boolean;
-  sms: boolean;
-  status: string;
-  ticketId: string;
-  customerEmail: string | null;
-  customerPhone: string | null;
-}
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
 
 /**
- * Main notification dispatch — call this on every status change.
- * Returns structured result for logging/audit.
+ * Dispatch notifications on repair ticket status change.
+ * Sends email + SMS in parallel. Returns structured result for audit logging.
  */
 export async function notifyStatusChange(payload: NotificationPayload): Promise<NotificationResult> {
   const base = {

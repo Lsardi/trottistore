@@ -204,7 +204,7 @@ export async function customerRoutes(app: FastifyInstance) {
           orderBy: { isDefault: "desc" },
         },
         orders: {
-          take: 5,
+          take: 10,
           orderBy: { createdAt: "desc" },
           select: {
             id: true,
@@ -212,7 +212,26 @@ export async function customerRoutes(app: FastifyInstance) {
             status: true,
             paymentStatus: true,
             totalTtc: true,
+            paymentMethod: true,
+            shippingMethod: true,
             createdAt: true,
+          },
+        },
+        repairTickets: {
+          take: 10,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            ticketNumber: true,
+            status: true,
+            productModel: true,
+            type: true,
+            priority: true,
+            estimatedCost: true,
+            actualCost: true,
+            trackingToken: true,
+            createdAt: true,
+            closedAt: true,
           },
         },
         interactions: {
@@ -566,6 +585,150 @@ export async function customerRoutes(app: FastifyInstance) {
           scooterModels: profile.scooterModels,
         },
         timeline,
+      },
+    };
+  });
+
+  // ───────────────────────────────────────────────────────────
+  // PUT /customers/:id/status — Activate, suspend, or ban a customer
+  // ───────────────────────────────────────────────────────────
+  app.put("/customers/:id/status", async (request, reply) => {
+    const id = parseIdParam(request.params);
+    const body = z.object({
+      status: z.enum(["ACTIVE", "SUSPENDED", "BANNED"]),
+      reason: z.string().max(500).optional(),
+    }).parse(request.body);
+
+    const existing = await app.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, status: true },
+    });
+
+    if (!existing) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Client introuvable" },
+      });
+    }
+
+    const user = await app.prisma.user.update({
+      where: { id },
+      data: { status: body.status },
+      select: { id: true, email: true, firstName: true, lastName: true, status: true },
+    });
+
+    // Log the interaction
+    await app.prisma.customerInteraction.create({
+      data: {
+        customerId: id,
+        type: "NOTE",
+        channel: "SYSTEM",
+        subject: `Compte ${body.status === "ACTIVE" ? "réactivé" : body.status === "SUSPENDED" ? "suspendu" : "banni"}`,
+        content: body.reason ?? null,
+      },
+    });
+
+    return { success: true, data: user };
+  });
+
+  // ───────────────────────────────────────────────────────────
+  // POST /customers/merge — Merge two customer accounts into one
+  // ───────────────────────────────────────────────────────────
+  app.post("/customers/merge", async (request, reply) => {
+    const body = z.object({
+      keepId: z.string().uuid(),    // Account to keep
+      mergeId: z.string().uuid(),   // Account to merge (will be deactivated)
+    }).parse(request.body);
+
+    if (body.keepId === body.mergeId) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "SAME_ACCOUNT", message: "Impossible de fusionner un compte avec lui-même" },
+      });
+    }
+
+    const [keepUser, mergeUser] = await Promise.all([
+      app.prisma.user.findUnique({ where: { id: body.keepId }, select: { id: true, role: true } }),
+      app.prisma.user.findUnique({ where: { id: body.mergeId }, select: { id: true, role: true } }),
+    ]);
+
+    if (!keepUser || !mergeUser) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Un des deux comptes est introuvable" },
+      });
+    }
+
+    // Transfer all data from mergeUser to keepUser
+    await app.prisma.$transaction([
+      // Transfer orders
+      app.prisma.order.updateMany({
+        where: { customerId: body.mergeId },
+        data: { customerId: body.keepId },
+      }),
+      // Transfer repair tickets
+      app.prisma.repairTicket.updateMany({
+        where: { customerId: body.mergeId },
+        data: { customerId: body.keepId },
+      }),
+      // Transfer addresses
+      app.prisma.address.updateMany({
+        where: { userId: body.mergeId },
+        data: { userId: body.keepId },
+      }),
+      // Transfer interactions
+      app.prisma.customerInteraction.updateMany({
+        where: { customerId: body.mergeId },
+        data: { customerId: body.keepId },
+      }),
+      // Transfer reviews
+      app.prisma.review.updateMany({
+        where: { userId: body.mergeId },
+        data: { userId: body.keepId },
+      }),
+      // Deactivate merged account
+      app.prisma.user.update({
+        where: { id: body.mergeId },
+        data: {
+          status: "INACTIVE",
+          email: `merged_${body.mergeId}@deleted.local`,
+        },
+      }),
+      // Log the merge
+      app.prisma.customerInteraction.create({
+        data: {
+          customerId: body.keepId,
+          type: "NOTE",
+          channel: "SYSTEM",
+          subject: "Fusion de compte",
+          content: `Compte ${body.mergeId} fusionné dans ce compte. Commandes, tickets et adresses transférés.`,
+        },
+      }),
+    ]);
+
+    // Merge loyalty points if profiles exist
+    const [keepProfile, mergeProfile] = await Promise.all([
+      app.prisma.customerProfile.findUnique({ where: { userId: body.keepId } }),
+      app.prisma.customerProfile.findUnique({ where: { userId: body.mergeId } }),
+    ]);
+
+    if (keepProfile && mergeProfile) {
+      await app.prisma.customerProfile.update({
+        where: { id: keepProfile.id },
+        data: {
+          loyaltyPoints: keepProfile.loyaltyPoints + mergeProfile.loyaltyPoints,
+          totalOrders: keepProfile.totalOrders + mergeProfile.totalOrders,
+          totalSpent: { increment: Number(mergeProfile.totalSpent) },
+        },
+      });
+    }
+
+    return {
+      success: true,
+      data: {
+        keptAccount: body.keepId,
+        mergedAccount: body.mergeId,
+        message: "Comptes fusionnés avec succès",
       },
     };
   });
