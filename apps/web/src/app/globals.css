@@ -672,6 +672,9 @@ body {
     flex-direction: column !important;
     align-items: flex-start !important;
   }
+  .rubriques-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 480px) {
