@@ -47,11 +47,12 @@ export default function NewsletterForm({ source = "home" }: NewsletterFormProps)
         display: "flex",
         flexDirection: "column",
         flex: 1,
-        minWidth: 280,
+        minWidth: 0,
+        maxWidth: "100%",
         gap: 8,
       }}
     >
-      <div style={{ display: "flex", gap: 0 }}>
+      <div style={{ display: "flex", gap: 0, minWidth: 0, maxWidth: "100%" }}>
         <input
           type="email"
           required
@@ -60,7 +61,9 @@ export default function NewsletterForm({ source = "home" }: NewsletterFormProps)
           onChange={(e) => setEmail(e.target.value)}
           className="input-dark"
           style={{
-            flex: 1,
+            flex: "1 1 0",
+            minWidth: 0,
+            width: 0,
             borderRight: "none",
           }}
         />
