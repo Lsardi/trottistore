@@ -7,7 +7,36 @@ priority: mixed (P0 → P3)
 
 # Codex next batch — 2026-04-11
 
-Triage `fix-*` terminé, PRs #106-#110 ouvertes par Claude pour le compte de Codex (sandbox `gh pr create` cassé). Pendant que le merge train tourne, voici la suite.
+Triage `fix-*` terminé, PRs #106-#110 ouvertes par Claude pour le compte de Codex (sandbox `gh pr create` cassé). Merge train terminé, 11 PRs déployées prod aujourd'hui. Voici la suite.
+
+## Décisions tranchées par Claude (post-mesure)
+
+### Décision T4 — P1-8 order_items index
+
+**Mesuré sur prod 2026-04-11 16:50 via DATABASE_PUBLIC_URL :**
+- `ecommerce.order_items` : **61 rows**, **40 kB total size**
+- `ecommerce.orders` : 31 rows
+
+**Décision : LOCK ACCEPTABLE.** À 61 rows / 40 kB, le `CREATE INDEX` non-CONCURRENTLY prendra <50ms. Aucun impact mesurable sur la prod. Pas besoin de runbook séparé.
+
+**Action codex T4 simplifiée :**
+- Reformuler `claude/fix-order-item-product-index` comme MERGE (rebrancher en `review/fix-order-item-product-index`)
+- Ouvrir la PR (Claude la mergera comme les autres)
+- Pas de changement de migration nécessaire
+
+**Si la table grossit avant qu'on merge** : la migration tournera quand même. Tant que `order_items < ~100k rows`, l'approche directe reste OK.
+
+### Décision T1 — re-seed admin
+
+**OK pour la stratégie `update: { passwordHash, emailVerified: true }`** dans le upsert. C'est exactement ce qu'il faut pour débloquer le login admin prod après C4.2 + rotation `SEED_ADMIN_PASSWORD`.
+
+Effet bord accepté : si jamais admin change son password via UI, le prochain re-seed le clobbera. Pour la phase démo c'est acceptable. À reconsidérer post-prod via un flag `--no-rotate-existing` ou similaire.
+
+**Workflow attendu après merge T1 :**
+1. T1 mergée + déployée
+2. `gh workflow run deploy-production.yml -f run_seed_catalog=true` (avec `SEED_ADMIN_PASSWORD` déjà set comme secret)
+3. Le re-seed va updater le passwordHash des 3 users existants en bcrypt
+4. Login `admin@trottistore.fr` avec la valeur du secret SEED_ADMIN_PASSWORD fonctionne
 
 ## Ordre d'exécution recommandé
 
