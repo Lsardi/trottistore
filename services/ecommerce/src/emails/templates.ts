@@ -148,6 +148,45 @@ export function staffInvitationEmail(
   };
 }
 
+interface OrderShippedData {
+  orderNumber: number;
+  customerName: string;
+  trackingNumber: string;
+  shippingAddress?: string;
+}
+
+export function orderShippedEmail(data: OrderShippedData): { subject: string; html: string } {
+  const html = layout(`
+    <h2 style="color: #111; font-size: 18px;">Votre commande est en route !</h2>
+    <p style="color: #555;">Bonjour ${data.customerName},</p>
+    <p style="color: #555;">
+      Bonne nouvelle : votre commande <strong>#${data.orderNumber}</strong> vient d'être expédiée.
+    </p>
+
+    <div style="background: #f9f9f9; padding: 16px; margin: 20px 0; border-left: 3px solid #00CCa8;">
+      <p style="color: #555; margin: 4px 0;"><strong>Numéro de suivi :</strong></p>
+      <p style="color: #111; font-size: 16px; font-family: monospace; margin: 4px 0;">
+        ${data.trackingNumber}
+      </p>
+      ${data.shippingAddress ? `<p style="color: #555; margin: 12px 0 4px 0; font-size: 13px;"><strong>Adresse de livraison :</strong> ${data.shippingAddress}</p>` : ""}
+    </div>
+
+    <p style="color: #555;">
+      Vous pouvez suivre l'acheminement directement chez le transporteur, ou depuis votre
+      <a href="${BASE_URL}/mon-compte" style="color: #00CCa8;">espace client</a>.
+    </p>
+
+    <p style="color: #888; font-size: 13px;">
+      Une question ? Une anomalie à la livraison ? Répondez à cet email ou contactez notre service client.
+    </p>
+  `);
+
+  return {
+    subject: `Commande #${data.orderNumber} expédiée — ${BRAND}`,
+    html,
+  };
+}
+
 export function welcomeEmail(name: string): { subject: string; html: string } {
   const html = layout(`
     <h2 style="color: #111; font-size: 18px;">Bienvenue chez ${BRAND} !</h2>

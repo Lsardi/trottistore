@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { Decimal } from "@prisma/client/runtime/library";
 import { sendEmail } from "@trottistore/shared/notifications";
-import { orderConfirmationEmail } from "../../emails/templates.js";
+import { orderConfirmationEmail, orderShippedEmail } from "../../emails/templates.js";
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -1180,6 +1180,39 @@ export async function orderRoutes(app: FastifyInstance) {
       return updated;
     });
 
+    // Send shipped email when this tracking-set call also flipped the status
+    // to SHIPPED. Same fire-and-forget pattern as the dedicated status route.
+    if (shouldTransitionToShipped) {
+      try {
+        const detail = await app.prisma.order.findUnique({
+          where: { id },
+          select: {
+            orderNumber: true,
+            trackingNumber: true,
+            shippingAddress: true,
+            customer: { select: { email: true, firstName: true, lastName: true } },
+          },
+        });
+        if (detail?.customer?.email && detail.trackingNumber) {
+          const addr = detail.shippingAddress as Record<string, string> | null;
+          const addressLine = addr?.street
+            ? `${addr.street}, ${addr.postalCode || ""} ${addr.city || ""}`.trim()
+            : undefined;
+          const { subject, html } = orderShippedEmail({
+            orderNumber: detail.orderNumber,
+            customerName: `${detail.customer.firstName ?? ""} ${detail.customer.lastName ?? ""}`.trim() || "Client",
+            trackingNumber: detail.trackingNumber,
+            shippingAddress: addressLine,
+          });
+          sendEmail(detail.customer.email, subject, html).catch((e: unknown) =>
+            app.log.warn({ orderId: id, err: e }, "shipped-email send failed"),
+          );
+        }
+      } catch (e) {
+        app.log.warn({ orderId: id, err: e }, "shipped-email lookup failed");
+      }
+    }
+
     return { success: true, data: updatedOrder };
   });
 
@@ -1429,6 +1462,41 @@ export async function orderRoutes(app: FastifyInstance) {
 
       return updatedOrder;
     });
+
+    // Fire-and-forget: send a "shipped" email to the customer when transitioning
+    // to SHIPPED. Soft-fail if no transport is configured (mail provider down,
+    // missing keys in dev/staging) — the status change must not be blocked by
+    // a transient mail outage.
+    if (newStatus === "SHIPPED" && updated.trackingNumber) {
+      try {
+        const detail = await app.prisma.order.findUnique({
+          where: { id },
+          select: {
+            orderNumber: true,
+            trackingNumber: true,
+            shippingAddress: true,
+            customer: { select: { email: true, firstName: true, lastName: true } },
+          },
+        });
+        if (detail?.customer?.email) {
+          const addr = detail.shippingAddress as Record<string, string> | null;
+          const addressLine = addr?.street
+            ? `${addr.street}, ${addr.postalCode || ""} ${addr.city || ""}`.trim()
+            : undefined;
+          const { subject, html } = orderShippedEmail({
+            orderNumber: detail.orderNumber,
+            customerName: `${detail.customer.firstName ?? ""} ${detail.customer.lastName ?? ""}`.trim() || "Client",
+            trackingNumber: detail.trackingNumber!,
+            shippingAddress: addressLine,
+          });
+          sendEmail(detail.customer.email, subject, html).catch((e: unknown) =>
+            app.log.warn({ orderId: id, err: e }, "shipped-email send failed"),
+          );
+        }
+      } catch (e) {
+        app.log.warn({ orderId: id, err: e }, "shipped-email lookup failed");
+      }
+    }
 
     return { success: true, data: updated };
   });
