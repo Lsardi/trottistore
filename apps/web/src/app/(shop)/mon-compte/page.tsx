@@ -21,6 +21,7 @@ import {
 } from "@/lib/api";
 import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
+import { syncGarageWithServer } from "@/lib/garage";
 
 export default function MonCompteWrapper() {
   return (
@@ -74,6 +75,10 @@ function formatPrice(amount: string | number): string {
         const currentUser = meRes.data;
         setUser(currentUser);
 
+        // Sync the garage (localStorage ↔ CustomerProfile.scooterModels) so
+        // the user retrieves their saved scooters across devices.
+        syncGarageWithServer(token).catch(() => undefined);
+
         if (isBackofficeRole(currentUser.role)) {
           window.location.href = "/admin";
           return;
@@ -114,6 +119,9 @@ function formatPrice(amount: string | number): string {
     try {
       const res = await authApi.login(loginForm);
       localStorage.setItem("accessToken", res.accessToken);
+      // Best-effort: sync the garage before redirecting so the user lands
+      // on a page where their saved scooters are already merged in.
+      await syncGarageWithServer(res.accessToken).catch(() => undefined);
       window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
     } catch {
       setError("Email ou mot de passe incorrect");
@@ -133,6 +141,8 @@ function formatPrice(amount: string | number): string {
         password: registerForm.password,
       });
       localStorage.setItem("accessToken", res.accessToken);
+      // First-time login: push any anonymously-built garage to the new account.
+      await syncGarageWithServer(res.accessToken).catch(() => undefined);
       window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
     } catch {
       setError("Erreur lors de l'inscription. Cet email est peut-etre deja utilise.");
