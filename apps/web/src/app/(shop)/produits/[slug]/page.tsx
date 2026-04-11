@@ -11,6 +11,9 @@ import ProductGallery from "./ProductGallery";
 import AddToCartSection from "./AddToCartSection";
 import StockAlertForm from "./StockAlertForm";
 import ProductReviews from "./ProductReviews";
+import ProductRatingBadge from "./ProductRatingBadge";
+import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
+import GoogleReviewsSection from "@/components/GoogleReviewsSection";
 
 interface ProductsListResponse {
   success?: boolean;
@@ -246,9 +249,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               </Link>
             )}
 
-            <h1 className="heading-lg mt-2 mb-4" style={{ color: "var(--color-text)" }}>
+            <h1 className="heading-lg mt-2 mb-3" style={{ color: "var(--color-text)" }}>
               {product.name.toUpperCase()}
             </h1>
+
+            <div className="mb-4 flex items-center gap-3 flex-wrap">
+              {/* Shop-level Google rating: real social proof from the physical
+                  store. Renders nothing if Google API not configured. */}
+              <GoogleReviewsBadge variant="compact" />
+              {/* Internal verified-purchase reviews for this exact product. */}
+              <ProductRatingBadge slug={product.slug} />
+            </div>
 
             <div className="divider mb-5" />
 
@@ -380,6 +391,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         )}
 
         <ProductReviews slug={product.slug} />
+
+        {/* Shop-level Google reviews — independent from per-product reviews,
+            useful as additional social proof. Hidden when Google API not set. */}
+        <GoogleReviewsSection />
 
         {relatedProducts.length > 0 && (
           <div className="mt-16">
