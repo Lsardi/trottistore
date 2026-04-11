@@ -62,7 +62,6 @@ export interface BrandConfig {
   footerTagline: string;
 
   // ── Social / external ──
-  googleReviewCount: string;
   brandsMarquee: string;
 }
 
@@ -132,6 +131,5 @@ export const brand: BrandConfig = {
   footerTagline: process.env.NEXT_PUBLIC_BRAND_FOOTER_TAGLINE || "Spécialiste trottinettes électriques depuis 2019",
 
   // Social
-  googleReviewCount: process.env.NEXT_PUBLIC_BRAND_REVIEW_COUNT || "103",
   brandsMarquee: process.env.NEXT_PUBLIC_BRAND_MARQUEE || "DUALTRON · TEVERUN · XIAOMI · KAABO · NINEBOT · VSETT · SEGWAY · KUICKWHEEL · ",
 };

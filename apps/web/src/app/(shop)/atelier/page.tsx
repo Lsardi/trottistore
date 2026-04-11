@@ -38,7 +38,6 @@ const PROCESS_STEPS = [
 const STATS = [
   { value: "700+", label: "Pièces en stock" },
   { value: "48h", label: "Délai indicatif" },
-  { value: brand.googleReviewCount, label: "Avis clients" },
   { value: brand.since, label: "Depuis" },
 ];
 
@@ -87,7 +86,7 @@ export default function AtelierPage() {
 
       {/* Stats */}
       <section style={{ backgroundColor: "var(--color-surface)", borderTop: "1px solid var(--color-border)", borderBottom: "1px solid var(--color-border)" }}>
-        <div className="mx-auto max-w-5xl grid grid-cols-2 sm:grid-cols-4">
+        <div className="mx-auto max-w-5xl grid grid-cols-3 sm:grid-cols-3">
           {STATS.map((stat, i) => (
             <div
               key={stat.label}
@@ -200,7 +199,7 @@ export default function AtelierPage() {
                   <div>
                     <p className="font-display font-bold text-text text-sm">AVIS CLIENTS</p>
                     <p className="font-mono text-sm text-text-muted mt-1">
-                      {brand.googleReviewCount} avis publiés
+                      Lire les avis vérifiés
                     </p>
                     <Link href="/avis" className="font-mono text-xs text-neon hover:underline mt-2 inline-block">
                       VOIR LES AVIS &rarr;
