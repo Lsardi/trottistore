@@ -33,6 +33,7 @@ const nextConfig: NextConfig = {
       { source: "/api/v1/campaigns/:path*", destination: `${crm}/api/v1/campaigns/:path*` },
       { source: "/api/v1/segments/:path*", destination: `${crm}/api/v1/segments/:path*` },
       { source: "/api/v1/triggers/:path*", destination: `${crm}/api/v1/triggers/:path*` },
+      { source: "/api/v1/newsletter/:path*", destination: `${crm}/api/v1/newsletter/:path*` },
       // Analytics
       { source: "/api/v1/analytics/:path*", destination: `${analytics}/api/v1/analytics/:path*` },
       // SAV

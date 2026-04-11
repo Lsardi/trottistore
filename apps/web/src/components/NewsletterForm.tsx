@@ -3,37 +3,41 @@
 import { useState } from "react";
 import ConsentCheckbox from "@/components/ConsentCheckbox";
 
-export default function NewsletterForm() {
+interface NewsletterFormProps {
+  source?: string;
+}
+
+export default function NewsletterForm({ source = "home" }: NewsletterFormProps) {
   const [email, setEmail] = useState("");
   const [buttonText, setButtonText] = useState("S'INSCRIRE");
   const [consent, setConsent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const normalizedEmail = email.trim();
-    if (!normalizedEmail || !consent) return;
+    if (!normalizedEmail || !consent || submitting) return;
 
+    setSubmitting(true);
     try {
-      await fetch("/api/v1/analytics/events/public", {
+      const res = await fetch("/api/v1/newsletter/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          events: [
-            {
-              type: "diagnostic_category_selected",
-              properties: { action: "newsletter_signup", email: normalizedEmail },
-            },
-          ],
-        }),
+        body: JSON.stringify({ email: normalizedEmail, consent: true, source }),
       });
+      if (res.ok) {
+        setEmail("");
+        setConsent(false);
+        setButtonText("INSCRIT ✓");
+      } else {
+        setButtonText("ERREUR");
+      }
     } catch {
-      // Keep UX non-blocking on tracking errors.
+      setButtonText("ERREUR");
+    } finally {
+      setSubmitting(false);
+      setTimeout(() => setButtonText("S'INSCRIRE"), 3000);
     }
-
-    setEmail("");
-    setConsent(false);
-    setButtonText("INSCRIT ✓");
-    setTimeout(() => setButtonText("S'INSCRIRE"), 3000);
   }
 
   return (
@@ -62,7 +66,7 @@ export default function NewsletterForm() {
         />
         <button
           type="submit"
-          disabled={!consent}
+          disabled={!consent || submitting}
           className="btn-neon disabled:opacity-60 disabled:cursor-not-allowed"
           style={{ whiteSpace: "nowrap" }}
         >

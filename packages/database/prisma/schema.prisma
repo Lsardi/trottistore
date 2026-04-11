@@ -698,6 +698,23 @@ model NotificationLog {
   @@schema("crm")
 }
 
+model NewsletterSubscriber {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique @db.VarChar(320)
+  status          String    @default("PENDING") @db.VarChar(20) // PENDING, CONFIRMED, UNSUBSCRIBED
+  confirmToken    String?   @unique @map("confirm_token") @db.VarChar(64)
+  unsubscribeToken String   @unique @map("unsubscribe_token") @db.VarChar(64)
+  source          String?   @db.VarChar(50) // home, footer, checkout, etc.
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  confirmedAt     DateTime? @map("confirmed_at") @db.Timestamptz()
+  unsubscribedAt  DateTime? @map("unsubscribed_at") @db.Timestamptz()
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("newsletter_subscribers")
+  @@schema("crm")
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SCHÉMA SAV — Tickets, diagnostics, pièces
 // ═══════════════════════════════════════════════════════════════
