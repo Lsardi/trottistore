@@ -87,8 +87,8 @@ export default function SOSButton() {
           aria-label="Menu SOS urgence"
           style={{
             position: "fixed",
-            bottom: 88,
-            right: 16,
+            bottom: "calc(88px + env(safe-area-inset-bottom, 0px))",
+            right: "calc(16px + env(safe-area-inset-right, 0px))",
             zIndex: 999,
             display: "flex",
             flexDirection: "column",
@@ -272,8 +272,8 @@ export default function SOSButton() {
         aria-label={open ? "Fermer le menu SOS" : "SOS Trottinette — Aide rapide"}
         style={{
           position: "fixed",
-          bottom: 20,
-          right: 16,
+          bottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
+          right: "calc(16px + env(safe-area-inset-right, 0px))",
           zIndex: 999,
           width: open ? 48 : "auto",
           maxWidth: "calc(100vw - 32px)",

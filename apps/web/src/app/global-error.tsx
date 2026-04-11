@@ -15,7 +15,7 @@ export default function GlobalError({
           color: "var(--color-text, #E8E8E8)",
           fontFamily: '"Syne", sans-serif',
           margin: 0,
-          minHeight: "100vh",
+          minHeight: "100dvh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
