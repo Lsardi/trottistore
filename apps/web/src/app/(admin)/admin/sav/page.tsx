@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { CheckCircle2, Clock3, Loader2, PackageSearch, Wrench, X } from "lucide-react";
 import { repairsApi, triggersApi, type RepairStatus, type RepairTicket, type TriggerRunResult } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -187,9 +188,14 @@ export default function AdminSavPage() {
             Pilotage des tickets avec transitions, journal et photos.
           </p>
         </div>
-        <button onClick={() => void loadTickets()} className="btn-outline">
-          Rafraichir
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/sav/nouveau" className="btn-outline">
+            Nouveau ticket
+          </Link>
+          <button onClick={() => void loadTickets()} className="btn-outline">
+            Rafraichir
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
