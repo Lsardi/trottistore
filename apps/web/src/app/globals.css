@@ -497,6 +497,31 @@ body {
   outline: none;
   border-radius: var(--radius-sm);
 }
+
+/* iOS Safari auto-zooms on focus when an input's font-size is < 16px.
+ * Bumping to 16px on mobile prevents the zoom. We scope to text-like inputs
+ * only (not checkbox/radio/range/color which don't trigger zoom) and we set
+ * min-width:0 so flex layouts can still shrink the input below its intrinsic
+ * content width — without this, the increased font-size pushes flex parents
+ * past the viewport (regression observed in C2 e2e responsive smoke). */
+@media (max-width: 768px) {
+  .input-dark,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  input[type="number"],
+  input:not([type]),
+  textarea,
+  select {
+    font-size: 16px !important;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
 .input-dark::placeholder {
   color: var(--color-text-dim);
 }
