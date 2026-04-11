@@ -103,6 +103,13 @@ export default function AdminProductEditPage() {
     setToast({ message, type });
   };
 
+  const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+    return fallback;
+  };
+
   useEffect(() => {
     if (toast) {
       const t = setTimeout(() => setToast(null), 3500);
@@ -276,11 +283,15 @@ export default function AdminProductEditPage() {
       await adminProductsApi.update(id, payload);
       setIsDirty(false);
       showToast("Produit sauvegarde");
-    } catch {
-      showToast("Erreur lors de la sauvegarde", "error");
-    } finally {
-      setSaving(false);
-    }
+      } catch (error) {
+        console.error("Product save failed:", error);
+        showToast(
+          `Erreur lors de la sauvegarde: ${getErrorMessage(error, "inconnue")}`,
+          "error",
+        );
+      } finally {
+        setSaving(false);
+      }
   };
 
   // ─── Delete ───────────────────────────────────────────────
@@ -296,8 +307,12 @@ export default function AdminProductEditPage() {
       await adminProductsApi.delete(id);
       showToast("Produit supprime");
       router.push("/admin/produits");
-    } catch {
-      showToast("Erreur lors de la suppression", "error");
+    } catch (error) {
+      console.error("Delete failed:", error);
+      showToast(
+        `Erreur: ${getErrorMessage(error, "inconnue")}`,
+        "error",
+      );
     } finally {
       setDeleting(false);
     }
@@ -402,6 +417,12 @@ export default function AdminProductEditPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main column */}
         <div className="lg:col-span-2 space-y-6">
+          {isDirty ? (
+            <div className="sticky top-4 z-10 border border-warning bg-warning/15 p-2 text-center font-mono text-xs text-warning">
+              Modifications non sauvegardees - clique sur Sauvegarder
+            </div>
+          ) : null}
+
           {/* General info */}
           <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
             <h2 className="text-sm font-semibold text-text mb-4">
