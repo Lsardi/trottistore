@@ -15,6 +15,7 @@ import {
   Search,
   ExternalLink,
   User,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { label: "Clients", href: "/admin/clients", icon: Users },
   { label: "SAV", href: "/admin/sav", icon: Wrench },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+  { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
   { label: "Recherche", href: "/admin/recherche", icon: Search },
 ] as const;
 
