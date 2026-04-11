@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Search, ChevronRight, Check, Zap, Bike } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productsApi, repairsApi, type Product } from "@/lib/api";
-import { addScooterToGarage, getGarageScooters } from "@/lib/garage";
+import { addScooterToGarage, getGarageScooters, pushGarageToServer } from "@/lib/garage";
 
 import { SCOOTER_BRANDS, mergeScooterBrands, type ScooterBrand } from "./scooter-brands";
 
@@ -195,6 +195,8 @@ export default function CompatibilitePage() {
                   onClick={() => {
                     addScooterToGarage(selectedBrand, selectedModel);
                     setSavedToGarage(true);
+                    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+                    if (token) pushGarageToServer(token).catch(() => undefined);
                   }}
                   className="btn-outline text-xs flex items-center gap-2"
                 >

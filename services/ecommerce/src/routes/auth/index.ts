@@ -536,6 +536,70 @@ export async function authRoutes(app: FastifyInstance) {
     },
   );
 
+  // ── GET /auth/garage — list user's saved scooters (My Garage) ──
+  // Stored as String[] on CustomerProfile.scooterModels, each entry is a
+  // canonical "Brand Model" string. The frontend mirrors this in its
+  // localStorage so anonymous users can also use the garage.
+  app.get(
+    "/auth/garage",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId } = request.user;
+      const profile = await app.prisma.customerProfile.findUnique({
+        where: { userId },
+        select: { scooterModels: true },
+      });
+      return reply.send({ success: true, data: { scooters: profile?.scooterModels ?? [] } });
+    },
+  );
+
+  // ── PUT /auth/garage — replace the user's garage with the provided list ──
+  // The client sends the canonical merged list (server + localStorage union),
+  // we just persist it. Idempotent.
+  const updateGarageSchema = z.object({
+    scooters: z.array(z.string().min(1).max(120)).max(50),
+  });
+
+  app.put(
+    "/auth/garage",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId } = request.user;
+      const parsed = updateGarageSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Liste de scooters invalide",
+            details: parsed.error.flatten().fieldErrors,
+          },
+        });
+      }
+      // De-duplicate case-insensitively, keep first occurrence's casing.
+      const seen = new Set<string>();
+      const deduped: string[] = [];
+      for (const raw of parsed.data.scooters) {
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(trimmed);
+      }
+
+      // Upsert the customer profile (some users may not have one yet,
+      // e.g. registered then never bought anything).
+      await app.prisma.customerProfile.upsert({
+        where: { userId },
+        update: { scooterModels: deduped },
+        create: { userId, scooterModels: deduped },
+      });
+
+      return reply.send({ success: true, data: { scooters: deduped } });
+    },
+  );
+
   // ── GET /auth/export — RGPD data portability (art. 20) ──
   app.get(
     "/auth/export",
