@@ -11,7 +11,6 @@
     "sync": "tsx sync-woocommerce.ts"
   },
   "dependencies": {
-    "@node-rs/argon2": "^2.0.2",
     "@prisma/client": "^6.6.0",
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.0.0",
