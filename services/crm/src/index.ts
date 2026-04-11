@@ -14,6 +14,7 @@ import { customerRoutes } from "./routes/customers/index.js";
 import { segmentRoutes } from "./routes/segments/index.js";
 import { campaignRoutes } from "./routes/campaigns/index.js";
 import { triggerRoutes } from "./routes/triggers/index.js";
+import { newsletterRoutes } from "./routes/newsletter/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import cron from "node-cron";
 import crypto from "node:crypto";
@@ -91,6 +92,18 @@ async function start() {
       path.startsWith("/api/v1/metrics") ||
       path.startsWith("/api/v1/ready")
     ) {
+      return;
+    }
+
+    // Public newsletter endpoints (subscribe, confirm double opt-in,
+    // unsubscribe). These must remain unauthenticated so anyone with the
+    // home/footer form (or an unsubscribe link in an email) can use them.
+    // Rate-limited globally by the rateLimit plugin.
+    const isPublicNewsletter =
+      path === "/api/v1/newsletter/subscribe" ||
+      path === "/api/v1/newsletter/confirm" ||
+      path === "/api/v1/newsletter/unsubscribe";
+    if (isPublicNewsletter) {
       return;
     }
 
@@ -200,6 +213,7 @@ async function start() {
   await app.register(segmentRoutes, { prefix: "/api/v1" });
   await app.register(campaignRoutes, { prefix: "/api/v1" });
   await app.register(triggerRoutes, { prefix: "/api/v1" });
+  await app.register(newsletterRoutes, { prefix: "/api/v1" });
 
   // Demarrage
   try {
