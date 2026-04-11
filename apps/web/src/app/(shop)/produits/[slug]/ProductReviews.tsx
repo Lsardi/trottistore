@@ -21,10 +21,28 @@ export default function ProductReviews({ slug }: ProductReviewsProps) {
     }).catch(() => setLoaded(true));
   }, [slug]);
 
-  if (!loaded || (loaded && reviews.length === 0)) return null;
+  if (!loaded) return null;
+
+  // Empty state: keep the section visible so the social proof CTA isn't hidden.
+  if (reviews.length === 0) {
+    return (
+      <div id="avis-produit" className="mt-16">
+        <div className="divider mb-8" />
+        <p className="spec-label mb-4">AVIS CLIENTS</p>
+        <div className="border border-border p-6 text-center">
+          <p className="font-mono text-sm text-text-muted mb-2">
+            Aucun avis vérifié pour ce produit pour le moment.
+          </p>
+          <p className="font-mono text-xs text-text-dim">
+            Les avis sont publiés après un achat vérifié de ce produit dans notre boutique.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-16">
+    <div id="avis-produit" className="mt-16">
       <div className="divider mb-8" />
 
       <div className="flex items-center gap-4 mb-6">
