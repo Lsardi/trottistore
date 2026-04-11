@@ -339,25 +339,36 @@ function formatPrice(amount: string | number): string {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="bg-surface border border-border p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <ClipboardList className="w-4 h-4 text-neon" />
-              <p className="spec-label">Dernières commandes</p>
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-neon" />
+                <p className="spec-label">Dernières commandes</p>
+              </div>
+              {orders.length > 0 && (
+                <Link
+                  href="/mon-compte/commandes"
+                  className="font-mono text-[11px] text-neon hover:underline"
+                >
+                  Voir tout →
+                </Link>
+              )}
             </div>
             {orders.length === 0 ? (
               <p className="font-mono text-sm text-text-muted">Aucune commande pour le moment.</p>
             ) : (
               <div className="space-y-3">
                 {orders.slice(0, 6).map((order) => (
-                  <div
+                  <Link
                     key={order.id}
-                    className="border border-border p-3 flex items-center justify-between gap-3"
+                    href="/mon-compte/commandes"
+                    className="block border border-border p-3 flex items-center justify-between gap-3 hover:border-neon transition-colors"
                   >
                     <div>
                       <p className="font-mono text-xs text-text">#{order.orderNumber}</p>
                       <p className="font-mono text-[11px] text-text-dim">{{ PENDING: "En attente", CONFIRMED: "Confirmée", PREPARING: "En préparation", SHIPPED: "Expédiée", DELIVERED: "Livrée", CANCELLED: "Annulée", REFUNDED: "Remboursée" }[order.status as string] || order.status}</p>
                     </div>
                     <p className="font-mono text-sm text-neon">{formatPrice(order.totalTtc)}</p>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
