@@ -17,11 +17,7 @@ export const FAQ_SECTIONS: FaqSection[] = [
     questions: [
       {
         q: "Quels moyens de paiement acceptez-vous ?",
-        a: "Carte bancaire (Visa, Mastercard), Apple Pay, Google Pay, Link et virement bancaire. Paiement en 3x et 4x sans frais disponible à partir de 300 €.",
-      },
-      {
-        q: "Comment fonctionne le paiement en plusieurs fois ?",
-        a: "Le paiement en 3x ou 4x sans frais est disponible pour les commandes de plus de 300 €. La première échéance est prélevée à la commande, les suivantes mensuellement.",
+        a: "Carte bancaire (Visa, Mastercard), Apple Pay, Google Pay, Link et virement bancaire.",
       },
       {
         q: "Puis-je commander sans créer de compte ?",

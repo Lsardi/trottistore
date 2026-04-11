@@ -37,8 +37,8 @@ const PROCESS_STEPS = [
 
 const STATS = [
   { value: "700+", label: "Pièces en stock" },
-  { value: "24h", label: "Délai moyen" },
-  { value: "5.0", label: "Note Google" },
+  { value: "48h", label: "Délai indicatif" },
+  { value: brand.googleReviewCount, label: "Avis clients" },
   { value: brand.since, label: "Depuis" },
 ];
 
@@ -198,9 +198,9 @@ export default function AtelierPage() {
                 <div className="flex items-start gap-3">
                   <Star className="w-5 h-5 text-neon flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-display font-bold text-text text-sm">AVIS GOOGLE</p>
+                    <p className="font-display font-bold text-text text-sm">AVIS CLIENTS</p>
                     <p className="font-mono text-sm text-text-muted mt-1">
-                      <span className="text-neon">5.0</span> — {brand.googleReviewCount} avis
+                      {brand.googleReviewCount} avis publiés
                     </p>
                     <Link href="/avis" className="font-mono text-xs text-neon hover:underline mt-2 inline-block">
                       VOIR LES AVIS &rarr;

@@ -37,7 +37,7 @@ const STATS = [
   { value: "2045", label: "PRODUITS" },
   { value: "15", label: "MARQUES" },
   { value: brand.since, label: "DEPUIS" },
-  { value: brand.googleReviewCount, label: "AVIS GOOGLE" },
+  { value: brand.googleReviewCount, label: "AVIS CLIENTS" },
 ];
 
 const CATEGORIES_SMALL = [
@@ -61,7 +61,7 @@ const REVIEWS = [
   {
     name: "Karim B.",
     date: "il y a 3 semaines",
-    text: "Paiement en 4x sans frais, c'est top. Livraison rapide et produit conforme à la description.",
+    text: "Livraison rapide et produit conforme à la description. Service au top.",
   },
 ];
 
@@ -628,9 +628,6 @@ export default async function HomePage() {
             <h2 className="heading-lg" style={{ marginBottom: 8 }}>
               AVIS CLIENTS
             </h2>
-            <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-              Google &middot; 5.0 &middot; {brand.googleReviewCount} avis
-            </span>
           </div>
 
           <div

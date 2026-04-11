@@ -263,7 +263,7 @@ export default function AvisContent() {
               rel="noopener noreferrer"
               className="btn-outline"
             >
-              AVIS GOOGLE
+              LAISSER UN AVIS GOOGLE
               <ExternalLink className="w-3 h-3" />
             </a>
             <Link href="/reparation" className="btn-outline">

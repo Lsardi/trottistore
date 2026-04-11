@@ -42,7 +42,7 @@ export default function AProposPage() {
         {[
           { icon: Wrench, value: "2000+", label: "Pièces en stock" },
           { icon: Users, value: "15+", label: "Marques réparées" },
-          { icon: Star, value: brand.googleReviewCount, label: "Avis Google" },
+          { icon: Star, value: brand.googleReviewCount, label: "Avis clients" },
           { icon: Clock, value: `Depuis ${brand.since}`, label: "Expérience" },
         ].map(({ icon: Icon, value, label }) => (
           <div

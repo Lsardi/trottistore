@@ -208,7 +208,7 @@ export default function Footer() {
               whiteSpace: "normal",
             }}
           >
-            CB &middot; APPLE PAY &middot; GOOGLE PAY &middot; VIREMENT &middot; 2X 3X 4X SANS FRAIS
+            CB &middot; APPLE PAY &middot; GOOGLE PAY &middot; VIREMENT
           </span>
         </div>
       </div>

@@ -38,7 +38,7 @@ const QUESTIONS: Question[] = [
   {
     id: "budget",
     title: "Quel est votre budget ?",
-    subtitle: "Paiement en 3x sans frais disponible",
+    subtitle: "Hors options et accessoires",
     options: [
       { value: "entry", label: "Moins de 500 EUR", emoji: "💰" },
       { value: "mid", label: "500 — 1 000 EUR", emoji: "💰💰" },
