@@ -401,6 +401,8 @@ model OrderItem {
   variant ProductVariant? @relation(fields: [variantId], references: [id])
 
   @@index([orderId])
+  @@index([productId]) // AUDIT_ATOMIC.md#P1-8 — avoid full scan on "orders containing product X"
+  @@index([variantId]) // same reasoning for variant-level lookups (admin / analytics)
   @@map("order_items")
   @@schema("ecommerce")
 }
