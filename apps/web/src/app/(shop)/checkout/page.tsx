@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, ShieldCheck, Truck, RotateCcw } from "lucide-react";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import { ApiError, addressesApi, authApi, cartApi, checkoutApi, ordersApi, type CartItem, type User } from "@/lib/api";
@@ -167,7 +167,11 @@ export default function CheckoutPage() {
     loadCheckout();
   }, []);
 
-  const totalTtc = useMemo(() => items.reduce((sum, item) => sum + item.lineTotalHt * 1.2, 0), [items]);
+  const totalHt = useMemo(() => items.reduce((sum, item) => sum + item.lineTotalHt, 0), [items]);
+  const totalTtc = useMemo(() => totalHt * 1.2, [totalHt]);
+  // Shipping is computed server-side at order creation. Display 'Calculée à
+  // la commande' rather than a stale local guess.
+  const shippingCost = 0;
 
   const stripePromise = useMemo(
     () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
@@ -577,12 +581,13 @@ export default function CheckoutPage() {
                 </option>
               ))}
             </select>
-            <p className="font-mono text-xs mt-2 text-text-dim">
+            <p className="font-mono text-xs mt-2 text-text-dim flex items-center gap-1">
+              <Lock className="w-3 h-3 text-neon" />
               {isStripeFlow
                 ? stripeAvailable
-                  ? "Paiement Stripe prêt (mode test)."
-                  : "Stripe non disponible, fallback sur flux standard."
-                : "Méthode hors Stripe: la commande sera finalisée immédiatement."}
+                  ? "Paiement chiffré et sécurisé via Stripe — vos données bancaires ne transitent pas par nos serveurs."
+                  : "Service de paiement temporairement indisponible, fallback sur flux standard."
+                : "Cette méthode finalise la commande immédiatement."}
             </p>
           </div>
 
@@ -642,18 +647,24 @@ export default function CheckoutPage() {
           {error && <div className="border border-danger/40 bg-danger/10 px-4 py-3 font-mono text-sm text-danger">{error}</div>}
 
           {!pendingStripeCheckout ? (
-            <button type="submit" disabled={submitting || items.length === 0} className="btn-neon w-full disabled:opacity-50">
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  VALIDATION...
-                </>
-              ) : isStripeFlow && stripeAvailable ? (
-                "CONTINUER VERS PAIEMENT"
-              ) : (
-                "PASSER LA COMMANDE"
-              )}
-            </button>
+            <>
+              <button type="submit" disabled={submitting || items.length === 0} className="btn-neon w-full disabled:opacity-50">
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    VALIDATION...
+                  </>
+                ) : isStripeFlow && stripeAvailable ? (
+                  "CONTINUER VERS PAIEMENT"
+                ) : (
+                  "PASSER LA COMMANDE"
+                )}
+              </button>
+              <p className="font-mono text-[11px] text-text-dim text-center mt-2 flex items-center justify-center gap-1.5">
+                <Lock className="w-3 h-3 text-neon" />
+                Paiement 100% sécurisé · Données chiffrées TLS
+              </p>
+            </>
           ) : null}
         </form>
 
@@ -671,11 +682,46 @@ export default function CheckoutPage() {
             ))}
           </div>
           <div className="divider mb-3" />
-          <div className="flex justify-between items-center">
+          <div className="space-y-1 mb-3">
+            <div className="flex justify-between font-mono text-xs text-text-muted">
+              <span>Sous-total HT</span>
+              <span>{formatPrice(totalHt)}</span>
+            </div>
+            <div className="flex justify-between font-mono text-xs text-text-muted">
+              <span>TVA (20%)</span>
+              <span>{formatPrice(totalTtc - totalHt - shippingCost)}</span>
+            </div>
+            <div className="flex justify-between font-mono text-xs text-text-muted">
+              <span>Livraison</span>
+              <span className="text-text-dim">Calculée à la commande</span>
+            </div>
+          </div>
+          <div className="divider mb-3" />
+          <div className="flex justify-between items-center mb-5">
             <span className="font-mono text-sm text-text-muted">Total TTC</span>
             <span className="price-main" style={{ fontSize: "1.4rem" }}>
               {formatPrice(totalTtc)}
             </span>
+          </div>
+
+          {/* Trust signals */}
+          <div className="space-y-2 pt-4 border-t border-border">
+            <div className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
+              <ShieldCheck className="w-3.5 h-3.5 text-neon flex-shrink-0" />
+              <span>Garantie légale 2 ans</span>
+            </div>
+            <div className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
+              <RotateCcw className="w-3.5 h-3.5 text-neon flex-shrink-0" />
+              <span>Rétractation 14 jours</span>
+            </div>
+            <div className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
+              <Truck className="w-3.5 h-3.5 text-neon flex-shrink-0" />
+              <span>Livraison France métropolitaine</span>
+            </div>
+            <div className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
+              <Lock className="w-3.5 h-3.5 text-neon flex-shrink-0" />
+              <span>Paiement chiffré Stripe</span>
+            </div>
           </div>
         </aside>
       </div>
