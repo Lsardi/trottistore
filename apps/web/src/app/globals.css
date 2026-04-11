@@ -680,7 +680,7 @@ body {
   }
   .newsletter-inner {
     flex-direction: column !important;
-    align-items: flex-start !important;
+    align-items: stretch !important;
   }
 }
 
