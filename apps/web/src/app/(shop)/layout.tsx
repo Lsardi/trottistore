@@ -5,7 +5,7 @@ import CookieBanner from "@/components/CookieBanner";
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-[var(--color-neon)] focus:text-[var(--color-void)] focus:font-mono focus:text-sm"

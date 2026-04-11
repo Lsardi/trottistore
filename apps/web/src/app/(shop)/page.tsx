@@ -73,7 +73,7 @@ export default async function HomePage() {
       <section
         className="grain"
         style={{
-          minHeight: "100vh",
+          minHeight: "100dvh",
           backgroundColor: "var(--color-void)",
           display: "flex",
           flexDirection: "column",
