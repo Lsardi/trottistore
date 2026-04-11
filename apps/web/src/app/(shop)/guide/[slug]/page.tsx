@@ -81,7 +81,6 @@ const GUIDES: Record<string, Guide> = {
           "500 à 1 000€ : le sweet spot. Bonnes performances, construction solide, pièces disponibles. C'est la gamme la plus vendue chez TrottiStore.",
           "1 000 à 2 000€ : performances sérieuses, double suspension, gros pneus. Pour ceux qui roulent tous les jours et veulent du confort.",
           "Plus de 2 000€ : machines de performance. Double moteur, autonomie 60+ km, vitesse 60+ km/h. Pour les passionnés.",
-          "N'oubliez pas : nous proposons le paiement en 3x et 4x sans frais à partir de 300€.",
         ],
       },
       {

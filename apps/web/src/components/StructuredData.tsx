@@ -29,13 +29,6 @@ const localBusinessSchema = {
       closes: "19:00",
     },
   ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "5.0",
-    reviewCount: brand.googleReviewCount,
-    bestRating: "5",
-    worstRating: "1",
-  },
   priceRange: "€€",
   image: `https://${brand.domain}/og-image.jpg`,
   sameAs: [],
@@ -105,14 +98,6 @@ const faqSchema = {
       acceptedAnswer: {
         "@type": "Answer",
         text: "Les réparations simples (pneu, frein) sont réalisées en 1 à 2 heures. Les interventions plus complexes (contrôleur, batterie) prennent 1 à 3 jours ouvrés. Vous pouvez suivre l'avancement de votre réparation en temps réel depuis votre espace client.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Proposez-vous le paiement en plusieurs fois ?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Oui, nous proposons le paiement en 3x et 4x sans frais pour tout achat supérieur à 300€. Disponible en ligne et en boutique.",
       },
     },
     {

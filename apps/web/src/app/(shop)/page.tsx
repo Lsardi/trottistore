@@ -37,7 +37,6 @@ const STATS = [
   { value: "2045", label: "PRODUITS" },
   { value: "15", label: "MARQUES" },
   { value: brand.since, label: "DEPUIS" },
-  { value: brand.googleReviewCount, label: "AVIS GOOGLE" },
 ];
 
 const CATEGORIES_SMALL = [
@@ -45,24 +44,6 @@ const CATEGORIES_SMALL = [
   { name: "CÂBLES", icon: Cable, count: 83, slug: "cables-connectiques" },
   { name: "DISPLAYS", icon: Monitor, count: 74, slug: "displays" },
   { name: "CONTRÔLEURS", icon: Disc, count: 114, slug: "controleur-et-carte-mere" },
-];
-
-const REVIEWS = [
-  {
-    name: "Marc D.",
-    date: "il y a 2 semaines",
-    text: "Excellent service ! Ma Dualtron est arrivée en 48h, parfaitement emballée. Le SAV m'a rappelé pour vérifier.",
-  },
-  {
-    name: "Sophie L.",
-    date: "il y a 1 mois",
-    text: "J'ai fait réparer ma trottinette à l'atelier. Travail impeccable, prix honnête et très bon accueil.",
-  },
-  {
-    name: "Karim B.",
-    date: "il y a 3 semaines",
-    text: "Paiement en 4x sans frais, c'est top. Livraison rapide et produit conforme à la description.",
-  },
 ];
 
 // ─── HOMEPAGE ─────────────────────────────────────────────
@@ -269,7 +250,7 @@ export default async function HomePage() {
             maxWidth: 1280,
             margin: "0 auto",
             display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: "repeat(3, 1fr)",
           }}
         >
           {STATS.map((stat, i) => (
@@ -615,69 +596,6 @@ export default async function HomePage() {
             <Link href="/reparation" className="btn-neon">
               DÉPOSER UN TICKET SAV
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================
-          SECTION 6 — REVIEWS
-          ================================================================ */}
-      <section style={{ backgroundColor: "var(--color-surface)", padding: "64px 0" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-          <div style={{ marginBottom: 32 }}>
-            <h2 className="heading-lg" style={{ marginBottom: 8 }}>
-              AVIS CLIENTS
-            </h2>
-            <span className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-              Google &middot; 5.0 &middot; {brand.googleReviewCount} avis
-            </span>
-          </div>
-
-          <div
-            className="reviews-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 16,
-            }}
-          >
-            {REVIEWS.map((review, i) => (
-              <div
-                key={i}
-                style={{
-                  backgroundColor: "var(--color-surface-2)",
-                  border: "1px solid var(--color-border)",
-                  padding: 24,
-                }}
-              >
-                <div style={{ marginBottom: 12, color: "var(--color-neon)", letterSpacing: 2 }}>
-                  ★★★★★
-                </div>
-                <p
-                  className="font-mono"
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "var(--color-text-muted)",
-                    lineHeight: 1.6,
-                    fontStyle: "italic",
-                    marginBottom: 16,
-                  }}
-                >
-                  &ldquo;{review.text}&rdquo;
-                </p>
-                <div>
-                  <span style={{ color: "var(--color-text)", fontSize: "0.85rem", fontWeight: 600 }}>
-                    {review.name}
-                  </span>
-                  <span
-                    className="font-mono"
-                    style={{ fontSize: "0.65rem", color: "var(--color-text-dim)", marginLeft: 8 }}
-                  >
-                    {review.date}
-                  </span>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>

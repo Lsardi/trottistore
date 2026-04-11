@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPin, Clock, Wrench, Users, Star } from "lucide-react";
+import { MapPin, Clock, Wrench, Users } from "lucide-react";
 import { brand } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -38,11 +38,10 @@ export default function AProposPage() {
       </section>
 
       {/* Chiffres */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <section className="grid grid-cols-3 sm:grid-cols-3 gap-3 mb-8">
         {[
           { icon: Wrench, value: "2000+", label: "Pièces en stock" },
           { icon: Users, value: "15+", label: "Marques réparées" },
-          { icon: Star, value: brand.googleReviewCount, label: "Avis Google" },
           { icon: Clock, value: `Depuis ${brand.since}`, label: "Expérience" },
         ].map(({ icon: Icon, value, label }) => (
           <div

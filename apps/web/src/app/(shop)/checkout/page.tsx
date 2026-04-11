@@ -12,7 +12,6 @@ const PAYMENT_METHODS = [
   { value: "APPLE_PAY", label: "Apple Pay (Stripe)" },
   { value: "GOOGLE_PAY", label: "Google Pay (Stripe)" },
   { value: "LINK", label: "Link (Stripe)" },
-  { value: "INSTALLMENT_3X", label: "Paiement en 3x sans frais" },
   { value: "BANK_TRANSFER", label: "Virement bancaire" },
 ] as const;
 

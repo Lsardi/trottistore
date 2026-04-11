@@ -9,7 +9,6 @@ import {
   Plus,
   ArrowRight,
   ImageOff,
-  CreditCard,
   X,
 } from "lucide-react";
 import { cartApi, type CartItem } from "@/lib/api";
@@ -195,13 +194,6 @@ export default function CartPage() {
                 <span className="font-mono text-sm text-text-muted">Total estime</span>
                 <span className="price-main">{formatPrice(subtotal)}</span>
               </div>
-
-              {subtotal >= 300 && (
-                <div className="bg-neon-dim border border-border text-neon text-xs font-mono px-4 py-3 mb-6 flex items-start gap-2">
-                  <CreditCard className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>Eligible au paiement en 2x, 3x ou 4x sans frais</span>
-                </div>
-              )}
 
               <div className="space-y-3">
                 <Link

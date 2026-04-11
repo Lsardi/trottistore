@@ -31,7 +31,7 @@ const PLANS = [
     fleet: "Jusqu'à 50 trottinettes",
     highlight: true,
     features: [
-      "SLA intervention 24h",
+      "Intervention prioritaire",
       "Tarif pièces remisé -20%",
       "Reporting hebdo + dashboard",
       "Interlocuteur dédié",
@@ -235,7 +235,7 @@ export default function ProPage() {
             <Check className="w-12 h-12 text-neon mx-auto mb-4" />
             <h3 className="font-display font-bold text-neon text-lg mb-2">Demande envoyée</h3>
             <p className="font-mono text-sm text-text-muted">
-              Nous vous recontacterons sous 24h avec une proposition adaptée.
+              Nous vous recontacterons rapidement avec une proposition adaptée.
             </p>
           </div>
         ) : (

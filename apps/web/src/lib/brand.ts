@@ -62,7 +62,6 @@ export interface BrandConfig {
   footerTagline: string;
 
   // ── Social / external ──
-  googleReviewCount: string;
   brandsMarquee: string;
 }
 
@@ -105,7 +104,7 @@ export const brand: BrandConfig = {
   seo: {
     title: process.env.NEXT_PUBLIC_BRAND_SEO_TITLE || "TrottiStore — Trottinettes électriques & Pièces détachées",
     titleTemplate: process.env.NEXT_PUBLIC_BRAND_SEO_TITLE_TEMPLATE || "%s | TrottiStore",
-    description: process.env.NEXT_PUBLIC_BRAND_SEO_DESCRIPTION || "Boutique spécialisée trottinettes électriques, pièces détachées et réparation SAV. Livraison France, paiement en plusieurs fois sans frais.",
+    description: process.env.NEXT_PUBLIC_BRAND_SEO_DESCRIPTION || "Boutique spécialisée trottinettes électriques, pièces détachées et réparation SAV. Livraison France.",
     keywords: (process.env.NEXT_PUBLIC_BRAND_SEO_KEYWORDS || "trottinette électrique,pièces détachées trottinette,réparation trottinette,SAV trottinette,TrottiStore").split(","),
     ogUrl: process.env.NEXT_PUBLIC_BRAND_OG_URL || "https://trottistore.fr",
     locale: process.env.NEXT_PUBLIC_BRAND_LOCALE || "fr_FR",
@@ -128,10 +127,9 @@ export const brand: BrandConfig = {
     process.env.NEXT_PUBLIC_BRAND_HERO_L2 || "DÉPENSEZ MOINS",
     process.env.NEXT_PUBLIC_BRAND_HERO_L3 || "RÉPARATION INCLUSE",
   ],
-  heroSubtitle: process.env.NEXT_PUBLIC_BRAND_HERO_SUBTITLE || "La boutique #1 en Île-de-France. 2000+ pièces, réparation en 24h, paiement en 4x.",
+  heroSubtitle: process.env.NEXT_PUBLIC_BRAND_HERO_SUBTITLE || "La boutique #1 en Île-de-France. 2000+ pièces et un atelier de réparation intégré.",
   footerTagline: process.env.NEXT_PUBLIC_BRAND_FOOTER_TAGLINE || "Spécialiste trottinettes électriques depuis 2019",
 
   // Social
-  googleReviewCount: process.env.NEXT_PUBLIC_BRAND_REVIEW_COUNT || "103",
   brandsMarquee: process.env.NEXT_PUBLIC_BRAND_MARQUEE || "DUALTRON · TEVERUN · XIAOMI · KAABO · NINEBOT · VSETT · SEGWAY · KUICKWHEEL · ",
 };
