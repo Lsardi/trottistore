@@ -515,7 +515,7 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="rubriques-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+          <div className="rubriques-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, width: "100%", boxSizing: "border-box" }}>
             {[
               {
                 icon: Zap,
