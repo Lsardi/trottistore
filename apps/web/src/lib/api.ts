@@ -565,6 +565,30 @@ export const repairsApi = {
     }>('sav', '/repairs/scooter-models'),
 };
 
+// ─── Newsletter (admin) ─────────────────────────────────────
+
+export type NewsletterStatus = "PENDING" | "CONFIRMED" | "UNSUBSCRIBED";
+
+export interface NewsletterSubscriber {
+  id: string;
+  email: string;
+  status: NewsletterStatus;
+  source: string | null;
+  createdAt: string;
+  confirmedAt: string | null;
+  unsubscribedAt: string | null;
+}
+
+export const newsletterAdminApi = {
+  list: (params?: { status?: NewsletterStatus | "ALL"; search?: string; page?: number; limit?: number }) =>
+    apiFetch<{
+      success: boolean;
+      data: NewsletterSubscriber[];
+      pagination: Pagination;
+      counts: Record<string, number>;
+    }>('crm', '/newsletter/admin/subscribers', { params }),
+};
+
 export const appointmentsApi = {
   slots: (params: { date: string; durationMin?: number }) =>
     apiFetch<{ success: boolean; data: AppointmentSlot[] }>('sav', '/appointments/slots', { params }),
