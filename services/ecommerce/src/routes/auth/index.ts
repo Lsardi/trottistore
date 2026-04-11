@@ -721,24 +721,45 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
-    // Update password and mark token as used
+    // Hash the new password BEFORE the transaction — bcrypt is slow and
+    // must not hold the transaction open.
     const newPasswordHash = await bcrypt.hash(parsed.data.newPassword, BCRYPT_ROUNDS);
 
-    await app.prisma.$transaction([
-      app.prisma.user.update({
+    // Atomic claim pattern to prevent a race where two concurrent callers
+    // with the same token both pass the `usedAt === null` check above and
+    // both overwrite the user password. updateMany with the { usedAt: null }
+    // guard only succeeds for the first committer; the loser gets count: 0
+    // and we abort the transaction.
+    // Refs: AUDIT_ATOMIC.md#P1-5
+    const result = await app.prisma.$transaction(async (tx) => {
+      const claim = await tx.passwordResetToken.updateMany({
+        where: { id: resetToken.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      if (claim.count === 0) {
+        return { ok: false as const };
+      }
+
+      await tx.user.update({
         where: { id: resetToken.userId },
         data: { passwordHash: newPasswordHash },
-      }),
-      app.prisma.passwordResetToken.update({
-        where: { id: resetToken.id },
-        data: { usedAt: new Date() },
-      }),
-      // Revoke all refresh tokens (force re-login on all devices)
-      app.prisma.refreshToken.updateMany({
+      });
+
+      // Revoke all refresh tokens — force re-login on all devices.
+      await tx.refreshToken.updateMany({
         where: { userId: resetToken.userId, revokedAt: null },
         data: { revokedAt: new Date() },
-      }),
-    ]);
+      });
+
+      return { ok: true as const };
+    });
+
+    if (!result.ok) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "TOKEN_USED", message: "Ce lien a déjà été utilisé" },
+      });
+    }
 
     return { success: true, data: { message: "Mot de passe mis à jour. Vous pouvez vous connecter." } };
   });
