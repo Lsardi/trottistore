@@ -504,6 +504,7 @@ body {
   textarea,
   select {
     font-size: 16px !important;
+    min-width: 0;
   }
 }
 .input-dark::placeholder {
