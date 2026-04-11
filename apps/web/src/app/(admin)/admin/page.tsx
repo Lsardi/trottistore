@@ -106,7 +106,10 @@ export default function AdminDashboardPage() {
       analyticsApi.cockpit(),
       analyticsApi.kpis("7d"),
       analyticsApi.kpis("30d"),
-      ordersApi.adminList({ page: 1, limit: 150 }),
+      // Backend Zod schema caps limit at 50 (services/ecommerce/src/routes/orders/index.ts:75).
+      // Previously this was 150 → silent VALIDATION_ERROR every poll, dashboard "recent orders"
+      // widget showed nothing. L1 finding from log review 2026-04-11.
+      ordersApi.adminList({ page: 1, limit: 50 }),
       repairsApi.list({ page: 1, limit: 20, status: "RECU" }),
       repairsApi.list({ page: 1, limit: 20, status: "EN_ATTENTE_PIECE" }),
       stockApi.listAlerts({ threshold: 5 }),
