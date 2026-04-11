@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Search, ChevronRight, Check, Zap, Bike } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { productsApi, type Product } from "@/lib/api";
+import { productsApi, repairsApi, type Product } from "@/lib/api";
 import { addScooterToGarage, getGarageScooters } from "@/lib/garage";
 
-import { SCOOTER_BRANDS } from "./scooter-brands";
+import { SCOOTER_BRANDS, mergeScooterBrands, type ScooterBrand } from "./scooter-brands";
 
 type Step = "brand" | "model" | "results";
 
@@ -20,11 +20,32 @@ export default function CompatibilitePage() {
   const [loading, setLoading] = useState(false);
   const [searchBrand, setSearchBrand] = useState("");
   const [savedToGarage, setSavedToGarage] = useState(false);
+  const [brands, setBrands] = useState<ScooterBrand[]>(SCOOTER_BRANDS);
 
-  const currentBrand = SCOOTER_BRANDS.find((b) => b.name === selectedBrand);
+  // Fetch the dynamic list (real models we have actually serviced via SAV)
+  // and merge it with the static baseline. Soft-fail to the static list.
+  useEffect(() => {
+    let cancelled = false;
+    repairsApi
+      .scooterModels()
+      .then((res) => {
+        if (cancelled) return;
+        const dynamic = (res.data || []).map((b) => ({ name: b.brand, models: b.models }));
+        if (dynamic.length === 0) return; // keep static baseline as-is
+        setBrands(mergeScooterBrands(dynamic));
+      })
+      .catch(() => {
+        // API failure → static baseline already applied via initial state
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const currentBrand = brands.find((b) => b.name === selectedBrand);
   const filteredBrands = searchBrand
-    ? SCOOTER_BRANDS.filter((b) => b.name.toLowerCase().includes(searchBrand.toLowerCase()))
-    : SCOOTER_BRANDS;
+    ? brands.filter((b) => b.name.toLowerCase().includes(searchBrand.toLowerCase()))
+    : brands;
 
   async function handleSelectModel(model: string) {
     setSelectedModel(model);
