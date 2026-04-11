@@ -497,16 +497,6 @@ body {
   outline: none;
   border-radius: var(--radius-sm);
 }
-/* iOS Safari auto-zooms on focus when input font-size < 16px. Bump on mobile only. */
-@media (max-width: 768px) {
-  .input-dark,
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
-  textarea,
-  select {
-    font-size: 16px !important;
-    min-width: 0;
-  }
-}
 .input-dark::placeholder {
   color: var(--color-text-dim);
 }
@@ -680,7 +670,7 @@ body {
   }
   .newsletter-inner {
     flex-direction: column !important;
-    align-items: stretch !important;
+    align-items: flex-start !important;
   }
 }
 
