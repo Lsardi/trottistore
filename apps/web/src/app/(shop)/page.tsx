@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Lightbulb, Disc, Cable, Monitor } from "lucide-react";
+import { Lightbulb, Disc, Cable, Monitor, Zap, Wrench, Search, Boxes, ArrowRight } from "lucide-react";
 import { formatPriceTTC, formatPrice } from "@/lib/utils";
 import { brand } from "@/lib/brand";
 import GarageBanner from "@/components/GarageBanner";
@@ -495,6 +495,104 @@ export default async function HomePage() {
                   <span className="font-mono" style={{ fontSize: "0.65rem", color: "var(--color-text-dim)" }}>
                     {cat.count} produits
                   </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================
+          SECTION 4.5 — RUBRIQUES (cards explicatives par service)
+          ================================================================ */}
+      <section style={{ backgroundColor: "var(--color-void)", padding: "80px 0" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ marginBottom: 40 }}>
+            <p className="spec-label text-neon mb-2">NOS SERVICES</p>
+            <h2 className="heading-lg">UN ÉCOSYSTÈME COMPLET POUR VOTRE TROTTINETTE</h2>
+            <p className="font-mono text-sm text-text-muted mt-3 max-w-2xl">
+              De l&apos;achat à la réparation, en passant par les pièces détachées et le diagnostic. Tout est centralisé sur une seule plateforme.
+            </p>
+          </div>
+
+          <div className="rubriques-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, width: "100%", boxSizing: "border-box" }}>
+            {[
+              {
+                icon: Zap,
+                title: "TROTTINETTES",
+                description: "Catalogue complet des meilleures marques (Dualtron, Xiaomi, Ninebot, Kaabo). Modèles entrée de gamme à premium, performance et urbain.",
+                cta: "Explorer le catalogue",
+                href: "/produits?categorySlug=trottinettes-electriques",
+              },
+              {
+                icon: Boxes,
+                title: "PIÈCES DÉTACHÉES",
+                description: "2000+ pièces en stock immédiat. Contrôleurs, batteries, freins, displays, pneus, accessoires. Compatibilité vérifiée avec votre modèle.",
+                cta: "Voir les pièces",
+                href: "/produits?categorySlug=accessoires",
+              },
+              {
+                icon: Wrench,
+                title: "ATELIER & RÉPARATION",
+                description: "Atelier physique à L&apos;Île-Saint-Denis. Diagnostic, réparation et révision toutes marques. Pièces d&apos;origine ou compatibles.",
+                cta: "Déposer un ticket SAV",
+                href: "/reparation",
+              },
+              {
+                icon: Lightbulb,
+                title: "QUIZ TROTTINETTES",
+                description: "5 questions, 30 secondes : on vous recommande les modèles parfaits pour votre profil parmi notre catalogue en stock.",
+                cta: "Lancer le quiz",
+                href: "/quiz",
+              },
+              {
+                icon: Search,
+                title: "COMPATIBILITÉ",
+                description: "Sélectionnez votre marque et modèle de trottinette pour voir uniquement les pièces compatibles. Plus de doute à l&apos;achat.",
+                cta: "Vérifier la compat",
+                href: "/compatibilite",
+              },
+              {
+                icon: Disc,
+                title: "DIAGNOSTIC EN LIGNE",
+                description: "Décrivez la panne en quelques étapes : on vous oriente vers la bonne pièce ou le bon service. Gratuit et sans engagement.",
+                cta: "Diagnostiquer",
+                href: "/diagnostic",
+              },
+            ].map((rubrique) => {
+              const Icon = rubrique.icon;
+              return (
+                <Link
+                  key={rubrique.title}
+                  href={rubrique.href}
+                  className="rubrique-card"
+                  style={{
+                    backgroundColor: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                    padding: 28,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 16,
+                    transition: "border-color 200ms, transform 200ms",
+                    textDecoration: "none",
+                    color: "inherit",
+                  }}
+                >
+                  <div style={{ width: 44, height: 44, backgroundColor: "var(--color-void)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon style={{ width: 22, height: 22, color: "var(--color-neon)" }} />
+                  </div>
+                  <div>
+                    <h3 className="font-display" style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--color-text)", marginBottom: 8, letterSpacing: "-0.01em" }}>
+                      {rubrique.title}
+                    </h3>
+                    <p className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.6 }}>
+                      {rubrique.description}
+                    </p>
+                  </div>
+                  <div className="font-mono" style={{ fontSize: "0.7rem", color: "var(--color-neon)", display: "inline-flex", alignItems: "center", gap: 6, marginTop: "auto" }}>
+                    {rubrique.cta}
+                    <ArrowRight style={{ width: 12, height: 12 }} />
+                  </div>
                 </Link>
               );
             })}
