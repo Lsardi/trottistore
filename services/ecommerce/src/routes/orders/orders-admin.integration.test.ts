@@ -207,6 +207,92 @@ describe("Admin order actions", () => {
     });
   });
 
+  // Status update
+  describe("PUT /admin/orders/:id/status", () => {
+    it("transitions an order to CONFIRMED for ADMIN role", async () => {
+      const token = await signToken(app);
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: ORDER_ID,
+        status: "PENDING",
+      });
+      (app.prisma.order.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: ORDER_ID,
+        status: "CONFIRMED",
+        paymentMethod: "CARD",
+      });
+
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/admin/orders/${ORDER_ID}/status`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { status: "CONFIRMED", note: "Paiement confirmé" },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().success).toBe(true);
+    });
+
+    it("returns 403 for CLIENT role", async () => {
+      const token = await signToken(app, "CLIENT");
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/admin/orders/${ORDER_ID}/status`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { status: "CONFIRMED" },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe("FORBIDDEN");
+    });
+
+    it("returns 403 for STAFF role (STAFF is not backoffice)", async () => {
+      const token = await signToken(app, "STAFF");
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/admin/orders/${ORDER_ID}/status`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { status: "CONFIRMED" },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("returns 403 for TECHNICIAN role", async () => {
+      const token = await signToken(app, "TECHNICIAN");
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/admin/orders/${ORDER_ID}/status`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { status: "CONFIRMED" },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("returns 401 without a JWT", async () => {
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/admin/orders/${ORDER_ID}/status`,
+        payload: { status: "CONFIRMED" },
+      });
+      expect(res.statusCode).toBe(401);
+    });
+  });
+
+  // Legacy duplicate route — must be removed
+  describe("PUT /orders/:id/status (legacy duplicate, must be removed)", () => {
+    it("returns 404 — the legacy route has been deleted in favor of /admin/orders/:id/status", async () => {
+      // Historical bug (AUDIT_ATOMIC.md P1-1): this route duplicated
+      // /admin/orders/:id/status but was on a non-prefixed path that
+      // nobody (front, scripts, tests) called. It was dead code that
+      // doubled the attack surface without any benefit.
+      const token = await signToken(app);
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/orders/${ORDER_ID}/status`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { status: "CONFIRMED" },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
   // Manual order
   describe("POST /admin/orders", () => {
     it("creates a manual order", async () => {
