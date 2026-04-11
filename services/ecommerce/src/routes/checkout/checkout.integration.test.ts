@@ -306,6 +306,44 @@ describe("Checkout routes", () => {
       expect(res.json().error.code).toBe("ORDER_NOT_FOUND");
     });
 
+    it("returns 403 for guest when orderId is not linked to current session", async () => {
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        totalTtc: 119.88,
+        customerId: "guest-user-1",
+        status: "PENDING",
+      });
+      (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce("other-session");
+
+      const res = await injectPost(
+        app,
+        "/api/v1/checkout/payment-intent",
+        { paymentMethod: "CARD", orderId: "00000000-0000-0000-0000-000000000001" },
+        { "x-session-id": "guest-session-1" },
+      );
+
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe("FORBIDDEN");
+    });
+
+    it("creates PaymentIntent for guest when orderId is linked to current session", async () => {
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        totalTtc: 119.88,
+        customerId: "guest-user-1",
+        status: "PENDING",
+      });
+      (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce("guest-session-1");
+
+      const res = await injectPost(
+        app,
+        "/api/v1/checkout/payment-intent",
+        { paymentMethod: "CARD", orderId: "00000000-0000-0000-0000-000000000001" },
+        { "x-session-id": "guest-session-1" },
+      );
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().success).toBe(true);
+    });
+
     it("applies free shipping for store pickup", async () => {
       const token = await getAuthToken(app);
       const cart = {

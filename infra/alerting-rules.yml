@@ -13,7 +13,7 @@ groups:
 
       # High error rate — >5% of requests return 5xx
       - alert: HighErrorRate
-        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        expr: rate(trottistore_http_requests_total{status_code=~"5.."}[5m]) / rate(trottistore_http_requests_total[5m]) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -23,7 +23,7 @@ groups:
 
       # High latency — p95 > 2s
       - alert: HighLatency
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        expr: histogram_quantile(0.95, rate(trottistore_http_request_duration_seconds_bucket[5m])) > 2
         for: 5m
         labels:
           severity: warning

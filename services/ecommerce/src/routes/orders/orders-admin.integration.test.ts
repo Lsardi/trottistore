@@ -142,6 +142,40 @@ describe("Admin order actions", () => {
       expect(res.json().data.stripeRefundId).toBe("re_test_123");
     });
 
+    it("returns 404 for unknown order", async () => {
+      const token = await signToken(app);
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/v1/admin/orders/${ORDER_ID}/refund`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {},
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("rejects already refunded order", async () => {
+      const token = await signToken(app);
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: ORDER_ID,
+        status: "REFUNDED",
+        totalTtc: new Decimal(478.8),
+        paymentMethod: "CARD",
+        payments: [],
+        items: [],
+      });
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/v1/admin/orders/${ORDER_ID}/refund`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {},
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe("ALREADY_REFUNDED");
+    });
+
     it("returns 403 for CLIENT role", async () => {
       const token = await signToken(app, "CLIENT");
       const res = await app.inject({

@@ -166,7 +166,18 @@ Fichier: `infra/alerting-rules.yml`
 - [ ] Commande visible dans admin
 - [ ] Aucun `EMPTY_CART` en flow order-first
 
-### C. Merchant Feed
+### C. Notifications & Email
+
+- [ ] `FEATURE_AUTO_NOTIFICATIONS=true` sur `service-sav`
+- [ ] Brevo API key configurée (ou SMTP relay)
+- [ ] Email inscription reçu (welcome)
+- [ ] Email confirmation commande reçu
+- [ ] Email password reset reçu (lien fonctionnel)
+- [ ] Email notification SAV reçu (changement status ticket)
+- [ ] Email invitation employé reçu (lien fonctionnel)
+- [ ] Cron triggers CRM actif (toutes les heures)
+
+### D. Merchant Feed
 
 - [ ] `GET /api/v1/merchant/feed` retourne `200`
 - [ ] `GET /api/v1/merchant/local-inventory` retourne `200`

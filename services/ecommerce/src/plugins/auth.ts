@@ -60,6 +60,15 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const payload = await request.jwtVerify<JwtAccessPayload>();
+        if (!ROLES.includes(payload.role)) {
+          return reply.status(401).send({
+            success: false,
+            error: {
+              code: "UNAUTHORIZED",
+              message: "Role invalide dans le token",
+            },
+          });
+        }
         request.user = {
           id: payload.sub,
           userId: payload.sub,
