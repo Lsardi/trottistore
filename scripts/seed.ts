@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { hash } from "@node-rs/argon2";
+import bcrypt from "bcryptjs";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -146,13 +146,10 @@ async function main() {
           "missing password. Example: SEED_ADMIN_PASSWORD='<your-strong-pwd>' pnpm seed",
       );
     }
-    const passwordHash = await hash(seedPassword, {
-      memoryCost: 19456,
-      timeCost: 2,
-      outputLen: 32,
-      parallelism: 1,
-    });
-    console.log("  Password hashed with argon2 (from SEED_ADMIN_PASSWORD)");
+    // Must match services/ecommerce auth verifier (bcrypt.compare).
+    // Anything else (argon2, scrypt) makes seeded users unable to log in.
+    const passwordHash = await bcrypt.hash(seedPassword, 12);
+    console.log("  Password hashed with bcrypt (from SEED_ADMIN_PASSWORD)");
 
     const usersData = [
       {
