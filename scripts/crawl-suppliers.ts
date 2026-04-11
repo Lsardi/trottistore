@@ -80,49 +80,75 @@ interface SupplierConfig {
 
 // ─── Suppliers ─────────────────────────────────────────────────────────────
 //
-// IMPORTANT: les selectors sont à valider sur le HTML réel de chaque site.
-// Tester avec `curl -A "$USER_AGENT" <URL> | grep <selector>` avant d'activer.
+// 2 fournisseurs B2B trottinette FR (recherche 2026-04-11) :
+// - Wattiz : grossiste pièces détachées, ~150 catégories, Prestashop, scraping
+//   public OK (pas d'opt-out robots.txt). seedUrls + selectors validés via
+//   curl + grep sur le HTML rendu.
+// - Volt Corp (volt-corp.com) : protégé Cloudflare bot challenge + opt-out
+//   ai-train dans robots.txt. Le scraping public est techniquement bloqué ET
+//   juridiquement opposable (Article 4 directive 2019/790). Voie correcte :
+//   demander à notre contact partenaire B2B chez Volt soit (a) un export
+//   catalogue CSV/Excel depuis le portail pro, soit (b) une clé API/feed FTP
+//   si dispo. Tant qu'on n'a pas le canal officiel, on garde Volt désactivé
+//   (seedUrls vides) plutôt que de risquer un ban IP + une violation CGV.
 
 const SUPPLIERS: SupplierConfig[] = [
-  {
-    slug: "volt",
-    name: "Volt",
-    baseUrl: "https://www.volt-trottinette.com",
-    seedUrls: [
-      // À compléter avec les vraies URLs de catégorie. Exemples placeholder:
-      // "https://www.volt-trottinette.com/categorie-produit/trottinettes/",
-      // "https://www.volt-trottinette.com/categorie-produit/pieces/",
-    ],
-    productLinkSelector: "a.woocommerce-LoopProduct-link, a.product-loop",
-    selectName: "h1.product_title, h1.entry-title",
-    selectPrice: "p.price .woocommerce-Price-amount, .price .amount",
-    selectRef: ".sku, .product_meta .sku",
-    selectBrand: ".product_meta .posted_in a, .pa_marque",
-    selectDescription: "#tab-description, .woocommerce-product-details__short-description",
-    selectImage: ".woocommerce-product-gallery__image img, .product-gallery img",
-    selectInStock: ".stock.in-stock",
-    selectAttributesContainer: "table.shop_attributes, .product-attributes",
-    maxProducts: 1000,
-  },
   {
     slug: "wattiz",
     name: "Wattiz",
     baseUrl: "https://www.wattiz.fr",
     seedUrls: [
-      // À compléter avec les vraies URLs de catégorie.
-      // "https://www.wattiz.fr/categorie/trottinettes/",
-      // "https://www.wattiz.fr/categorie/pieces/",
+      // Top categories Prestashop (URL pattern /fr/{id}-{slug}).
+      // 10 catégories top-niveau couvrant les ~150 sous-cats.
+      "https://www.wattiz.fr/fr/3-accessoires",
+      "https://www.wattiz.fr/fr/7-trottinette",
+      "https://www.wattiz.fr/fr/12-freinage",
+      "https://www.wattiz.fr/fr/17-gyroroue",
+      "https://www.wattiz.fr/fr/26-scooter",
+      "https://www.wattiz.fr/fr/28-batteries-et-chargeurs",
+      "https://www.wattiz.fr/fr/29-displays",
+      "https://www.wattiz.fr/fr/30-controleur-et-carte-mere",
+      "https://www.wattiz.fr/fr/32-amortisseurs",
+      "https://www.wattiz.fr/fr/52-pieces-detachees-plastiques",
     ],
-    productLinkSelector: "a.product-card, a.product-link, .product a[href*='/produit/']",
-    selectName: "h1.product-name, h1.product__title",
-    selectPrice: ".product-price, .price",
-    selectRef: ".product-sku, .sku",
-    selectBrand: ".product-brand, .pa_marque",
-    selectDescription: ".product-description, .product__description",
-    selectImage: ".product-image img, .product__image img",
-    selectInStock: ".in-stock, .available",
-    selectAttributesContainer: ".product-attributes, .product__details",
-    maxProducts: 1000,
+    // Prestashop liste les produits via .product-miniature (template par défaut).
+    productLinkSelector:
+      ".product-miniature a.product-thumbnail, .product-miniature a.product_img_link, .ajax_block_product a.product_img_link",
+    selectName: "h1.product-name, h1.h1, .product-detail-name",
+    selectPrice:
+      ".current-price span[itemprop='price'], .product-price, [itemprop='price']",
+    selectRef: ".product-reference span, [itemprop='sku']",
+    selectBrand: ".product-manufacturer a, [itemprop='brand']",
+    selectDescription:
+      "#description, .product-description, [itemprop='description']",
+    selectImage: ".product-cover img, .js-qv-product-cover, [itemprop='image']",
+    selectInStock: "#stock_availability .product-available, .in-stock",
+    selectAttributesContainer: "#product-details .data-sheet, .product-features",
+    maxProducts: 800,
+  },
+  {
+    slug: "volt-corp",
+    name: "Volt Corp",
+    baseUrl: "https://www.volt-corp.com",
+    seedUrls: [
+      // Désactivé en attente du canal B2B officiel (export catalogue / API /
+      // FTP). Ne PAS remplir avec des URLs publiques scrapées : le site est
+      // sous Cloudflare bot challenge et opt-out scraping via robots.txt
+      // (User-agent: ClaudeBot Disallow: /, Content-Signal ai-train=no).
+      // Voir docs/codex-tasks/next-batch-2026-04-11.md pour le suivi.
+    ],
+    // Selectors WooCommerce-style en placeholder. À ajuster quand on aura
+    // accès au format réel d'export (CSV / JSON / XML feed).
+    productLinkSelector: "a.product-link",
+    selectName: "h1",
+    selectPrice: ".price",
+    selectRef: ".sku",
+    selectBrand: null,
+    selectDescription: ".product-description",
+    selectImage: ".product-image img",
+    selectInStock: null,
+    selectAttributesContainer: null,
+    maxProducts: 0, // garde-fou: 0 = ne crawl rien tant que seedUrls est vide
   },
 ];
 
