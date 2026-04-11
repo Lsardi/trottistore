@@ -23,6 +23,19 @@ COPY apps/web/ ./apps/web/
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DOCKER_BUILD=true
+# next.config.ts rewrites() is evaluated at build time and the result is
+# baked into .next/standalone/. So API_URL (and the 3 other API_*_URL
+# vars) MUST be present during `next build`, not just at runtime.
+# Without these ARGs, Railway service variables never reach `next build`
+# and rewrites fall back to localhost:3001..3004 — causing 500s in prod.
+ARG API_URL
+ARG API_CRM_URL
+ARG API_SAV_URL
+ARG API_ANALYTICS_URL
+ENV API_URL=$API_URL
+ENV API_CRM_URL=$API_CRM_URL
+ENV API_SAV_URL=$API_SAV_URL
+ENV API_ANALYTICS_URL=$API_ANALYTICS_URL
 RUN pnpm --filter @trottistore/database db:generate
 RUN pnpm --filter @trottistore/web build
 
