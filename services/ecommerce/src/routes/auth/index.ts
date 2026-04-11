@@ -689,13 +689,33 @@ export async function authRoutes(app: FastifyInstance) {
   // ─── POST /auth/forgot-password ────────────────────────────
   // Generates a reset token, sends an email with a reset link.
   // Always returns 200 to prevent email enumeration.
+  //
+  // Timing-attack hardening (CL-06, 2026-04-12): the "email found" branch
+  // performs 3 DB writes + a sendEmail, while the "email not found" branch
+  // returns immediately. That timing delta (~20-200ms) lets an attacker
+  // enumerate registered emails even though the response body is identical.
+  //
+  // Mitigation: always sleep for a randomized duration (100-500ms) on both
+  // branches, so the response latency is dominated by the jitter and not by
+  // the real work. Not perfect (a determined attacker with millions of
+  // samples can still see a distribution shift) but raises the cost of
+  // enumeration to an impractical level and is defense in depth on top of
+  // the 3/15min rate limit.
+  async function constantTimeJitter(minMs = 100, maxMs = 500): Promise<void> {
+    const delay = Math.floor(minMs + Math.random() * (maxMs - minMs));
+    await new Promise<void>((resolve) => setTimeout(resolve, delay));
+  }
+
+  const GENERIC_FORGOT_MESSAGE = "Si cette adresse existe, un email a été envoyé.";
+
   app.post("/auth/forgot-password", {
     config: { rateLimit: { max: 3, timeWindow: "15 minutes" } },
   }, async (request, _reply) => {
     const parsed = forgotPasswordSchema.safeParse(request.body);
     if (!parsed.success) {
       // Still return 200 to prevent enumeration
-      return { success: true, data: { message: "Si cette adresse existe, un email a été envoyé." } };
+      await constantTimeJitter();
+      return { success: true, data: { message: GENERIC_FORGOT_MESSAGE } };
     }
 
     const user = await app.prisma.user.findUnique({
@@ -705,7 +725,8 @@ export async function authRoutes(app: FastifyInstance) {
 
     if (!user || user.status !== "ACTIVE") {
       // Don't reveal whether the account exists
-      return { success: true, data: { message: "Si cette adresse existe, un email a été envoyé." } };
+      await constantTimeJitter();
+      return { success: true, data: { message: GENERIC_FORGOT_MESSAGE } };
     }
 
     // Invalidate any existing unused reset tokens for this user
@@ -725,7 +746,7 @@ export async function authRoutes(app: FastifyInstance) {
       data: { userId: user.id, tokenHash, expiresAt },
     });
 
-    // Send reset email
+    // Send reset email (fire-and-forget, doesn't contribute to response latency)
     const baseUrl = process.env.BASE_URL || "https://trottistore.fr";
     const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`;
     const { subject, html } = passwordResetEmail(user.firstName, resetUrl);
@@ -734,7 +755,8 @@ export async function authRoutes(app: FastifyInstance) {
       app.log.error({ err, userId: user.id }, "Failed to send password reset email");
     });
 
-    return { success: true, data: { message: "Si cette adresse existe, un email a été envoyé." } };
+    await constantTimeJitter();
+    return { success: true, data: { message: GENERIC_FORGOT_MESSAGE } };
   });
 
   // ─── POST /auth/reset-password ─────────────────────────────
