@@ -557,6 +557,12 @@ export const repairsApi = {
         totalRepairs: number;
       };
     }>('sav', '/repairs/diagnostic-stats'),
+
+  scooterModels: () =>
+    apiFetch<{
+      success: boolean;
+      data: Array<{ brand: string; models: string[] }>;
+    }>('sav', '/repairs/scooter-models'),
 };
 
 export const appointmentsApi = {

@@ -13,6 +13,7 @@ import { healthRoutes } from "./routes/health.js";
 import { repairRoutes } from "./routes/tickets/index.js";
 import { technicianRoutes } from "./routes/technicians/index.js";
 import { statsRoutes } from "./routes/stats/index.js";
+import { scooterModelsRoutes } from "./routes/scooter-models/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
@@ -89,8 +90,18 @@ async function start() {
     const isPublicSlots = request.method === "GET" && (path === "/api/v1/appointments/slots" || path === "/appointments/slots");
     const isPublicAppointmentBooking = request.method === "POST" && (path === "/api/v1/appointments" || path === "/appointments");
     const isPublicQuoteAccept = request.method === "PUT" && path.endsWith("/quote/accept-client");
+    const isPublicScooterModels =
+      request.method === "GET" &&
+      (path === "/api/v1/repairs/scooter-models" || path === "/repairs/scooter-models");
 
-    if (isHealth || isPublicTracking || isPublicSlots || isPublicAppointmentBooking || isPublicQuoteAccept) {
+    if (
+      isHealth ||
+      isPublicTracking ||
+      isPublicSlots ||
+      isPublicAppointmentBooking ||
+      isPublicQuoteAccept ||
+      isPublicScooterModels
+    ) {
       return;
     }
 
@@ -173,6 +184,7 @@ async function start() {
   await app.register(repairRoutes, { prefix: "/api/v1" });
   await app.register(technicianRoutes, { prefix: "/api/v1" });
   await app.register(statsRoutes, { prefix: "/api/v1" });
+  await app.register(scooterModelsRoutes, { prefix: "/api/v1" });
 
   // Demarrage
   try {
