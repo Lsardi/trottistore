@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, RotateCcw, Zap, MapPin, Star } from "lucide-react";
+import Image from "next/image";
+import { ChevronRight, RotateCcw, Zap, MapPin, Star, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { productsApi, type Product } from "@/lib/api";
 
 interface Question {
   id: string;
@@ -74,46 +76,113 @@ interface Recommendation {
   price: string;
   highlight: string;
   slug: string;
-  score: number;
+  inStock: boolean;
+  imageUrl?: string;
 }
 
-function getRecommendations(answers: Record<string, string>): Recommendation[] {
-  // Score-based recommendation engine
-  const products: (Recommendation & { tags: string[] })[] = [
-    { name: "Xiaomi Mi 4", brand: "Xiaomi", price: "449 EUR", highlight: "Meilleur rapport qualité/prix", slug: "xiaomi-mi-4", score: 0, tags: ["commute", "leisure", "short", "medium", "entry", "light", "road"] },
-    { name: "Ninebot Max G30", brand: "Ninebot", price: "599 EUR", highlight: "Autonomie record (65 km)", slug: "ninebot-max-g30", score: 0, tags: ["commute", "delivery", "medium", "long", "mid", "medium", "road", "mixed"] },
-    { name: "Xiaomi Pro 2", brand: "Xiaomi", price: "399 EUR", highlight: "Le classique indémodable", slug: "xiaomi-pro-2", score: 0, tags: ["commute", "leisure", "short", "entry", "light", "road"] },
-    { name: "Vsett 9+", brand: "Vsett", price: "999 EUR", highlight: "Double suspension, polyvalent", slug: "vsett-9-plus", score: 0, tags: ["commute", "leisure", "medium", "long", "mid", "medium", "mixed"] },
-    { name: "Dualtron Mini", brand: "Dualtron", price: "1 199 EUR", highlight: "Compact mais puissant", slug: "dualtron-mini", score: 0, tags: ["commute", "performance", "medium", "high", "light", "road", "mixed"] },
-    { name: "Dualtron Thunder 2", brand: "Dualtron", price: "2 899 EUR", highlight: "La référence performance", slug: "dualtron-thunder-2", score: 0, tags: ["performance", "long", "vlong", "premium", "heavy", "mixed", "offroad"] },
-    { name: "Kaabo Mantis King GT", brand: "Kaabo", price: "1 699 EUR", highlight: "Double moteur, tout terrain", slug: "kaabo-mantis-king-gt", score: 0, tags: ["performance", "delivery", "long", "vlong", "high", "premium", "heavy", "mixed", "offroad"] },
-    { name: "Vsett 10+", brand: "Vsett", price: "1 499 EUR", highlight: "Excellent compromis puissance/confort", slug: "vsett-10-plus", score: 0, tags: ["commute", "performance", "delivery", "medium", "long", "high", "medium", "heavy", "mixed", "offroad"] },
-    { name: "Ninebot F2 Pro", brand: "Ninebot", price: "549 EUR", highlight: "Léger et fiable pour la ville", slug: "ninebot-f2-pro", score: 0, tags: ["commute", "leisure", "short", "medium", "mid", "light", "road"] },
-    { name: "Inokim OXO", brand: "Inokim", price: "1 899 EUR", highlight: "Premium, finitions haut de gamme", slug: "inokim-oxo", score: 0, tags: ["commute", "performance", "medium", "long", "high", "premium", "medium", "road", "mixed"] },
-  ];
-
-  // Score each product
-  for (const product of products) {
-    for (const answer of Object.values(answers)) {
-      if (product.tags.includes(answer)) {
-        product.score += 1;
-      }
-    }
+/** Map quiz budget to a [minPriceTtc, maxPriceTtc] range in EUR. */
+function budgetRange(budget?: string): [number, number] {
+  switch (budget) {
+    case "entry":
+      return [0, 500];
+    case "mid":
+      return [500, 1000];
+    case "high":
+      return [1000, 2000];
+    case "premium":
+      return [2000, 100000];
+    default:
+      return [0, 100000];
   }
+}
 
-  return products
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
+/** Heuristic: if user wants performance / offroad, prioritize "Dualtron|Kaabo|Wolf". */
+function brandHints(answers: Record<string, string>): string[] {
+  const hints: string[] = [];
+  const usage = answers.usage;
+  const terrain = answers.terrain;
+  if (usage === "performance" || terrain === "offroad") hints.push("Dualtron", "Kaabo");
+  if (usage === "commute" || terrain === "road") hints.push("Xiaomi", "Ninebot");
+  if (usage === "leisure") hints.push("Ninebot", "Vsett");
+  if (usage === "delivery") hints.push("Vsett", "Kaabo");
+  return Array.from(new Set(hints));
+}
+
+function highlightFor(answers: Record<string, string>, product: Product): string {
+  if (answers.budget === "entry") return "Excellent rapport qualité/prix";
+  if (answers.budget === "premium") return "Performance et finitions haut de gamme";
+  if (answers.terrain === "offroad") return "Conçue pour les terrains variés";
+  if (answers.usage === "commute") return "Idéale pour les trajets quotidiens";
+  if (product.isFeatured) return "Notre coup de cœur";
+  return "Bon compromis pour votre profil";
+}
+
+async function fetchRecommendationsFromApi(
+  answers: Record<string, string>,
+): Promise<Recommendation[]> {
+  const hints = brandHints(answers);
+  const [minPrice, maxPrice] = budgetRange(answers.budget);
+
+  // Pull from the trottinettes category. We over-fetch then filter client-side
+  // for price (the backend filter API doesn't have a price range yet).
+  const res = await productsApi.list({ categorySlug: "trottinettes-electriques", limit: 50 });
+  const all = res.data || [];
+  if (all.length === 0) return [];
+
+  // Filter by price range
+  const inBudget = all.filter((p) => {
+    const ttc = parseFloat(p.priceHt) * (1 + parseFloat(p.tvaRate) / 100);
+    return ttc >= minPrice && ttc <= maxPrice;
+  });
+
+  const candidates = inBudget.length >= 3 ? inBudget : all;
+
+  // Score: brand hint match (+10), in stock (+3), featured (+1), nearer the
+  // budget center (smaller distance = better)
+  const center = (minPrice + maxPrice) / 2;
+  const scored = candidates.map((p) => {
+    const ttc = parseFloat(p.priceHt) * (1 + parseFloat(p.tvaRate) / 100);
+    const inStock = (p.variants?.[0]?.stockQuantity ?? 0) > 0;
+    let score = 0;
+    if (hints.some((h) => p.brand?.name?.toLowerCase().includes(h.toLowerCase()))) score += 10;
+    if (inStock) score += 3;
+    if (p.isFeatured) score += 1;
+    score -= Math.abs(ttc - center) / 1000;
+    return { product: p, score, ttc, inStock };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map(({ product, ttc, inStock }) => ({
+    name: product.name,
+    brand: product.brand?.name ?? "—",
+    price: `${ttc.toFixed(0)} EUR`,
+    highlight: highlightFor(answers, product),
+    slug: product.slug,
+    inStock,
+    imageUrl: product.images?.find((i) => i.isPrimary)?.url ?? product.images?.[0]?.url,
+  }));
 }
 
 export default function QuizPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [showResults, setShowResults] = useState(false);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loadingReco, setLoadingReco] = useState(false);
 
   const question = QUESTIONS[currentStep];
   const progress = ((currentStep) / QUESTIONS.length) * 100;
-  const recommendations = showResults ? getRecommendations(answers) : [];
+
+  // Fetch real recommendations from the products API once the user finishes
+  // the quiz. Soft-fail to an empty list if the API is down.
+  useEffect(() => {
+    if (!showResults) return;
+    setLoadingReco(true);
+    fetchRecommendationsFromApi(answers)
+      .then((recs) => setRecommendations(recs))
+      .catch(() => setRecommendations([]))
+      .finally(() => setLoadingReco(false));
+  }, [showResults, answers]);
 
   function handleAnswer(value: string) {
     const newAnswers = { ...answers, [question.id]: value };
@@ -130,6 +199,7 @@ export default function QuizPage() {
     setCurrentStep(0);
     setAnswers({});
     setShowResults(false);
+    setRecommendations([]);
   }
 
   if (showResults) {
@@ -139,16 +209,34 @@ export default function QuizPage() {
           <p className="spec-label text-neon mb-2">RESULTAT</p>
           <h1 className="heading-lg mb-3">VOS RECOMMANDATIONS</h1>
           <p className="font-mono text-sm text-text-muted">
-            Basées sur vos réponses, voici les 3 trottinettes qui vous correspondent le mieux.
+            Basées sur vos réponses, voici les trottinettes en stock qui vous correspondent le mieux.
           </p>
         </div>
 
+        {loadingReco ? (
+          <div className="bg-surface border border-border p-12 text-center mb-8">
+            <Loader2 className="w-6 h-6 animate-spin text-neon mx-auto" />
+          </div>
+        ) : recommendations.length === 0 ? (
+          <div className="bg-surface border border-border p-12 text-center mb-8">
+            <p className="font-mono text-sm text-text-muted mb-2">
+              Aucune trottinette ne correspond exactement à votre profil pour le moment.
+            </p>
+            <p className="font-mono text-xs text-text-dim mb-6">
+              Parcourez le catalogue ou contactez-nous pour un conseil personnalisé.
+            </p>
+            <Link href="/produits" className="btn-neon">
+              VOIR LE CATALOGUE
+            </Link>
+          </div>
+        ) : (
         <div className="space-y-4 mb-8">
           {recommendations.map((rec, i) => (
-            <div
+            <Link
               key={rec.slug}
+              href={`/produits/${rec.slug}`}
               className={cn(
-                "bg-surface border p-6 flex items-center justify-between gap-4 transition-colors",
+                "block bg-surface border p-5 flex items-center justify-between gap-4 transition-colors hover:border-neon",
                 i === 0 ? "border-neon" : "border-border"
               )}
             >
@@ -161,27 +249,43 @@ export default function QuizPage() {
                 >
                   {i + 1}
                 </div>
+                {rec.imageUrl && (
+                  <div className="relative w-16 h-16 flex-shrink-0 bg-void border border-border">
+                    <Image
+                      src={rec.imageUrl}
+                      alt={rec.name}
+                      fill
+                      sizes="64px"
+                      style={{ objectFit: "contain", padding: "4px" }}
+                    />
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="spec-label mb-0.5">{rec.brand}</p>
                   <p className="font-display font-bold text-text text-lg truncate">{rec.name}</p>
-                  <p className="font-mono text-xs text-text-muted flex items-center gap-1 mt-1">
-                    <Star className="w-3 h-3 text-neon" />
-                    {rec.highlight}
-                  </p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="font-mono text-xs text-text-muted flex items-center gap-1">
+                      <Star className="w-3 h-3 text-neon" />
+                      {rec.highlight}
+                    </p>
+                    {!rec.inStock && (
+                      <span className="font-mono text-[10px] text-warning border border-warning/30 px-1.5 py-0.5">
+                        SUR COMMANDE
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="price-main text-lg">{rec.price}</p>
-                <Link
-                  href={`/produits?search=${encodeURIComponent(rec.name)}`}
-                  className="font-mono text-xs text-neon hover:underline mt-1 inline-block"
-                >
+                <span className="font-mono text-xs text-neon hover:underline mt-1 inline-block">
                   VOIR &rarr;
-                </Link>
+                </span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
+        )}
 
         <div className="flex flex-wrap gap-3 justify-center">
           <button onClick={reset} className="btn-outline">
