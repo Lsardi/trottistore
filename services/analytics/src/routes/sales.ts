@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 
@@ -57,10 +58,19 @@ export async function salesRoutes(app: FastifyInstance) {
     const periodStart = new Date();
     periodStart.setDate(periodStart.getDate() - days);
 
-    // PostgreSQL date_trunc to group by day/week/month
+    // PostgreSQL date_trunc to group by day/week/month.
+    //
+    // `group` is interpolated via Prisma.raw because Postgres cannot
+    // recognize that two parameterized `date_trunc($1, o.created_at)`
+    // expressions in SELECT and GROUP BY are the same and errors with:
+    //   ERROR: column "o.created_at" must appear in the GROUP BY clause
+    //   or be used in an aggregate function (SQLSTATE 42803)
+    // `group` is safe to inline because it is constrained by the Zod enum
+    // ["day", "week", "month"] above — no SQL injection vector.
+    const groupExpr = Prisma.raw(`'${group}'`);
     const rows = await app.prisma.$queryRaw<SalesTimeSeriesRow[]>`
       SELECT
-        date_trunc(${group}, o.created_at) AS date,
+        date_trunc(${groupExpr}, o.created_at) AS date,
         COALESCE(SUM(o.total_ttc), 0) AS revenue,
         COUNT(*)::bigint AS orders,
         CASE
@@ -70,7 +80,7 @@ export async function salesRoutes(app: FastifyInstance) {
       FROM ecommerce.orders o
       WHERE o.status != 'CANCELLED'
         AND o.created_at >= ${periodStart}
-      GROUP BY date_trunc(${group}, o.created_at)
+      GROUP BY date_trunc(${groupExpr}, o.created_at)
       ORDER BY date ASC
     `;
 
