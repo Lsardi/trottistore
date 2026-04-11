@@ -24,6 +24,8 @@ Triage `fix-*` terminé, PRs #106-#110 ouvertes par Claude pour le compte de Cod
 - Ouvrir la PR (Claude la mergera comme les autres)
 - Pas de changement de migration nécessaire
 
+**Statut codex :** doc/triage reformulés en `MERGE`.
+
 **Si la table grossit avant qu'on merge** : la migration tournera quand même. Tant que `order_items < ~100k rows`, l'approche directe reste OK.
 
 ### Décision T1 — re-seed admin
@@ -55,6 +57,8 @@ T1 (5 min) → T2 (15 min) → T3 (1-2h) → T4 (2-3h) → T5 (déblocage DB)
 - `scripts/seed.ts` : passer `update: { passwordHash, emailVerified: true }` dans le `upsert` pour les 3 users seedés.
 - Effet bord à documenter dans le commit : chaque re-run de `pnpm seed` clobbera le password admin si jamais quelqu'un l'a changé via UI. Acceptable pour la phase démo, à reconsidérer post-prod.
 
+**Statut codex :** patch appliqué.
+
 **Validation:**
 - `pnpm test:smoke` reste vert
 - Re-run staging seed et tester le login `admin@trottistore.fr` avec la valeur du secret `SEED_ADMIN_PASSWORD`
@@ -75,6 +79,8 @@ T1 (5 min) → T2 (15 min) → T3 (1-2h) → T4 (2-3h) → T5 (déblocage DB)
 **Action:**
 - 4 fichiers `services/{ecommerce,crm,sav,analytics}/package.json` : remplacer `"start": "node dist/index.js"` par `"start": "tsx --import tsx src/index.ts"` (ou ce qui matche le runtime Docker).
 - Valider que les Dockerfiles ne dépendent pas du script `start` (ils invoquent directement la commande, normalement).
+
+**Statut codex :** patch appliqué avec `node --import tsx src/index.ts` pour matcher les Dockerfiles.
 
 **Validation:**
 - `pnpm --filter @trottistore/service-ecommerce start` doit démarrer en local
@@ -107,7 +113,7 @@ T1 (5 min) → T2 (15 min) → T3 (1-2h) → T4 (2-3h) → T5 (déblocage DB)
 
 ---
 
-## T4 — Décision DB sizing pour `claude/fix-order-item-product-index` (BLOCKED)
+## T4 — Décision DB sizing pour `claude/fix-order-item-product-index` (MERGE)
 
 **Sévérité:** dette perf, pas de bug
 **Effort:** 30 min analyse + 1h runbook
@@ -127,7 +133,7 @@ T1 (5 min) → T2 (15 min) → T3 (1-2h) → T4 (2-3h) → T5 (déblocage DB)
    - Exécuter `CREATE INDEX CONCURRENTLY` à la main via psql Railway, hors heure de pointe
    - Documenter dans `RELEASE_RUNBOOK.md`
 
-**Décision finale:** à valider avec @Lsardi avant action.
+**Décision finale:** validée par @Lsardi le 2026-04-11, lock acceptable, branche mergeable.
 
 **Refs:**
 - `claude/fix-order-item-product-index` (branche source, déjà rebasée)
@@ -141,6 +147,8 @@ T1 (5 min) → T2 (15 min) → T3 (1-2h) → T4 (2-3h) → T5 (déblocage DB)
 **Effort:** 10 min
 
 Ajouter F3 (seed argon2/bcrypt mismatch) au registre `docs/audits/2026-04-11-railway-rehab-lite.md` comme dette honnête découverte par la session démo. Aujourd'hui le doc liste F1 (Stripe webhook stock) et F2 (start scripts dist/) mais pas F3. Cohérence du registre.
+
+**Statut codex :** fait.
 
 ---
 

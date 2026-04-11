@@ -21,7 +21,7 @@
 | Runtime smoke | Live `/api/v1/health` on 4 Fastify + web (Railway public domains, prior session) | OK (200 on all 5) |
 | CI status on prod commit | GitHub Actions on `3363cdb` | green |
 | Dependency audit | `pnpm audit --audit-level=high` (cf. PR #90 commit message) | 0 high / 0 critical, 3 moderate pre-existing |
-| Adversarial pass | grep beyond patched files for the same anti-pattern, dead-code ref check | **2 findings** (see below) |
+| Adversarial pass | grep beyond patched files for the same anti-pattern, dead-code ref check | **3 findings** (see below) |
 
 ## Findings
 
@@ -68,6 +68,20 @@ After PR #93, the build stage emits no `dist/` (it runs `tsc --noEmit`). The Doc
 
 **Recommendation**: update the 4 `start` scripts to `node --import tsx src/index.ts` to match the runtime, OR delete them entirely and document `pnpm dev` as the only entry point. Bundle this with the post-demo NodeNext sweep — it does not warrant a hotfix.
 
+### F3 — `seed.ts` password hash rotation did not repair existing seeded users *(severity: P1)*
+
+**Location**: `scripts/seed.ts` user `upsert` loop (`update: {}`)
+
+The demo session fixed the hashing algorithm mismatch by switching `seed.ts` from argon2 to bcrypt, but the `upsert` still used an empty `update` clause for existing users. In practice, that meant prod seeded users kept their old invalid hash forever, even after rotating `SEED_ADMIN_PASSWORD` and re-running the seed.
+
+**Why this matters**:
+
+1. `admin@trottistore.fr` remained unable to log in after the code fix alone.
+2. The apparent remediation path "`re-run seed with the new secret`" was false until the `upsert` started updating `passwordHash`.
+3. This was easy to miss because the bug only affects existing rows; fresh seeds work.
+
+**Recommendation**: update the 3 seeded users via `upsert.update = { passwordHash, emailVerified: true }` for the demo phase, then revisit post-demo if password clobbering becomes unacceptable.
+
 ## Non-findings (explicitly checked, nothing wrong)
 
 - **Dockerfile drift across the 4 services** — `diff` of the 4 Dockerfile templates: identical bar service name, port, and CRM's longer comment. OK.
@@ -110,5 +124,5 @@ What this Lite run actually did, in order:
 What a Full Passport would have added on top: red-test-before-fix discipline per fix, signed passport file, 3 passes A/B/C, threat model delta. None of those were appropriate for an infra repair where the runtime was already broken in a way Codex and I were diagnosing live.
 
 What was missing from this Lite run that should be in the formal spec:
-- **Pending Codex async review** — every Lite output needs one external pair of eyes within 24h, even if the gate is non-blocking
+- **Pending Codex async review** — completed during the 2026-04-11 follow-up batch; findings F1/F2/F3 were confirmed and tracked
 - **A "what I did NOT check" section** so the reviewer knows where the holes are

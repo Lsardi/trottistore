@@ -77,6 +77,57 @@ Statut courant des deux pistes à mettre à jour ici à la fin.
 
 Si toutes les 6 mergent: la dette security P0-3, P0-4, P1-1, P1-2, P1-5, P1-8 est purgée. Ça débloque le chantier S2 Testcontainers (C5) qui n'a plus de doute dormant à porter.
 
+## Résultats du triage (Codex — 2026-04-11)
+
+### `claude/fix-crm-cron-bypass` — DECISION: MERGE
+- Rebase: clean sur `main`
+- Validation: `pnpm test services/crm/src/routes/triggers/triggers.integration.test.ts` ✅ (16 tests)
+- Risk: low
+- Notes: corrige un vrai bypass actuel sur `main` (`x-internal-cron: "true"` suffisait à contourner le role check sur `POST /triggers/run`). Le cron in-process continue à fonctionner via `app.inject` + secret nonce par process. Le workflow `.github/workflows/cron-triggers-run.yml` reste sur bearer token pour les appels externes manuels, ce qui est compatible avec le fix.
+- Action: ouvrir PR dédiée, prête à review/merge
+
+### `claude/fix-crm-customer-merge` — DECISION: MERGE
+- Rebase: clean sur `main`
+- Validation: `pnpm test services/crm/src/routes/customers/customers-actions.integration.test.ts` ✅ (13 tests)
+- Risk: low
+- Notes: la branche remet tout le merge customer dans une transaction unique et corrige aussi la migration de l'historique de fidélité + suppression du profil fusionné. Le diff est cohérent avec le modèle Prisma actuel.
+- Action: ouvrir PR dédiée, prête à review/merge
+
+### `claude/fix-order-item-product-index` — DECISION: MERGE
+- Rebase: clean sur `main`
+- Validation: `pnpm --filter @trottistore/database exec prisma validate` ✅
+- Risk: low
+- Notes: le schéma et la migration sont sains. Décision DB tranchée le 2026-04-11 après mesure prod: `ecommerce.order_items` = 61 rows / 40 kB. Le lock write du `CREATE INDEX` non-CONCURRENTLY est acceptable à cette volumétrie.
+- Action: ouvrir PR dédiée, prête à review/merge
+
+### `claude/fix-orders-status-idor` — DECISION: MERGE
+- Rebase: clean sur `main`
+- Validation: `pnpm test services/ecommerce/src/routes/orders/orders-admin.integration.test.ts` ✅ (12 tests)
+- Risk: low
+- Notes: `apps/web/src/lib/api.ts` n'appelle que `/admin/orders/:id/status`; aucun caller front trouvé pour la route legacy `/orders/:id/status`. Le retrait ne recouvre pas le fix PR #89.
+- Action: ouvrir PR dédiée, prête à review/merge
+
+### `claude/fix-password-reset-race` — DECISION: MERGE
+- Rebase: clean sur `main`
+- Validation: `pnpm test services/ecommerce/src/routes/auth/password-reset.integration.test.ts` ✅ (11 tests)
+- Risk: low
+- Notes: pattern d'atomic claim correct via `updateMany({ where: { id, usedAt: null } })`, puis mise à jour du password dans la transaction. Pas de conflit sémantique avec PR #89.
+- Action: ouvrir PR dédiée, prête à review/merge
+
+### `claude/fix-sav-quote-accept-idor` — DECISION: MERGE
+- Rebase: clean sur `main`
+- Validation: `pnpm test services/sav/src/routes/tickets/tickets.integration.test.ts` ✅ (9 tests)
+- Risk: low
+- Notes: ajoute le guard `assignedTo` manquant pour `TECHNICIAN` sur `/repairs/:id/quote/accept`, en ligne avec les autres routes SAV. Le `beforeEach(vi.clearAllMocks())` stabilise aussi le fichier de test.
+- Action: ouvrir PR dédiée, prête à review/merge
+
+## Synthèse
+
+- `MERGE`: `claude/fix-crm-cron-bypass`, `claude/fix-crm-customer-merge`, `claude/fix-order-item-product-index`, `claude/fix-orders-status-idor`, `claude/fix-password-reset-race`, `claude/fix-sav-quote-accept-idor`
+- `BLOCKED`: aucun
+- `REWRITE`: aucun
+- `OBSOLETE`: aucun
+
 ---
 
 *Brief rédigé par Claude Opus 4.6 — 2026-04-11*
