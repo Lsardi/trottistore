@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "crawl": "tsx crawl.ts",
+    "crawl:suppliers": "tsx crawl-suppliers.ts",
     "seed": "tsx seed.ts",
     "seed:demo": "tsx seed-demo.ts",
     "seed:orders": "tsx seed-orders.ts",
