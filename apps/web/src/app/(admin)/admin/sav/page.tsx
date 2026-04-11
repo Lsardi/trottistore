@@ -73,6 +73,13 @@ export default function AdminSavPage() {
   const [triggerResult, setTriggerResult] = useState<TriggerRunResult | null>(null);
   const [triggerMessage, setTriggerMessage] = useState("");
 
+  const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+    return fallback;
+  };
+
   async function loadTickets() {
     setLoading(true);
     setError("");
@@ -98,22 +105,31 @@ export default function AdminSavPage() {
       return;
     }
     const ticketId = selectedTicketId;
+    let cancelled = false;
 
     async function loadTicket() {
       setLoadingTicket(true);
       try {
         const res = await repairsApi.getById(ticketId);
+        if (cancelled) return;
         setSelectedTicket(res.data);
         const allowed = STATUS_TRANSITIONS[res.data.status as RepairStatus] ?? [];
         setTargetStatus(allowed[0] ?? "");
-      } catch {
-        setError("Impossible de charger le detail ticket.");
+      } catch (error) {
+        if (cancelled) return;
+        console.error("loadTicket failed:", error);
+        setError(`Erreur chargement ticket: ${getErrorMessage(error, "inconnue")}`);
       } finally {
-        setLoadingTicket(false);
+        if (!cancelled) {
+          setLoadingTicket(false);
+        }
       }
     }
 
     void loadTicket();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedTicketId]);
 
   const stats = useMemo(() => {
@@ -220,6 +236,15 @@ export default function AdminSavPage() {
       {loading ? (
         <div className="h-40 flex items-center justify-center">
           <Loader2 className="w-6 h-6 animate-spin text-neon" />
+        </div>
+      ) : tickets.length === 0 ? (
+        <div className="border border-border bg-surface p-6 text-center">
+          <p className="font-mono text-sm text-text-muted">
+            Aucun ticket en cours.
+          </p>
+          <p className="mt-2 font-mono text-xs text-text-dim">
+            Cree le premier ticket depuis l&apos;admin SAV.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
