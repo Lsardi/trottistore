@@ -51,6 +51,21 @@ async function buildInvoicePdf(
     };
   }
 
+  // B4 — Sequential invoice number (CGI art. 289 compliant)
+  // Create invoice record if first time, reuse if already exists (idempotent)
+  const invoice = await app.prisma.invoice.upsert({
+    where: { orderId },
+    create: {
+      orderId,
+      orderNumber: order.orderNumber,
+      totalTtc: order.totalTtc,
+    },
+    update: {}, // No-op if already exists
+  });
+
+  const year = new Date(invoice.issuedAt).getFullYear();
+  const invoiceRef = `FAC-${year}-${String(invoice.invoiceNumber).padStart(6, "0")}`;
+
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   const chunks: Buffer[] = [];
   doc.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -64,7 +79,7 @@ async function buildInvoicePdf(
 
   doc.fontSize(14).font("Helvetica-Bold").text("FACTURE", 400, 50, { align: "right" });
   doc.fontSize(9).font("Helvetica");
-  doc.text(`N° ${order.orderNumber}`, 400, 70, { align: "right" });
+  doc.text(`N° ${invoiceRef}`, 400, 70, { align: "right" });
   doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString("fr-FR")}`, 400, 82, { align: "right" });
   doc.text(`Paiement: ${order.paymentMethod}`, 400, 94, { align: "right" });
 
@@ -124,7 +139,7 @@ async function buildInvoicePdf(
   reply.header("Content-Type", "application/pdf");
   reply.header(
     "Content-Disposition",
-    `attachment; filename="facture-${order.orderNumber}.pdf"`,
+    `attachment; filename="${invoiceRef}.pdf"`,
   );
   return { ok: true, pdf: pdfBuffer, orderNumber: order.orderNumber };
 }

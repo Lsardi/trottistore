@@ -31,14 +31,25 @@ groups:
           summary: "High p95 latency on {{ $labels.job }}"
           description: "{{ $labels.job }} p95 latency >2s for 5 minutes."
 
-      # Database connection failure
+      # Database connection failure (A10.1 — real gauge from /ready endpoint)
       - alert: DatabaseUnhealthy
-        expr: probe_success{job="readiness"} == 0
+        expr: trottistore_database_healthy == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "Database or Redis unreachable from {{ $labels.instance }}"
+          summary: "PostgreSQL unreachable"
+          description: "PostgreSQL has been unreachable for 1 minute. Check DB status."
+
+      # Redis connection failure
+      - alert: RedisUnhealthy
+        expr: trottistore_redis_healthy == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis unreachable"
+          description: "Redis has been unreachable for 1 minute. Carts and locks affected."
 
   - name: trottistore-checkout
     rules:

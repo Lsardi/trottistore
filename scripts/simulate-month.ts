@@ -6,6 +6,12 @@
 import { PrismaClient } from "@prisma/client";
 import { randomUUID, createHash } from "crypto";
 
+// A5.1 — Safety guard: never run on production
+if (process.env.NODE_ENV === "production") {
+  console.error("FATAL: simulate-month.ts must NEVER run in production.");
+  process.exit(1);
+}
+
 const prisma = new PrismaClient();
 
 function daysAgo(n: number): Date {

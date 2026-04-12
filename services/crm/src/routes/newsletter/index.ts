@@ -41,6 +41,7 @@ export async function newsletterRoutes(app: FastifyInstance) {
   // POST /api/v1/newsletter/subscribe — public
   app.post(
     "/newsletter/subscribe",
+    { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = subscribeSchema.safeParse(request.body);
       if (!parsed.success) {

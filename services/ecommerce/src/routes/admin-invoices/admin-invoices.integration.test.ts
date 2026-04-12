@@ -42,6 +42,16 @@ function buildApp(): FastifyInstance {
     order: {
       findUnique: vi.fn().mockResolvedValue(ORDER_FIXTURE),
     },
+    invoice: {
+      upsert: vi.fn().mockResolvedValue({
+        id: "inv-1",
+        invoiceNumber: 1,
+        orderId: "order-1",
+        orderNumber: 1042,
+        issuedAt: new Date(),
+        totalTtc: 478.8,
+      }),
+    },
   });
 
   app.decorate("redis", { get: vi.fn(), set: vi.fn(), del: vi.fn() });
@@ -75,7 +85,7 @@ describe("Invoice routes", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toBe("application/pdf");
-    expect(res.headers["content-disposition"]).toContain("facture-1042");
+    expect(res.headers["content-disposition"]).toContain("FAC-");
     // PDF starts with %PDF
     expect(res.rawPayload.toString().substring(0, 4)).toBe("%PDF");
   });

@@ -1859,8 +1859,8 @@ export async function orderRoutes(app: FastifyInstance) {
         },
       });
 
-      // Restock items if requested (only on full refund, idempotent via status check above)
-        if (body.restockItems && isFullRefund) {
+      // F3 fix: don't restock if order was CANCELLED (cancel already restocked)
+        if (body.restockItems && isFullRefund && order.status !== "CANCELLED") {
           for (const item of order.items) {
             if (item.variantId) {
               await tx.productVariant.update({

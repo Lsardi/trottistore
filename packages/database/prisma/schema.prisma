@@ -126,6 +126,20 @@ model FinancialLedger {
   @@schema("ecommerce")
 }
 
+model Invoice {
+  id            String   @id @default(uuid()) @db.Uuid
+  invoiceNumber Int      @unique @default(autoincrement()) @map("invoice_number")
+  orderId       String   @unique @map("order_id") @db.Uuid // 1 invoice per order
+  orderNumber   Int      @map("order_number")
+  issuedAt      DateTime @default(now()) @map("issued_at") @db.Timestamptz()
+  totalTtc      Decimal  @map("total_ttc") @db.Decimal(10, 2)
+  createdBy     String?  @map("created_by") @db.Uuid
+
+  @@index([invoiceNumber])
+  @@map("invoices")
+  @@schema("ecommerce")
+}
+
 model Address {
   id         String  @id @default(uuid()) @db.Uuid
   userId     String  @map("user_id") @db.Uuid
