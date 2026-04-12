@@ -24,6 +24,7 @@ export interface BrandConfig {
 
   // ── Contact ──
   email: string;
+  dpoEmail: string; // RGPD Data Protection Officer — must be separate from SAV
   phone: string;
   phoneIntl: string; // tel: format, e.g. "+33604463055"
 
@@ -89,6 +90,7 @@ export const brand: BrandConfig = {
 
   // Contact
   email: process.env.NEXT_PUBLIC_BRAND_EMAIL || "contact@trottistore.fr",
+  dpoEmail: process.env.NEXT_PUBLIC_BRAND_DPO_EMAIL || "dpo@trottistore.fr",
   phone: process.env.NEXT_PUBLIC_BRAND_PHONE || "06 04 46 30 55",
   phoneIntl: process.env.NEXT_PUBLIC_BRAND_PHONE_INTL || "+33604463055",
 

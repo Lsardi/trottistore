@@ -232,21 +232,30 @@ async function start() {
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`Service CRM demarre sur http://${HOST}:${PORT}`);
 
-    // Cron: execute automated triggers every hour
+    // Cron: execute automated triggers every hour (with distributed lock)
     cron.schedule("0 * * * *", async () => {
+      // Distributed lock: only one instance runs the cron at a time
+      const lockKey = "cron:triggers:lock";
+      const locked = await app.redis.set(lockKey, "1", "EX", 300, "NX"); // 5min TTL
+      if (!locked) {
+        app.log.info("[cron] Skipping — another instance holds the lock");
+        return;
+      }
+
       app.log.info("[cron] Executing automated triggers...");
       try {
         const res = await app.inject({
           method: "POST",
           url: "/api/v1/triggers/run",
           headers: {
-            // Per-process secret nonce — see app.cronSecret in start()
             "x-internal-cron": app.cronSecret,
           },
         });
         app.log.info({ statusCode: res.statusCode }, "[cron] Triggers execution completed");
       } catch (err) {
         app.log.error({ err }, "[cron] Triggers execution failed");
+      } finally {
+        await app.redis.del(lockKey).catch(() => {});
       }
     });
 

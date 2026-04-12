@@ -52,7 +52,7 @@ export default function MentionsLegalesPage() {
       <section className="space-y-3">
         <p className="spec-label">Contact DPO</p>
         <p className="font-mono text-sm text-text-muted">
-          Email DPO: {brand.email}
+          Email DPO: {brand.dpoEmail}
           <br />
           Courrier: {brand.address.street}, {brand.address.postalCode} {brand.address.city}
         </p>
