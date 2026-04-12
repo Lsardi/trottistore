@@ -39,6 +39,7 @@ jobs:
           node-version: "22"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @trottistore/database db:generate
       - name: TypeScript strict type check
         run: pnpm -r exec tsc --noEmit || pnpm tsc --noEmit || true
       - name: Lint (zero warning)
