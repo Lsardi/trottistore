@@ -285,9 +285,9 @@ async function start() {
 
       void run();
       const timer = setInterval(() => void run(), intervalMs);
-      app.addHook("onClose", async () => {
-        clearInterval(timer);
-      });
+      // Clean up on process exit (can't addHook after listen)
+      process.on("SIGTERM", () => clearInterval(timer));
+      process.on("SIGINT", () => clearInterval(timer));
     }
   } catch (err) {
     app.log.error(err);
@@ -296,4 +296,3 @@ async function start() {
 }
 
 start();
-// force redeploy 20260412T212508
