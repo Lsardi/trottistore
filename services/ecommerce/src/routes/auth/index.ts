@@ -421,6 +421,27 @@ export async function authRoutes(app: FastifyInstance) {
     return { success: true };
   });
 
+  // ── POST /auth/logout-all — Revoke all refresh tokens (all devices)
+  app.post(
+    "/auth/logout-all",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId } = request.user;
+
+      const { count } = await app.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      clearRefreshCookie(reply);
+
+      return {
+        success: true,
+        data: { revokedCount: count, message: "Tous les appareils ont été déconnectés" },
+      };
+    },
+  );
+
   // ── GET /auth/me ───────────────────────────────────────
   app.get(
     "/auth/me",
