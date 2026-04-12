@@ -905,7 +905,7 @@ export async function orderRoutes(app: FastifyInstance) {
         const guestUser = await tx.user.create({
           data: {
             email,
-            passwordHash: `guest_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            passwordHash: null, // Guest must use password reset to claim account
             firstName: shippingAddress.firstName,
             lastName: shippingAddress.lastName,
             phone: shippingAddress.phone || null,
@@ -1752,9 +1752,19 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
+    // T-15: Can't refund an unpaid order
+    if (order.status === "PENDING") {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "NOT_PAID", message: "Impossible de rembourser une commande non payée" },
+      });
+    }
+
     // Item 3 — Use Decimal for precision (no Number() conversion on monetary values)
     const orderTotalTtc = new Decimal(order.totalTtc);
-    const refundDecimal = body.amount ? new Decimal(body.amount) : orderTotalTtc;
+    const requestedAmount = body.amount ? new Decimal(body.amount) : orderTotalTtc;
+    // T-16: Clamp refund to order total — never refund more than charged
+    const refundDecimal = requestedAmount.gt(orderTotalTtc) ? orderTotalTtc : requestedAmount;
     const isFullRefund = !body.amount || refundDecimal.gte(orderTotalTtc);
     const refundCents = refundDecimal.mul(100).round().toNumber(); // Safe: Decimal → integer cents
     const refundOperationKey = body.idempotencyKey
