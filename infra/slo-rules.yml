@@ -54,3 +54,50 @@ groups:
               rate(trottistore_http_request_duration_seconds_bucket{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook)"}[30m])
             )
           )
+
+  - name: trottistore-perf-recording
+    rules:
+      - record: trottistore:perf_checkout_payment_intent_p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(trottistore_http_request_duration_seconds_bucket{job="ecommerce",route="/api/v1/checkout/payment-intent"}[5m])
+            )
+          )
+
+      - record: trottistore:perf_checkout_payment_intent_p99_5m
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (
+              rate(trottistore_http_request_duration_seconds_bucket{job="ecommerce",route="/api/v1/checkout/payment-intent"}[5m])
+            )
+          )
+
+      - record: trottistore:perf_orders_create_p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(trottistore_http_request_duration_seconds_bucket{job="ecommerce",route="/api/v1/orders",method="POST"}[5m])
+            )
+          )
+
+      - record: trottistore:perf_orders_create_p99_5m
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (
+              rate(trottistore_http_request_duration_seconds_bucket{job="ecommerce",route="/api/v1/orders",method="POST"}[5m])
+            )
+          )
+
+      - record: trottistore:perf_admin_orders_list_p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(trottistore_http_request_duration_seconds_bucket{job="ecommerce",route="/api/v1/admin/orders",method="GET"}[5m])
+            )
+          )

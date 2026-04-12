@@ -26,6 +26,25 @@
 | Add width/height to ProductGallery thumbnails | Minor CLS fix | 5 min |
 | Add Cache-Control headers for static assets | Better CDN caching | 15 min |
 
+## Backend Performance Optimizations (P6)
+
+### Fixes Applied
+
+| Area | Change | Expected Impact |
+|---|---|---|
+| Orders list query (`GET /orders`) | Removed over-fetch (`items` include unused), switched to strict `select` | Less DB I/O + smaller payload |
+| Admin orders list (`GET /admin/orders`) | Switched from broad include to field-level `select` (no large JSON hydration) | Faster list endpoint under load |
+| DB indexing — `orders` | Added composite indexes `(customer_id, created_at DESC)`, `(status, created_at DESC)`, `(payment_status, created_at DESC)` | Better pagination/sorting with filters |
+| DB indexing — `payments` | Added composite indexes `(order_id, status, created_at DESC)`, `(order_id, provider, status)` | Faster payment/refund lookups |
+| Observability | Added per-endpoint p95/p99 recording rules and latency alerts | Faster detection before user-visible degradation |
+
+### Files touched
+
+- `services/ecommerce/src/routes/orders/index.ts`
+- `packages/database/prisma/schema.prisma`
+- `infra/slo-rules.yml`
+- `infra/alerting-rules.yml`
+
 ## Infra Cost Analysis
 
 ### Current Architecture (per month estimate)

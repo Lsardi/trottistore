@@ -404,8 +404,11 @@ model Order {
   statusHistory OrderStatusHistory[]
 
   @@index([customerId])
+  @@index([customerId, createdAt(sort: Desc)])
   @@index([status])
+  @@index([status, createdAt(sort: Desc)])
   @@index([paymentStatus])
+  @@index([paymentStatus, createdAt(sort: Desc)])
   @@index([createdAt])
   @@map("orders")
   @@schema("ecommerce")
@@ -465,6 +468,8 @@ model Payment {
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
+  @@index([orderId, status, createdAt(sort: Desc)])
+  @@index([orderId, provider, status])
   @@index([providerRef])
   @@map("payments")
   @@schema("ecommerce")

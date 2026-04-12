@@ -173,3 +173,32 @@ groups:
         annotations:
           summary: "Checkout latency SLO degradation"
           description: "Checkout p95 latency is above target on both 5m and 30m windows."
+
+  - name: trottistore-performance
+    rules:
+      - alert: CheckoutPaymentIntentP99High
+        expr: trottistore:perf_checkout_payment_intent_p99_5m > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Checkout payment-intent p99 high"
+          description: "p99 on /checkout/payment-intent is above 2s for 10 minutes."
+
+      - alert: OrdersCreateP99High
+        expr: trottistore:perf_orders_create_p99_5m > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Orders create p99 high"
+          description: "p99 on POST /orders is above 5s for 10 minutes."
+
+      - alert: AdminOrdersListP95High
+        expr: trottistore:perf_admin_orders_list_p95_5m > 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Admin orders list p95 high"
+          description: "p95 on GET /admin/orders is above 1s for 15 minutes."

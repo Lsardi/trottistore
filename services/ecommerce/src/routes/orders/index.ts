@@ -1126,7 +1126,18 @@ export async function orderRoutes(app: FastifyInstance) {
     const [orders, total] = await Promise.all([
       app.prisma.order.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          paymentMethod: true,
+          paymentStatus: true,
+          shippingMethod: true,
+          trackingNumber: true,
+          shippedAt: true,
+          deliveredAt: true,
+          totalTtc: true,
+          createdAt: true,
           customer: {
             select: { id: true, email: true, firstName: true, lastName: true, phone: true },
           },
@@ -1385,10 +1396,14 @@ export async function orderRoutes(app: FastifyInstance) {
     const [orders, total] = await Promise.all([
       app.prisma.order.findMany({
         where,
-        include: {
-          items: {
-            select: { id: true },
-          },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          paymentMethod: true,
+          paymentStatus: true,
+          totalTtc: true,
+          createdAt: true,
           _count: { select: { items: true } },
         },
         orderBy: { createdAt: "desc" },
