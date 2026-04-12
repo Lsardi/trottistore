@@ -1,0 +1,56 @@
+groups:
+  - name: trottistore-slo-recording
+    rules:
+      # Checkout API availability SLO: 99.9% over rolling 30 days.
+      - record: trottistore:slo_checkout_availability_30d
+        expr: |
+          sum(increase(trottistore_http_requests_total{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook|orders|orders/guest)",status_code!~"5.."}[30d]))
+          /
+          clamp_min(sum(increase(trottistore_http_requests_total{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook|orders|orders/guest)"}[30d])), 1)
+
+      - record: trottistore:slo_checkout_error_budget_remaining_30d
+        expr: |
+          (trottistore:slo_checkout_availability_30d - 0.999) / (1 - 0.999)
+
+      - record: trottistore:slo_checkout_error_budget_burn_rate_5m
+        expr: |
+          (
+            sum(rate(trottistore_http_requests_total{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook|orders|orders/guest)",status_code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(trottistore_http_requests_total{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook|orders|orders/guest)"}[5m])), 0.001)
+          ) / (1 - 0.999)
+
+      - record: trottistore:slo_checkout_error_budget_burn_rate_1h
+        expr: |
+          (
+            sum(rate(trottistore_http_requests_total{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook|orders|orders/guest)",status_code=~"5.."}[1h]))
+            /
+            clamp_min(sum(rate(trottistore_http_requests_total{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook|orders|orders/guest)"}[1h])), 0.001)
+          ) / (1 - 0.999)
+
+      - record: trottistore:slo_checkout_error_budget_burn_rate_6h
+        expr: |
+          (
+            sum(rate(trottistore_http_requests_total{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook|orders|orders/guest)",status_code=~"5.."}[6h]))
+            /
+            clamp_min(sum(rate(trottistore_http_requests_total{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook|orders|orders/guest)"}[6h])), 0.001)
+          ) / (1 - 0.999)
+
+      # Latency SLO helper (p95 checkout endpoints).
+      - record: trottistore:slo_checkout_latency_p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(trottistore_http_request_duration_seconds_bucket{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook)"}[5m])
+            )
+          )
+
+      - record: trottistore:slo_checkout_latency_p95_30m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(trottistore_http_request_duration_seconds_bucket{job="ecommerce",route=~"/api/v1/(checkout/payment-intent|checkout/webhook)"}[30m])
+            )
+          )

@@ -133,3 +133,43 @@ groups:
         annotations:
           summary: "{{ $value }} payments stuck in PENDING > 24h"
           description: "Payments may need manual confirmation or cancellation."
+
+  - name: trottistore-slo
+    rules:
+      # Fast burn: consuming >=14x allowed error budget on short and medium windows.
+      - alert: SLOCheckoutErrorBudgetFastBurn
+        expr: trottistore:slo_checkout_error_budget_burn_rate_5m > 14 and trottistore:slo_checkout_error_budget_burn_rate_1h > 14
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Checkout SLO fast burn"
+          description: "Checkout is burning error budget at >14x (5m and 1h). Immediate mitigation required."
+
+      # Slow burn: sustained burn that will consume monthly budget early if ignored.
+      - alert: SLOCheckoutErrorBudgetSlowBurn
+        expr: trottistore:slo_checkout_error_budget_burn_rate_1h > 3 and trottistore:slo_checkout_error_budget_burn_rate_6h > 3
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Checkout SLO slow burn"
+          description: "Checkout is burning error budget at >3x (1h and 6h). Plan mitigation in current on-call shift."
+
+      - alert: SLOCheckoutErrorBudgetExhausted
+        expr: trottistore:slo_checkout_error_budget_remaining_30d < 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Checkout error budget exhausted"
+          description: "30d checkout availability dropped below 99.9%. Freeze risky deploys until SLO recovers."
+
+      - alert: SLOCheckoutLatencyDegraded
+        expr: trottistore:slo_checkout_latency_p95_5m > 1.5 and trottistore:slo_checkout_latency_p95_30m > 1.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Checkout latency SLO degradation"
+          description: "Checkout p95 latency is above target on both 5m and 30m windows."

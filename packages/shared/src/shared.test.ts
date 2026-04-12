@@ -14,6 +14,10 @@ import {
   ConflictError,
   paginate,
 } from "./errors.js";
+import {
+  getRequestCorrelation,
+  mergeRequestCorrelation,
+} from "./request-context.js";
 
 // ── RBAC / Auth ───────────────────────────────────────────────────
 
@@ -172,5 +176,38 @@ describe("paginate", () => {
     const result = paginate(["a", "b"], 10, { page: 5, limit: 2 });
     expect(result.pagination.totalPages).toBe(5);
     expect(result.pagination.hasNext).toBe(false);
+  });
+});
+
+// ── Request correlation ───────────────────────────────────────────
+
+describe("request correlation", () => {
+  it("extracts request/order/payment ids from request shape", () => {
+    const correlation = getRequestCorrelation({
+      id: "req_123",
+      headers: {
+        "x-order-id": "order-1",
+        "x-payment-intent-id": "pi_abc",
+      },
+    });
+
+    expect(correlation).toEqual({
+      request_id: "req_123",
+      order_id: "order-1",
+      payment_intent_id: "pi_abc",
+    });
+  });
+
+  it("merges operation-level ids without losing request id", () => {
+    const merged = mergeRequestCorrelation(
+      { request_id: "req_42" },
+      { order_id: "order-9", payment_intent_id: "pi_9" },
+    );
+
+    expect(merged).toEqual({
+      request_id: "req_42",
+      order_id: "order-9",
+      payment_intent_id: "pi_9",
+    });
   });
 });
