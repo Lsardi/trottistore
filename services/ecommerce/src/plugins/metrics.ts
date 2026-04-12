@@ -41,6 +41,24 @@ export const checkoutMetrics = {
     labelNames: ["event_type", "result"], // result: success|error|ignored
   }),
 
+  webhookRetries: new client.Counter({
+    name: "trottistore_stripe_webhook_retries_total",
+    help: "Stripe webhook processing retries",
+    labelNames: ["event_type", "result"], // result: success|failed
+  }),
+
+  webhookDlq: new client.Counter({
+    name: "trottistore_stripe_webhook_dlq_total",
+    help: "Stripe webhook events moved to DLQ",
+    labelNames: ["event_type"],
+  }),
+
+  webhookReplay: new client.Counter({
+    name: "trottistore_stripe_webhook_replay_total",
+    help: "Stripe webhook DLQ replay attempts",
+    labelNames: ["result"], // result: success|failed
+  }),
+
   paymentConfirmed: new client.Counter({
     name: "trottistore_payments_confirmed_total",
     help: "Total payments confirmed (via webhook)",

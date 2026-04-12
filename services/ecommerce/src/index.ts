@@ -207,6 +207,7 @@ async function start() {
       checkout: {
         "GET /api/v1/checkout/config": "Stripe publishable key",
         "POST /api/v1/checkout/payment-intent": "Create Stripe PaymentIntent",
+        "POST /api/v1/checkout/webhook": "Stripe webhook handler (signature verified)",
       },
       categories: {
         "GET /api/v1/categories": "List categories",
@@ -216,6 +217,8 @@ async function start() {
         "GET /api/v1/admin/orders/:id": "Order detail (admin)",
         "PUT /api/v1/admin/orders/:id/status": "Change order status",
         "PUT /api/v1/admin/orders/:id/tracking": "Add tracking number",
+        "GET /api/v1/admin/checkout/webhooks/dlq": "List webhook DLQ entries",
+        "POST /api/v1/admin/checkout/webhooks/dlq/replay": "Replay webhook DLQ entries",
         "GET /api/v1/admin/categories": "List categories with counts",
         "POST /api/v1/admin/categories": "Create category",
         "PUT /api/v1/admin/categories/:id": "Update category",

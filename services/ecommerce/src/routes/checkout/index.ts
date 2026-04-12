@@ -3,11 +3,16 @@ import type { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import Stripe from "stripe";
 import { z } from "zod";
+import { checkoutMetrics } from "../../plugins/metrics.js";
 
 /** Transaction client type — PrismaClient minus connection/transaction methods. */
 type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends">;
 const WEBHOOK_CONFIRMABLE_STATUSES = new Set(["PENDING"]);
 const WEBHOOK_TERMINAL_STATUSES = new Set(["CANCELLED", "REFUNDED", "DELIVERED"]);
+const WEBHOOK_DLQ_INDEX_KEY = "checkout:webhook:dlq:index";
+const WEBHOOK_DLQ_TTL_SECONDS = 60 * 60 * 24 * 7;
+const WEBHOOK_MAX_RETRIES = 3;
+const WEBHOOK_RETRY_BACKOFF_MS = [250, 1000, 3000] as const;
 
 // --- Zod Schemas ---
 
@@ -22,6 +27,15 @@ const createPaymentIntentSchema = z.object({
 type RequestUser = { userId: string; role: string };
 type CartItem = { productId: string; variantId?: string | null; quantity: number };
 type CartPayload = { items?: CartItem[] };
+type StoredWebhookDlqEntry = {
+  eventId: string;
+  eventType: string;
+  attempts: number;
+  failedAt: string;
+  nextRetryAt: string;
+  lastError: string;
+  payload: Stripe.Event;
+};
 
 function getRequestUser(request: { user?: unknown }): RequestUser | undefined {
   const user = request.user as Partial<RequestUser> | undefined;
@@ -44,6 +58,18 @@ function getCartKey(request: FastifyRequest, user?: RequestUser): string {
     throw new Error("MISSING_SESSION_ID");
   }
   return `cart:session:${sessionId}`;
+}
+
+function isBackofficeRole(role?: string): boolean {
+  return role === "SUPERADMIN" || role === "ADMIN" || role === "MANAGER";
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getRetryBackoffMs(attempt: number): number {
+  return WEBHOOK_RETRY_BACKOFF_MS[Math.max(0, Math.min(attempt - 1, WEBHOOK_RETRY_BACKOFF_MS.length - 1))];
 }
 
 // --- Stripe client ---
@@ -287,28 +313,109 @@ export async function checkoutRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid signature" });
     }
 
-    // Handle events — wrap in try/catch so Stripe retries on failure
+    // Handle events with bounded retries; if all retries fail, move to DLQ.
     try {
-      switch (event.type) {
-        case "payment_intent.succeeded": {
-          const pi = event.data.object as Stripe.PaymentIntent;
-          await handlePaymentSuccess(app, pi);
-          break;
-        }
-        case "payment_intent.payment_failed": {
-          const pi = event.data.object as Stripe.PaymentIntent;
-          await handlePaymentFailure(app, pi);
-          break;
-        }
-        default:
-          app.log.info({ type: event.type }, "Unhandled Stripe event");
+      const attempt = await processWebhookEventWithRetry(app, event);
+      checkoutMetrics.webhookEvents.inc({ event_type: event.type, result: "success" });
+      if (attempt > 1) {
+        checkoutMetrics.webhookRetries.inc({ event_type: event.type, result: "success" });
       }
     } catch (err) {
-      app.log.error({ err, eventType: event.type }, "Webhook handler failed");
-      return reply.status(500).send({ error: "Webhook processing failed" });
+      checkoutMetrics.webhookEvents.inc({ event_type: event.type, result: "error" });
+      checkoutMetrics.webhookRetries.inc({ event_type: event.type, result: "failed" });
+      await moveWebhookEventToDlq(app, event, err);
+      checkoutMetrics.webhookDlq.inc({ event_type: event.type });
+      app.log.error({ err, eventType: event.type, eventId: event.id }, "Webhook moved to DLQ after retries");
+      // Ack to Stripe once persisted in DLQ to avoid infinite provider retries.
+      return reply.status(202).send({ queued: true, eventId: event.id });
     }
 
     return reply.status(200).send({ received: true });
+  });
+
+  app.get("/admin/checkout/webhooks/dlq", {
+    preHandler: [app.authenticate],
+  }, async (request, reply) => {
+    const user = request.user;
+    if (!isBackofficeRole(user?.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const entries = await listWebhookDlqEntries(app);
+    return {
+      success: true,
+      data: {
+        count: entries.length,
+        entries: entries.map((entry) => ({
+          eventId: entry.eventId,
+          eventType: entry.eventType,
+          attempts: entry.attempts,
+          failedAt: entry.failedAt,
+          nextRetryAt: entry.nextRetryAt,
+          lastError: entry.lastError,
+        })),
+      },
+    };
+  });
+
+  app.post("/admin/checkout/webhooks/dlq/replay", {
+    preHandler: [app.authenticate],
+  }, async (request, reply) => {
+    const user = request.user;
+    if (!isBackofficeRole(user?.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+
+    const body = z.object({
+      eventId: z.string().min(1).optional(),
+      limit: z.number().int().min(1).max(20).default(10),
+    }).parse(request.body ?? {});
+
+    const entries = await listWebhookDlqEntries(app);
+    const toReplay = body.eventId
+      ? entries.filter((entry) => entry.eventId === body.eventId)
+      : entries.slice(0, body.limit);
+
+    if (toReplay.length === 0) {
+      return {
+        success: true,
+        data: { replayed: 0, failed: 0, results: [] as Array<Record<string, unknown>> },
+      };
+    }
+
+    const results: Array<Record<string, unknown>> = [];
+    for (const entry of toReplay) {
+      try {
+        await processWebhookEventWithRetry(app, entry.payload);
+        await removeWebhookDlqEntry(app, entry.eventId);
+        checkoutMetrics.webhookReplay.inc({ result: "success" });
+        results.push({ eventId: entry.eventId, result: "replayed" });
+      } catch (err) {
+        checkoutMetrics.webhookReplay.inc({ result: "failed" });
+        await moveWebhookEventToDlq(app, entry.payload, err, entry.attempts + WEBHOOK_MAX_RETRIES);
+        results.push({
+          eventId: entry.eventId,
+          result: "failed",
+          error: err instanceof Error ? err.message : "unknown",
+        });
+      }
+    }
+
+    const replayed = results.filter((r) => r.result === "replayed").length;
+    return {
+      success: true,
+      data: {
+        replayed,
+        failed: results.length - replayed,
+        results,
+      },
+    };
   });
 
   // GET /checkout/config — Public Stripe config (publishable key)
@@ -349,6 +456,114 @@ async function createPaymentIntent(
       ...(orderId ? { orderId } : {}),
     },
   });
+}
+
+async function processWebhookEvent(app: FastifyInstance, event: Stripe.Event): Promise<void> {
+  switch (event.type) {
+    case "payment_intent.succeeded": {
+      const pi = event.data.object as Stripe.PaymentIntent;
+      await handlePaymentSuccess(app, pi);
+      return;
+    }
+    case "payment_intent.payment_failed": {
+      const pi = event.data.object as Stripe.PaymentIntent;
+      await handlePaymentFailure(app, pi);
+      return;
+    }
+    default:
+      checkoutMetrics.webhookEvents.inc({ event_type: event.type, result: "ignored" });
+      app.log.info({ type: event.type }, "Unhandled Stripe event");
+  }
+}
+
+async function processWebhookEventWithRetry(
+  app: FastifyInstance,
+  event: Stripe.Event,
+): Promise<number> {
+  for (let attempt = 1; attempt <= WEBHOOK_MAX_RETRIES; attempt += 1) {
+    try {
+      await processWebhookEvent(app, event);
+      return attempt;
+    } catch (err) {
+      if (attempt >= WEBHOOK_MAX_RETRIES) throw err;
+      await delay(getRetryBackoffMs(attempt));
+    }
+  }
+  return WEBHOOK_MAX_RETRIES;
+}
+
+async function getWebhookDlqIndex(app: FastifyInstance): Promise<string[]> {
+  const raw = await app.redis.get(WEBHOOK_DLQ_INDEX_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+async function setWebhookDlqIndex(app: FastifyInstance, ids: string[]): Promise<void> {
+  await app.redis.set(WEBHOOK_DLQ_INDEX_KEY, JSON.stringify(ids), "EX", WEBHOOK_DLQ_TTL_SECONDS);
+}
+
+async function listWebhookDlqEntries(app: FastifyInstance): Promise<StoredWebhookDlqEntry[]> {
+  const ids = await getWebhookDlqIndex(app);
+  const entries = await Promise.all(ids.map(async (eventId) => {
+    const raw = await app.redis.get(`${WEBHOOK_DLQ_INDEX_KEY}:${eventId}`);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as StoredWebhookDlqEntry;
+    } catch {
+      return null;
+    }
+  }));
+  return entries.filter((entry): entry is StoredWebhookDlqEntry => entry !== null);
+}
+
+async function moveWebhookEventToDlq(
+  app: FastifyInstance,
+  event: Stripe.Event,
+  error: unknown,
+  attempts?: number,
+): Promise<void> {
+  const eventId = event.id || `evt_${Date.now()}`;
+  const key = `${WEBHOOK_DLQ_INDEX_KEY}:${eventId}`;
+  const currentRaw = await app.redis.get(key);
+  let currentAttempts = 0;
+  if (currentRaw) {
+    try {
+      const parsed = JSON.parse(currentRaw) as StoredWebhookDlqEntry;
+      currentAttempts = parsed.attempts;
+    } catch {
+      currentAttempts = 0;
+    }
+  }
+
+  const nextAttempts = attempts ?? (currentAttempts + WEBHOOK_MAX_RETRIES);
+  const backoffMs = getRetryBackoffMs(Math.max(1, nextAttempts));
+  const entry: StoredWebhookDlqEntry = {
+    eventId,
+    eventType: event.type,
+    attempts: nextAttempts,
+    failedAt: new Date().toISOString(),
+    nextRetryAt: new Date(Date.now() + backoffMs).toISOString(),
+    lastError: error instanceof Error ? error.message : "unknown",
+    payload: event,
+  };
+  await app.redis.set(key, JSON.stringify(entry), "EX", WEBHOOK_DLQ_TTL_SECONDS);
+
+  const ids = await getWebhookDlqIndex(app);
+  if (!ids.includes(eventId)) {
+    ids.push(eventId);
+    await setWebhookDlqIndex(app, ids);
+  }
+}
+
+async function removeWebhookDlqEntry(app: FastifyInstance, eventId: string): Promise<void> {
+  await app.redis.del(`${WEBHOOK_DLQ_INDEX_KEY}:${eventId}`);
+  const ids = await getWebhookDlqIndex(app);
+  await setWebhookDlqIndex(app, ids.filter((id) => id !== eventId));
 }
 
 async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentIntent): Promise<void> {
