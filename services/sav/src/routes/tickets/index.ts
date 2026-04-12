@@ -908,7 +908,9 @@ export async function repairRoutes(app: FastifyInstance) {
   });
 
   // PUT /repairs/:id/quote/accept-client — Accept quote as client or guest via tracking token
-  app.put("/repairs/:id/quote/accept-client", async (request, reply) => {
+  app.put("/repairs/:id/quote/accept-client", {
+    config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
+  }, async (request, reply) => {
     const user = getRequestUser(request);
     const id = parseIdParam(request.params);
     const body = customerQuoteAcceptSchema.parse(request.body ?? {});

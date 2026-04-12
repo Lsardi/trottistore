@@ -1495,7 +1495,7 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     // Must belong to the requesting user or user is admin
-    if (order.customerId !== userId && user.role !== "ADMIN") {
+    if (order.customerId !== userId && !["SUPERADMIN", "ADMIN"].includes(user.role)) {
       return reply.status(403).send({
         success: false,
         error: { code: "FORBIDDEN", message: "Access denied" },

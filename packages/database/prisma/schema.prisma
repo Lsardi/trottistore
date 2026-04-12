@@ -626,6 +626,7 @@ model LoyaltyPoint {
 
   profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
+  @@unique([profileId, referenceId, type]) // Prevent double-attribution (webhook retry, race condition)
   @@index([profileId])
   @@index([createdAt])
   @@map("loyalty_points")
