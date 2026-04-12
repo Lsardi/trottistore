@@ -125,6 +125,45 @@ describe("E-commerce smoke suite", () => {
     expect(res.json().success).toBe(false);
   });
 
+  it("smoke/auth: rejects token with unknown role", async () => {
+    const token = app.jwt.sign({
+      sub: "00000000-0000-0000-0000-000000000444",
+      email: "badrole@trottistore.test",
+      role: "TECHNICIEN",
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 900,
+    } as unknown as Record<string, unknown>);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/me",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("smoke/auth: POST /api/v1/auth/logout-all revokes refresh tokens for current user", async () => {
+    const token = app.jwt.sign({
+      sub: "00000000-0000-0000-0000-000000000555",
+      email: "logoutall@trottistore.test",
+      role: "CLIENT",
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 900,
+    } as Record<string, unknown>);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/logout-all",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().success).toBe(true);
+    expect(app.prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "00000000-0000-0000-0000-000000000555", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
   it("smoke/catalogue: GET /api/v1/products returns 200", async () => {
     const res = await app.inject({ method: "GET", url: "/api/v1/products" });
     expect(res.statusCode).toBe(200);

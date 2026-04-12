@@ -106,4 +106,14 @@ describe("SAV auth guard smoke", () => {
     });
     expect(res.statusCode).toBe(401);
   });
+
+  it("returns 401 for unknown role token", async () => {
+    const token = makeToken(app, "TECHNICIEN");
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/internal",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });

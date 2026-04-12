@@ -32,6 +32,7 @@ import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/
 // Fail-fast if required env vars are missing
 validateEnv("ecommerce", [
   ...COMMON_ENV,
+  { name: "COOKIE_SECRET", required: true, secret: true },
   { name: "PORT_ECOMMERCE", required: false },
   { name: "STRIPE_SECRET_KEY", required: false },
   { name: "STRIPE_WEBHOOK_SECRET", required: false },
@@ -181,6 +182,7 @@ async function start() {
         "POST /api/v1/auth/login": "Login (email, password) → accessToken",
         "POST /api/v1/auth/refresh": "Refresh token (cookie)",
         "POST /api/v1/auth/logout": "Logout",
+        "POST /api/v1/auth/logout-all": "Logout all devices (revoke all refresh tokens)",
         "GET /api/v1/auth/me": "Current user profile (Bearer token)",
         "GET /api/v1/auth/export": "Export personal data (RGPD)",
         "DELETE /api/v1/auth/account": "Delete account (RGPD)",
