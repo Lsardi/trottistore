@@ -71,7 +71,7 @@ function buildApp(): FastifyInstance {
       findMany: vi.fn().mockResolvedValue([]),
     },
     product: {
-      findMany: vi.fn().mockResolvedValue([{ id: "p1", priceHt: 49.95 }]),
+      findMany: vi.fn().mockResolvedValue([{ id: "p1", priceHt: 49.95, tvaRate: 20 }]),
     },
     productVariant: {
       findMany: vi.fn().mockResolvedValue([{ id: "v1", productId: "p1", priceOverride: null }]),
@@ -364,7 +364,7 @@ describe("Checkout routes", () => {
         ],
       };
       (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(JSON.stringify(cart));
-      (app.prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ id: "p1", priceHt: 50 }]);
+      (app.prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ id: "p1", priceHt: 50, tvaRate: 20 }]);
 
       const res = await injectPost(
         app,

@@ -676,12 +676,22 @@ export async function authRoutes(app: FastifyInstance) {
         // Delete addresses
         await tx.address.deleteMany({ where: { userId } });
 
-        // Delete customer profile + interactions
+        // Delete customer profile + interactions (T-05 + R3-08 fix)
+        await tx.customerInteraction.deleteMany({ where: { customerId: userId } });
         const profile = await tx.customerProfile.findUnique({ where: { userId } });
         if (profile) {
-          await tx.customerInteraction.deleteMany({ where: { customerId: profile.id } });
+          await tx.loyaltyPoint.deleteMany({ where: { profileId: profile.id } });
           await tx.customerProfile.delete({ where: { userId } });
         }
+
+        // T-05: Delete newsletter subscriptions (RGPD art. 17)
+        const userEmail = (await tx.user.findUnique({ where: { id: userId }, select: { email: true } }))?.email;
+        if (userEmail) {
+          await tx.newsletterSubscriber.deleteMany({ where: { email: userEmail } }).catch(() => {});
+        }
+
+        // Delete reviews
+        await tx.review.deleteMany({ where: { userId } });
 
         // Anonymize user (keep for order history FK)
         await tx.user.update({

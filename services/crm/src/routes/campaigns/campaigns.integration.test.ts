@@ -65,6 +65,12 @@ function buildApp(): FastifyInstance {
       create: vi.fn().mockResolvedValue(null),
       groupBy: vi.fn().mockResolvedValue([]),
     },
+    newsletterSubscriber: {
+      findMany: vi.fn().mockResolvedValue([
+        { email: "alice@test.com" },
+        { email: "bob@test.com" },
+      ]),
+    },
   });
 
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {

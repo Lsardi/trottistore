@@ -472,13 +472,16 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    // 4. Calculate totals
+    // 4. Calculate totals — TVA per item (T-01: respect product-level tvaRate)
     const subtotalHt = orderItemsData.reduce(
       (sum, item) => sum.add(item.totalHt),
       new Decimal(0)
     );
 
-    const tvaAmount = subtotalHt.mul(TVA_RATE).div(100);
+    const tvaAmount = orderItemsData.reduce(
+      (sum, item) => sum.add(item.totalHt.mul(item.tvaRate).div(100)),
+      new Decimal(0),
+    );
     const shippingCost = subtotalHt.gte(FREE_SHIPPING_THRESHOLD)
       ? new Decimal(0)
       : DEFAULT_SHIPPING_COST;
@@ -837,9 +840,12 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    // Calculate totals
+    // Calculate totals — TVA per item (T-01)
     const subtotalHt = orderItemsData.reduce((sum, item) => sum.add(item.totalHt), new Decimal(0));
-    const tvaAmount = subtotalHt.mul(TVA_RATE).div(100);
+    const tvaAmount = orderItemsData.reduce(
+      (sum, item) => sum.add(item.totalHt.mul(item.tvaRate).div(100)),
+      new Decimal(0),
+    );
     const shippingCost = subtotalHt.gte(FREE_SHIPPING_THRESHOLD) ? new Decimal(0) : DEFAULT_SHIPPING_COST;
     const totalTtc = subtotalHt.add(tvaAmount).add(shippingCost);
 
@@ -2052,7 +2058,11 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     const subtotalHt = orderItems.reduce((sum, i) => sum.add(i.totalHt), new Decimal(0));
-    const tvaAmount = subtotalHt.mul(TVA_RATE).div(100);
+    // T-01: TVA per item
+    const tvaAmount = orderItems.reduce(
+      (sum, i) => sum.add(i.totalHt.mul(i.tvaRate).div(100)),
+      new Decimal(0),
+    );
     const shippingCost = body.shippingMethod === "STORE_PICKUP" ? new Decimal(0)
       : subtotalHt.gte(FREE_SHIPPING_THRESHOLD) ? new Decimal(0) : DEFAULT_SHIPPING_COST;
     const totalTtc = subtotalHt.add(tvaAmount).add(shippingCost);
