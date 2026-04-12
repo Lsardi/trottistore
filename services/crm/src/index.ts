@@ -36,7 +36,7 @@ validateEnv("crm", [
   { name: "BREVO_API_KEY", required: false },
 ]);
 
-const PORT = parseInt(process.env.PORT_CRM || "3002", 10);
+const PORT = parseInt(process.env.PORT || process.env.PORT_CRM || "3002", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 
 function resolveTrustProxy(): boolean | string[] {
