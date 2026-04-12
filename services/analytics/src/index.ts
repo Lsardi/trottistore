@@ -29,7 +29,7 @@ validateEnv("analytics", [
   { name: "CLICKHOUSE_URL", required: false },
 ]);
 
-const PORT = parseInt(process.env.PORT_ANALYTICS || "3003", 10);
+const PORT = parseInt(process.env.PORT || process.env.PORT_ANALYTICS || "3003", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 
 function resolveTrustProxy(): boolean | string[] {
