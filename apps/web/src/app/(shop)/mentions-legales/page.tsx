@@ -7,17 +7,32 @@ export const metadata: Metadata = {
 };
 
 /**
- * Mentions légales — LCEN art. 6-III.
- *
- * All legal values are read from NEXT_PUBLIC_LEGAL_* env vars.
- * The site owner sets them in the deployment dashboard (Railway, Vercel, etc.)
- * without touching the code. If a value is empty, "Non renseigné" is shown.
+ * Fetch site settings from DB (admin-editable).
+ * Falls back to brand.legal (env vars) if API unavailable.
  */
-function legal(value: string, fallback = "Non renseigné"): string {
-  return value || fallback;
+async function getLegalSettings() {
+  try {
+    const baseUrl = process.env.API_URL || "http://localhost:3001";
+    const res = await fetch(`${baseUrl}/api/v1/admin/settings`, {
+      next: { revalidate: 60 }, // Cache 1 min
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.data?.legal ?? {};
+    }
+  } catch {
+    // API unavailable — fall back to env vars
+  }
+  return {};
 }
 
-export default function MentionsLegalesPage() {
+function val(dbValue: string | undefined, envValue: string, fallback = "Non renseigné"): string {
+  return dbValue || envValue || fallback;
+}
+
+export default async function MentionsLegalesPage() {
+  const dbLegal = await getLegalSettings();
+
   return (
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       <h1 className="heading-lg">MENTIONS LÉGALES</h1>
@@ -27,15 +42,15 @@ export default function MentionsLegalesPage() {
         <p className="font-mono text-sm text-text-muted">
           Raison sociale : {brand.name}
           <br />
-          Forme juridique : {legal(brand.legal.legalForm)}
+          Forme juridique : {val(dbLegal.legalForm, brand.legal.legalForm)}
           <br />
-          SIRET : {legal(brand.legal.siret)}
+          SIRET : {val(dbLegal.siret, brand.legal.siret)}
           <br />
-          RCS : {legal(brand.legal.rcs)}
+          RCS : {val(dbLegal.rcs, brand.legal.rcs)}
           <br />
-          Capital social : {legal(brand.legal.capital)}
+          Capital social : {val(dbLegal.capital, brand.legal.capital)}
           <br />
-          TVA intracommunautaire : {legal(brand.legal.tvaIntracom)}
+          TVA intracommunautaire : {val(dbLegal.tvaIntracom, brand.legal.tvaIntracom)}
           <br />
           Adresse : {brand.address.street}, {brand.address.postalCode} {brand.address.city}
           <br />
@@ -48,7 +63,7 @@ export default function MentionsLegalesPage() {
       <section className="space-y-3">
         <p className="spec-label">Direction de la publication</p>
         <p className="font-mono text-sm text-text-muted">
-          Directeur de publication : {legal(brand.legal.director)}
+          Directeur de publication : {val(dbLegal.director, brand.legal.director)}
         </p>
       </section>
 

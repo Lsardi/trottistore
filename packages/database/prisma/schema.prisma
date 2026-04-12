@@ -140,6 +140,16 @@ model Invoice {
   @@schema("ecommerce")
 }
 
+model SiteSettings {
+  id        String   @id @default("default") @db.VarChar(20) // Singleton — always "default"
+  settings  Json     @default("{}") // { legal: { siret, rcs, ... }, contact: { ... }, ... }
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("site_settings")
+  @@schema("shared")
+}
+
 model Address {
   id         String  @id @default(uuid()) @db.Uuid
   userId     String  @map("user_id") @db.Uuid
