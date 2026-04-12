@@ -50,6 +50,7 @@ function buildApp(): FastifyInstance {
     },
     orderStatusHistory: {
       create: vi.fn().mockResolvedValue({ id: "note-1" }),
+      findFirst: vi.fn().mockResolvedValue(null),
     },
     orderItem: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -187,6 +188,23 @@ describe("Admin order actions", () => {
       });
       expect(res.statusCode).toBe(403);
     });
+
+    it("returns idempotent replay when refund operation key already exists in history", async () => {
+      const token = await signToken(app);
+      (app.prisma.orderStatusHistory.findFirst as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: "evt_refund_1",
+      });
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/v1/admin/orders/${ORDER_ID}/refund`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { idempotencyKey: "refund-op-1234" },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().meta?.idempotentReplay).toBe(true);
+    });
   });
 
   // Notes
@@ -273,6 +291,45 @@ describe("Admin order actions", () => {
         payload: { status: "CONFIRMED" },
       });
       expect(res.statusCode).toBe(401);
+    });
+
+    it("returns 400 on invalid status transition", async () => {
+      const token = await signToken(app);
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: ORDER_ID,
+        status: "PENDING",
+      });
+
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/admin/orders/${ORDER_ID}/status`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { status: "SHIPPED" },
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe("INVALID_TRANSITION");
+    });
+
+    it("returns idempotent replay for cancellation with same idempotency key", async () => {
+      const token = await signToken(app);
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: ORDER_ID,
+        status: "CANCELLED",
+      });
+      (app.prisma.orderStatusHistory.findFirst as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: "evt_cancel_1",
+      });
+
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/admin/orders/${ORDER_ID}/status`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { status: "CANCELLED", idempotencyKey: "cancel-op-1234" },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().meta?.idempotentReplay).toBe(true);
     });
   });
 

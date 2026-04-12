@@ -26,6 +26,7 @@ const mockPaymentIntent = {
   currency: "eur",
   payment_method_types: ["card"],
 };
+const mockConstructEvent = vi.fn();
 
 vi.mock("stripe", () => {
   return {
@@ -36,7 +37,7 @@ vi.mock("stripe", () => {
         update: vi.fn().mockResolvedValue(mockPaymentIntent),
       };
       webhooks = {
-        constructEvent: vi.fn(),
+        constructEvent: mockConstructEvent,
       };
     },
   };
@@ -58,6 +59,7 @@ function buildApp(): FastifyInstance {
   app.decorate("prisma", {
     order: {
       findUnique: vi.fn().mockResolvedValue(null),
+      update: vi.fn().mockResolvedValue(null),
     },
     payment: {
       findFirst: vi.fn().mockResolvedValue(null),
@@ -397,6 +399,38 @@ describe("Checkout routes", () => {
         payload: JSON.stringify({ type: "payment_intent.succeeded" }),
       });
       expect(res.statusCode).toBe(400);
+    });
+
+    it("does not regress terminal order status on payment_intent.succeeded", async () => {
+      process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ status: "CANCELLED", paymentStatus: "PENDING" })
+        .mockResolvedValueOnce(null);
+      mockConstructEvent.mockReturnValueOnce({
+        type: "payment_intent.succeeded",
+        data: {
+          object: {
+            id: "pi_terminal_1",
+            amount: 1200,
+            payment_method_types: ["card"],
+            metadata: { orderId: "00000000-0000-0000-0000-000000000010" },
+          },
+        },
+      });
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/checkout/webhook",
+        headers: {
+          "stripe-signature": "t=123,v1=abc",
+          "content-type": "application/json",
+        },
+        payload: JSON.stringify({ id: "evt_1" }),
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(app.prisma.order.update).not.toHaveBeenCalled();
+      delete process.env.STRIPE_WEBHOOK_SECRET;
     });
   });
 });
