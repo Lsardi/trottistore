@@ -1,5 +1,5 @@
 groups:
-  - name: trottistore-alerts
+  - name: trottistore-infra
     rules:
       # Service down — no /health response for 2 minutes
       - alert: ServiceDown
@@ -39,3 +39,55 @@ groups:
           severity: critical
         annotations:
           summary: "Database or Redis unreachable from {{ $labels.instance }}"
+
+  - name: trottistore-checkout
+    rules:
+      # Payment failures spike — more than 3 in 5 minutes
+      - alert: PaymentFailureSpike
+        expr: increase(trottistore_payments_failed_total[5m]) > 3
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Payment failures spiking"
+          description: "{{ $value }} payment failures in last 5 minutes. Check Stripe dashboard + webhook logs."
+
+      # Webhook errors — any webhook processing error
+      - alert: WebhookProcessingError
+        expr: increase(trottistore_stripe_webhook_events_total{result="error"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stripe webhook processing errors"
+          description: "{{ $value }} webhook errors in last 5 minutes. Check ecommerce logs."
+
+      # No orders in 1 hour (during business hours, adjust as needed)
+      - alert: NoOrdersCreated
+        expr: increase(trottistore_orders_created_total[1h]) == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "No orders created in 1 hour"
+          description: "Zero orders in the last hour. Checkout may be broken."
+
+      # Checkout errors spike — more than 10 in 5 minutes
+      - alert: CheckoutErrorSpike
+        expr: increase(trottistore_checkout_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Checkout errors spiking ({{ $labels.error_code }})"
+          description: "{{ $value }} checkout errors of type {{ $labels.error_code }} in 5 minutes."
+
+      # Refund failures
+      - alert: RefundFailure
+        expr: increase(trottistore_refunds_total{result="stripe_error"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Stripe refund failed"
+          description: "A refund failed via Stripe. Manual intervention may be needed."

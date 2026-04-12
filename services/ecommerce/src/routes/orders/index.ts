@@ -99,6 +99,7 @@ const updateStatusSchema = z.object({
     "CANCELLED",
     "REFUNDED",
   ]),
+  idempotencyKey: z.string().min(8).max(128).optional(),
   note: z.string().max(500).optional(),
 });
 
@@ -241,6 +242,7 @@ function getSessionIdFromCartKey(cartKey: string): string | null {
 const ORDER_IDEMPOTENCY_LOCK_SECONDS = 5 * 60;
 const ORDER_IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60;
 const ORDER_IDEMPOTENCY_PROCESSING = "__processing__";
+const ORDER_OPERATION_TAG_PREFIX = "[op:";
 
 function getOrderIdempotencyKey(checkoutToken: string): string {
   return `order:idempotency:${checkoutToken}`;
@@ -248,6 +250,15 @@ function getOrderIdempotencyKey(checkoutToken: string): string {
 
 function makeCheckoutToken(): string {
   return randomUUID().replace(/-/g, "");
+}
+
+function makeOperationTag(operation: string, idempotencyKey: string): string {
+  return `${ORDER_OPERATION_TAG_PREFIX}${operation}:${idempotencyKey}]`;
+}
+
+function appendOperationTag(note: string | null | undefined, tag: string): string {
+  if (!note || note.trim().length === 0) return tag;
+  return `${note.trim()} ${tag}`;
 }
 
 async function ensureCheckoutToken(
@@ -1522,7 +1533,7 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    const { status: newStatus, note } = parsed.data;
+    const { status: newStatus, note, idempotencyKey } = parsed.data;
 
     const order = await app.prisma.order.findUnique({
       where: { id },
@@ -1534,6 +1545,25 @@ export async function orderRoutes(app: FastifyInstance) {
         success: false,
         error: { code: "NOT_FOUND", message: "Order not found" },
       });
+    }
+
+    if (newStatus === "CANCELLED" && idempotencyKey) {
+      const cancelOpTag = makeOperationTag("cancel", idempotencyKey);
+      const existingCancelEvent = await app.prisma.orderStatusHistory.findFirst({
+        where: {
+          orderId: id,
+          toStatus: "CANCELLED",
+          note: { contains: cancelOpTag },
+        },
+        orderBy: { changedAt: "desc" },
+      });
+      if (existingCancelEvent) {
+        return reply.status(200).send({
+          success: true,
+          data: order,
+          meta: { idempotentReplay: true, operation: "cancel" },
+        });
+      }
     }
 
     const allowedNext = VALID_STATUS_TRANSITIONS[order.status];
@@ -1562,7 +1592,9 @@ export async function orderRoutes(app: FastifyInstance) {
           orderId: id,
           fromStatus: order.status,
           toStatus: newStatus,
-          note: note ?? null,
+          note: newStatus === "CANCELLED" && idempotencyKey
+            ? appendOperationTag(note ?? null, makeOperationTag("cancel", idempotencyKey))
+            : (note ?? null),
           changedBy: userId,
         },
       });
@@ -1648,6 +1680,7 @@ export async function orderRoutes(app: FastifyInstance) {
       amount: z.number().positive().optional(), // Partial refund amount. If omitted = full refund.
       reason: z.string().max(500).optional(),
       restockItems: z.boolean().default(true),
+      idempotencyKey: z.string().min(8).max(128).optional(),
     }).parse(request.body);
 
     const order = await app.prisma.order.findUnique({
@@ -1677,6 +1710,30 @@ export async function orderRoutes(app: FastifyInstance) {
     const refundDecimal = body.amount ? new Decimal(body.amount) : orderTotalTtc;
     const isFullRefund = !body.amount || refundDecimal.gte(orderTotalTtc);
     const refundCents = refundDecimal.mul(100).round().toNumber(); // Safe: Decimal → integer cents
+    const refundOperationKey = body.idempotencyKey
+      ?? (isFullRefund ? "full" : `partial:${refundDecimal.toFixed(2)}`);
+    const refundOperationTag = makeOperationTag("refund", refundOperationKey);
+
+    const existingRefundEvent = await app.prisma.orderStatusHistory.findFirst({
+      where: {
+        orderId: id,
+        note: { contains: refundOperationTag },
+      },
+      orderBy: { changedAt: "desc" },
+    });
+    if (existingRefundEvent) {
+      return reply.status(200).send({
+        success: true,
+        data: {
+          orderId: id,
+          refundAmount: refundDecimal.toNumber(),
+          isFullRefund,
+          stripeRefundId: null,
+          restocked: body.restockItems && isFullRefund,
+        },
+        meta: { idempotentReplay: true, operation: "refund" },
+      });
+    }
 
     // Item 4 — Refund idempotence: check for existing refund payment on this order
     const existingRefund = await app.prisma.payment.findFirst({
@@ -1701,6 +1758,8 @@ export async function orderRoutes(app: FastifyInstance) {
           payment_intent: stripePayment.providerRef,
           amount: refundCents,
           reason: "requested_by_customer",
+        }, {
+          idempotencyKey: `refund:${id}:${refundOperationKey}`,
         });
         stripeRefundId = refund.id;
       } catch (err) {
@@ -1715,9 +1774,10 @@ export async function orderRoutes(app: FastifyInstance) {
     // Update order in transaction
     const userId = user.id ?? user.userId;
     const refundAmountNum = refundDecimal.toNumber();
-    await app.prisma.$transaction(async (tx) => {
+    try {
+      await app.prisma.$transaction(async (tx) => {
       // Update order status
-      await tx.order.update({
+        await tx.order.update({
         where: { id },
         data: {
           status: isFullRefund ? "REFUNDED" : order.status,
@@ -1726,11 +1786,11 @@ export async function orderRoutes(app: FastifyInstance) {
       });
 
       // Create payment record for refund
-      await tx.payment.create({
+        await tx.payment.create({
         data: {
           orderId: id,
           provider: stripeRefundId ? "stripe" : "internal",
-          providerRef: stripeRefundId,
+          providerRef: stripeRefundId ?? `refund:${id}:${refundOperationKey}`,
           amount: -refundAmountNum, // Negative = refund
           method: order.paymentMethod,
           status: "CONFIRMED",
@@ -1739,28 +1799,48 @@ export async function orderRoutes(app: FastifyInstance) {
       });
 
       // Status history
-      await tx.orderStatusHistory.create({
+        await tx.orderStatusHistory.create({
         data: {
           orderId: id,
           fromStatus: order.status,
           toStatus: isFullRefund ? "REFUNDED" : order.status,
-          note: `Remboursement ${isFullRefund ? "total" : "partiel"}: ${refundDecimal.toFixed(2)}€${body.reason ? ` — ${body.reason}` : ""}`,
+          note: appendOperationTag(
+            `Remboursement ${isFullRefund ? "total" : "partiel"}: ${refundDecimal.toFixed(2)}€${body.reason ? ` — ${body.reason}` : ""}`,
+            refundOperationTag,
+          ),
           changedBy: userId,
         },
       });
 
       // Restock items if requested (only on full refund, idempotent via status check above)
-      if (body.restockItems && isFullRefund) {
-        for (const item of order.items) {
-          if (item.variantId) {
-            await tx.productVariant.update({
-              where: { id: item.variantId },
-              data: { stockQuantity: { increment: item.quantity } },
-            });
+        if (body.restockItems && isFullRefund) {
+          for (const item of order.items) {
+            if (item.variantId) {
+              await tx.productVariant.update({
+                where: { id: item.variantId },
+                data: { stockQuantity: { increment: item.quantity } },
+              });
+            }
           }
         }
+      });
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === "P2002") {
+        return reply.status(200).send({
+          success: true,
+          data: {
+            orderId: id,
+            refundAmount: refundAmountNum,
+            isFullRefund,
+            stripeRefundId,
+            restocked: body.restockItems && isFullRefund,
+          },
+          meta: { idempotentReplay: true, operation: "refund" },
+        });
       }
-    });
+      throw err;
+    }
 
     return {
       success: true,

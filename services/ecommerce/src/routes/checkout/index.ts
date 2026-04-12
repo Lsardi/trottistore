@@ -6,6 +6,8 @@ import { z } from "zod";
 
 /** Transaction client type — PrismaClient minus connection/transaction methods. */
 type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends">;
+const WEBHOOK_CONFIRMABLE_STATUSES = new Set(["PENDING"]);
+const WEBHOOK_TERMINAL_STATUSES = new Set(["CANCELLED", "REFUNDED", "DELIVERED"]);
 
 // --- Zod Schemas ---
 
@@ -388,10 +390,10 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
     // If admin has already advanced the order (e.g. PREPARING), don't regress it.
     const currentOrder = await tx.order.findUnique({
       where: { id: orderId },
-      select: { status: true },
+      select: { status: true, paymentStatus: true },
     });
 
-    if (currentOrder?.status === "PENDING") {
+    if (currentOrder?.status && WEBHOOK_CONFIRMABLE_STATUSES.has(currentOrder.status)) {
       await tx.order.update({
         where: { id: orderId },
         data: {
@@ -399,6 +401,11 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
           paymentStatus: "PAID",
         },
       });
+    } else if (currentOrder?.status && WEBHOOK_TERMINAL_STATUSES.has(currentOrder.status)) {
+      app.log.warn(
+        { orderId, currentStatus: currentOrder.status, paymentIntentId: pi.id },
+        "Webhook payment success received for terminal order status; skipping status transition",
+      );
     } else {
       // Order already advanced past PENDING — just confirm payment status
       await tx.order.update({
@@ -421,7 +428,9 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
       data: {
         orderId,
         fromStatus,
-        toStatus: currentOrder?.status === "PENDING" ? "CONFIRMED" : fromStatus,
+        toStatus: currentOrder?.status && WEBHOOK_CONFIRMABLE_STATUSES.has(currentOrder.status)
+          ? "CONFIRMED"
+          : fromStatus,
         note: `Paiement Stripe confirme (${pi.id})`,
       },
     });
