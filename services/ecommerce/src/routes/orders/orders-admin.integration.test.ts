@@ -48,9 +48,6 @@ function buildApp(): FastifyInstance {
       create: vi.fn().mockResolvedValue({ id: ORDER_ID, orderNumber: 1043, items: [] }),
       update: vi.fn().mockResolvedValue(null),
     },
-    payment: {
-      create: vi.fn().mockResolvedValue(null),
-    },
     orderStatusHistory: {
       create: vi.fn().mockResolvedValue({ id: "note-1" }),
     },
