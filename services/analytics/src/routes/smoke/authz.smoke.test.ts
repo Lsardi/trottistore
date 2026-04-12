@@ -93,4 +93,14 @@ describe("Analytics auth guard smoke", () => {
     });
     expect(res.statusCode).toBe(200);
   });
+
+  it("returns 401 for unknown role token", async () => {
+    const token = makeToken(app, "TECHNICIEN");
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/analytics/realtime",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });
