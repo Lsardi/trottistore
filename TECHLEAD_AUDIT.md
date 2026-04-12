@@ -6,7 +6,7 @@ Branch: `techlead/fond-comble-audit`
 ## 1) Critical Findings (P0)
 
 1. Service-level auth perimeter is inconsistent across microservices.
-- `ecommerce` has auth plugin and RBAC usage ([services/ecommerce/src/plugins/auth.ts](/Users/lyes/Desktop/trottistore.fr/services/ecommerce/src/plugins/auth.ts), [services/ecommerce/src/routes/admin/index.ts](/Users/lyes/Desktop/trottistore.fr/services/ecommerce/src/routes/admin/index.ts)).
+- `ecommerce` has auth plugin and RBAC usage ([services/ecommerce/src/plugins/auth.ts](services/ecommerce/src/plugins/auth.ts), [services/ecommerce/src/routes/admin/index.ts](services/ecommerce/src/routes/admin/index.ts)).
 - `crm`, `sav`, `analytics` do not register auth plugin in service entrypoints.
 - Risk: privileged routes accessible without auth boundary at service edge.
 
@@ -42,29 +42,29 @@ Branch: `techlead/fond-comble-audit`
 ## 4) What Was Improved Immediately On This Branch
 
 1. CI security gate hardened.
-- File: [ci.yml](/Users/lyes/Desktop/trottistore.fr/.github/workflows/ci.yml)
+- File: [ci.yml](.github/workflows/ci.yml)
 - Change: `pnpm audit --audit-level=high` is blocking.
 
 2. Playwright server startup isolated to web app.
-- File: [playwright.config.ts](/Users/lyes/Desktop/trottistore.fr/apps/web/playwright.config.ts)
+- File: [playwright.config.ts](apps/web/playwright.config.ts)
 - Change: `webServer.command` switched to `pnpm --filter @trottistore/web dev`.
 
 3. Storefront now supports multi-style theme modes (not only color swaps).
 - Files:
-  - [themes.ts](/Users/lyes/Desktop/trottistore.fr/apps/web/src/lib/themes.ts)
-  - [ThemeSwitcher.tsx](/Users/lyes/Desktop/trottistore.fr/apps/web/src/components/ThemeSwitcher.tsx)
-  - [layout.tsx](/Users/lyes/Desktop/trottistore.fr/apps/web/src/app/layout.tsx)
-  - [globals.css](/Users/lyes/Desktop/trottistore.fr/apps/web/src/app/globals.css)
+  - [themes.ts](apps/web/src/lib/themes.ts)
+  - [ThemeSwitcher.tsx](apps/web/src/components/ThemeSwitcher.tsx)
+  - [layout.tsx](apps/web/src/app/layout.tsx)
+  - [globals.css](apps/web/src/app/globals.css)
 - Change: centralized theme profiles + robust bootstrapping + style-level overrides (typography, cards, buttons, texture).
 
 4. E2E diagnostics hardened in CI.
 - Files:
-  - [playwright.config.ts](/Users/lyes/Desktop/trottistore.fr/apps/web/playwright.config.ts)
-  - [ci.yml](/Users/lyes/Desktop/trottistore.fr/.github/workflows/ci.yml)
+  - [playwright.config.ts](apps/web/playwright.config.ts)
+  - [ci.yml](.github/workflows/ci.yml)
 - Change: CI reporter now emits HTML artifacts, screenshots/videos kept on failures, artifacts uploaded from CI, and E2E job timeout explicitly bounded.
 
 5. Release and rollback runbook added.
-- File: [RELEASE_RUNBOOK.md](/Users/lyes/Desktop/trottistore.fr/RELEASE_RUNBOOK.md)
+- File: [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md)
 - Change: concrete release gate, post-release verification, rollback execution, and incident communication template.
 
 ## 5) Execution Plan (30/60/90)
