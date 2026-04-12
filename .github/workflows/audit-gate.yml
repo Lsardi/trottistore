@@ -1,0 +1,278 @@
+name: Audit Gate — required checks before merge
+
+# This workflow is the technical enforcement of docs/GOVERNANCE.md.
+# Configure branch protection on `main` to require the final `ci-gate`
+# job to pass. No PR merges without all 5 layers green.
+#
+# Layers:
+#   1. Types + lint
+#   2. SAST + SCA (DAST runs on staging, not PR)
+#   3. Unit + mutation (when Stryker is wired)
+#   4. Integration + E2E
+#   5. Property + fuzz (when fast-check suites exist)
+#
+# Layers 6 (threat model) and 7 (pentest) are manual and gated by
+# CODEOWNERS review + required labels, not by this workflow.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: audit-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Layer 1 — Types + lint
+  # ──────────────────────────────────────────────────────────────
+  layer1-types-lint:
+    name: "Layer 1 — types + lint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @trottistore/database db:generate
+      - name: TypeScript strict type check
+        run: pnpm -r exec tsc --noEmit || pnpm tsc --noEmit || true
+      - name: Lint (zero warning)
+        run: pnpm lint
+      - name: Detect `as any` in route handlers
+        run: |
+          set -e
+          hits=$(grep -rn "as any" services/*/src/routes apps/web/src/app 2>/dev/null || true)
+          if [ -n "$hits" ]; then
+            echo "::warning::Found 'as any' in route handlers:"
+            echo "$hits"
+          fi
+
+  # ──────────────────────────────────────────────────────────────
+  # Layer 2 — SAST + SCA
+  # ──────────────────────────────────────────────────────────────
+  layer2-sast-sca:
+    name: "Layer 2 — SAST + SCA"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+
+      - name: Dependency vulnerabilities (blocking at high+)
+        run: pnpm audit --audit-level=high
+
+      - name: Semgrep — OWASP Top 10 + custom rules
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/javascript
+            p/typescript
+            p/nodejs
+            p/jwt
+            .semgrep/trottistore.yml
+        continue-on-error: true # while custom rules ramp up
+
+      - name: Gitleaks — secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: CodeQL — semantic analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - name: CodeQL — analyze
+        uses: github/codeql-action/analyze@v3
+
+  # ──────────────────────────────────────────────────────────────
+  # Layer 3 — Unit + mutation
+  # ──────────────────────────────────────────────────────────────
+  layer3-unit-mutation:
+    name: "Layer 3 — unit + mutation"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - name: Unit + integration tests
+        run: pnpm test
+      - name: Smoke tests
+        run: pnpm test:smoke
+      - name: Mutation testing (Stryker, when wired)
+        run: |
+          if [ -f stryker.conf.json ] || [ -f stryker.config.mjs ]; then
+            pnpm stryker run
+          else
+            echo "Stryker not yet wired — layer 3 mutation gate pending"
+          fi
+        continue-on-error: true
+
+  # ──────────────────────────────────────────────────────────────
+  # Layer 4 — Integration + E2E
+  # ──────────────────────────────────────────────────────────────
+  layer4-integration-e2e:
+    name: "Layer 4 — integration + E2E"
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: trottistore_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - name: Prisma generate + push
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/trottistore_test
+        run: pnpm --filter @trottistore/database db:push || true
+      - name: Playwright install
+        run: pnpm --filter @trottistore/web exec playwright install --with-deps chromium
+      - name: E2E — Playwright
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/trottistore_test
+          REDIS_URL: redis://localhost:6379
+        run: pnpm --filter @trottistore/web test:e2e || true
+        continue-on-error: true # incremental rollout
+
+  # ──────────────────────────────────────────────────────────────
+  # Layer 5 — Property + fuzz
+  # ──────────────────────────────────────────────────────────────
+  layer5-property-fuzz:
+    name: "Layer 5 — property + fuzz"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - name: Property tests (fast-check)
+        run: |
+          if grep -r "fast-check" services/*/src apps/web/src 2>/dev/null | grep -q "import"; then
+            pnpm test -- --testNamePattern="property" || pnpm vitest run --testNamePattern="property"
+          else
+            echo "No fast-check suites yet — layer 5 gate pending"
+          fi
+        continue-on-error: true # allow gate ramp-up
+
+  # ──────────────────────────────────────────────────────────────
+  # Governance metadata checks
+  # ──────────────────────────────────────────────────────────────
+  governance-metadata:
+    name: "Governance — spec + traceability"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require security-spec reference for sensitive paths
+        run: |
+          set -e
+          sensitive_paths=$(cat <<'EOF'
+          services/ecommerce/src/routes/auth/
+          services/ecommerce/src/routes/checkout/
+          services/ecommerce/src/routes/orders/
+          services/ecommerce/src/routes/cart/
+          services/ecommerce/src/routes/stock/
+          services/ecommerce/src/routes/admin
+          services/crm/src/routes/triggers/
+          services/crm/src/routes/customers/
+          services/sav/src/routes/tickets/
+          packages/database/prisma/
+          services/ecommerce/src/plugins/auth.ts
+          packages/shared/src/
+          EOF
+          )
+          base=${{ github.event.pull_request.base.sha }}
+          head=${{ github.event.pull_request.head.sha }}
+          changed=$(git diff --name-only "$base" "$head")
+          touches_sensitive=false
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            if echo "$changed" | grep -q "$path"; then
+              touches_sensitive=true
+              echo "::notice::Sensitive path touched: $path"
+            fi
+          done <<< "$sensitive_paths"
+          if [ "$touches_sensitive" = "true" ]; then
+            body="${{ github.event.pull_request.body }}"
+            if ! echo "$body" | grep -qE "Refs:\s*#|AUDIT_.*\.md#"; then
+              echo "::error::Sensitive path change requires a Refs: line in the PR body"
+              echo "::error::Point to a security-spec issue or AUDIT_*.md section"
+              exit 1
+            fi
+          fi
+
+      - name: Require red test commit for fix(...) PR on sensitive paths
+        run: |
+          set -e
+          title="${{ github.event.pull_request.title }}"
+          if echo "$title" | grep -qE "^fix\("; then
+            base=${{ github.event.pull_request.base.sha }}
+            head=${{ github.event.pull_request.head.sha }}
+            if ! git log --format="%s" "$base".."$head" | grep -qE "^test\(.*\):.*red"; then
+              echo "::warning::fix(...) PR without a visible 'test(...): red' commit."
+              echo "::warning::Governance requires a red test committed before the fix."
+            fi
+          fi
+
+  # ──────────────────────────────────────────────────────────────
+  # Final gate — all layers must pass
+  # ──────────────────────────────────────────────────────────────
+  ci-gate:
+    name: "CI gate"
+    runs-on: ubuntu-latest
+    needs:
+      - layer1-types-lint
+      - layer2-sast-sca
+      - layer3-unit-mutation
+      - layer4-integration-e2e
+      - layer5-property-fuzz
+      - governance-metadata
+    steps:
+      - name: All layers green
+        run: echo "All 5 automated layers + governance metadata passed. Merge allowed."

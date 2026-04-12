@@ -1,0 +1,95 @@
+# CODEOWNERS — TrottiStore
+#
+# Defines mandatory reviewers for security- and stability-critical paths.
+# Combined with branch protection rules on `main` (require pull request
+# review from code owners), any PR touching these paths is blocked until an
+# owner has explicitly approved it.
+#
+# Rationale: the AUDIT_METHODOLOGY.md layer 7 (human review) and the
+# NIST SSDF PO.1 (maintained security requirements) both require that
+# changes to sensitive code paths are reviewed by a designated owner,
+# not merged by whoever opened the PR.
+#
+# Ordering matters: later patterns override earlier ones. The last
+# matching pattern takes precedence.
+#
+# Docs:
+#   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ──────────────────────────────────────────────────────────────
+# Default owner for everything (catch-all, least specific)
+# ──────────────────────────────────────────────────────────────
+*                                         @Lsardi
+
+# ──────────────────────────────────────────────────────────────
+# P0-critical: auth, JWT, crypto, session, webhook
+# Any change here MUST be reviewed. No exceptions.
+# ──────────────────────────────────────────────────────────────
+
+# Ecommerce auth plugin + routes
+/services/ecommerce/src/plugins/auth.ts            @Lsardi
+/services/ecommerce/src/routes/auth/               @Lsardi
+/services/ecommerce/src/routes/admin/              @Lsardi
+/services/ecommerce/src/routes/admin-users/        @Lsardi
+
+# Stripe payment flow (webhook signature verification, PaymentIntent
+# creation, refund processing — ASVS V7 Cryptography, V11 Business Logic)
+/services/ecommerce/src/routes/checkout/           @Lsardi
+/services/ecommerce/src/routes/orders/             @Lsardi
+
+# Cart + stock invariants (ASVS V11.1 — business logic, V5 validation)
+/services/ecommerce/src/routes/cart/               @Lsardi
+/services/ecommerce/src/routes/stock/              @Lsardi
+/services/ecommerce/src/lib/cart-totals.ts         @Lsardi
+
+# CRM triggers (cron secret nonce), customer merge (atomic transaction)
+/services/crm/src/routes/triggers/                 @Lsardi
+/services/crm/src/routes/customers/                @Lsardi
+/services/crm/src/index.ts                         @Lsardi
+
+# SAV ticket state transitions + quote acceptance (P1-2 IDOR surface)
+/services/sav/src/routes/tickets/                  @Lsardi
+
+# Shared: RBAC role definitions, error classes, JWT types, pagination
+/packages/shared/src/                              @Lsardi
+
+# ──────────────────────────────────────────────────────────────
+# Database schema + migrations
+# Any ALTER / CREATE / DROP is irreversible in practice — owner review
+# required to prevent data loss or breaking migrations.
+# ──────────────────────────────────────────────────────────────
+/packages/database/prisma/schema.prisma            @Lsardi
+/packages/database/prisma/migrations/              @Lsardi
+
+# ──────────────────────────────────────────────────────────────
+# Infra & CI/CD
+# Anything that deploys, builds, or gates merges.
+# ──────────────────────────────────────────────────────────────
+/.github/workflows/                                @Lsardi
+/.github/CODEOWNERS                                @Lsardi
+/.github/pull_request_template.md                  @Lsardi
+/infra/                                            @Lsardi
+/docker-compose.prod.yml                           @Lsardi
+/docker-compose.dev.yml                            @Lsardi
+/dev.sh                                            @Lsardi
+
+# ──────────────────────────────────────────────────────────────
+# Governance docs — changes here redefine how we work
+# ──────────────────────────────────────────────────────────────
+/AUDIT_METHODOLOGY.md                              @Lsardi
+/AUDIT_ATOMIC.md                                   @Lsardi
+/AUDIT_PRODUCTION_CRITICAL.md                      @Lsardi
+/HANDOFF_CODEX.md                                  @Lsardi
+/THREAT_MODEL.md                                   @Lsardi
+/docs/GOVERNANCE.md                                @Lsardi
+/CLAUDE.md                                         @Lsardi
+/.github/ISSUE_TEMPLATE/                           @Lsardi
+
+# ──────────────────────────────────────────────────────────────
+# Frontend auth surface — token storage, fetch wrapper, checkout flow
+# ──────────────────────────────────────────────────────────────
+/apps/web/src/lib/api.ts                           @Lsardi
+/apps/web/src/lib/auth.ts                          @Lsardi
+/apps/web/src/app/\(shop\)/checkout/               @Lsardi
+/apps/web/src/app/\(shop\)/mon-compte/             @Lsardi
+/apps/web/src/middleware.ts                        @Lsardi
