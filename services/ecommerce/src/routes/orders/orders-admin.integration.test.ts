@@ -199,7 +199,7 @@ describe("Admin order actions", () => {
         method: "POST",
         url: `/api/v1/admin/orders/${ORDER_ID}/refund`,
         headers: { authorization: `Bearer ${token}` },
-        payload: { idempotencyKey: "refund-op-1234" },
+        payload: { idempotencyKey: "aaaaaaaa" },
       });
 
       expect(res.statusCode).toBe(200);
@@ -325,7 +325,7 @@ describe("Admin order actions", () => {
         method: "PUT",
         url: `/api/v1/admin/orders/${ORDER_ID}/status`,
         headers: { authorization: `Bearer ${token}` },
-        payload: { status: "CANCELLED", idempotencyKey: "cancel-op-1234" },
+        payload: { status: "CANCELLED", idempotencyKey: "bbbbbbbb" },
       });
 
       expect(res.statusCode).toBe(200);
