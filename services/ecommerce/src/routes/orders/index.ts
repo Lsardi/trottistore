@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { Decimal } from "@prisma/client/runtime/library";
+import { randomUUID } from "node:crypto";
 import { sendEmail } from "@trottistore/shared/notifications";
 import { orderConfirmationEmail, orderShippedEmail } from "../../emails/templates.js";
 
@@ -178,6 +180,7 @@ interface CartItem {
 interface Cart {
   items: CartItem[];
   updatedAt: string;
+  checkoutToken?: string;
 }
 
 interface RequestUser {
@@ -233,6 +236,32 @@ function getCartKey(request: FastifyRequest): string {
 function getSessionIdFromCartKey(cartKey: string): string | null {
   if (!cartKey.startsWith("cart:session:")) return null;
   return cartKey.slice("cart:session:".length) || null;
+}
+
+const ORDER_IDEMPOTENCY_LOCK_SECONDS = 5 * 60;
+const ORDER_IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60;
+const ORDER_IDEMPOTENCY_PROCESSING = "__processing__";
+
+function getOrderIdempotencyKey(checkoutToken: string): string {
+  return `order:idempotency:${checkoutToken}`;
+}
+
+function makeCheckoutToken(): string {
+  return randomUUID().replace(/-/g, "");
+}
+
+async function ensureCheckoutToken(
+  app: FastifyInstance,
+  cartKey: string,
+  cart: Cart,
+): Promise<string> {
+  if (typeof cart.checkoutToken === "string" && cart.checkoutToken.length >= 16) {
+    return cart.checkoutToken;
+  }
+  const checkoutToken = makeCheckoutToken();
+  cart.checkoutToken = checkoutToken;
+  await app.redis.set(cartKey, JSON.stringify(cart), "EX", 60 * 60 * 24 * 7);
+  return checkoutToken;
 }
 
 function requireAuth(
@@ -311,6 +340,8 @@ export async function orderRoutes(app: FastifyInstance) {
         error: { code: "EMPTY_CART", message: "Cart is empty" },
       });
     }
+    const checkoutToken = await ensureCheckoutToken(app, cartKey, cart);
+    const orderIdempotencyKey = getOrderIdempotencyKey(checkoutToken);
 
     // 2. Validate addresses belong to user
     const addressIds = [
@@ -472,8 +503,60 @@ export async function orderRoutes(app: FastifyInstance) {
       phone: billingAddr.phone,
     };
 
-    // 7. Create order in a transaction
-    const order = await app.prisma.$transaction(async (tx) => {
+    const orderInclude = {
+      items: {
+        include: {
+          product: {
+            select: { name: true, slug: true, sku: true },
+          },
+          variant: {
+            select: { name: true, sku: true },
+          },
+        },
+      },
+      payments: true,
+      installments: { orderBy: { installmentNumber: "asc" } },
+      statusHistory: { orderBy: { changedAt: "desc" } },
+    } as const;
+
+    // 7. Idempotence guard before writing order.
+    const claim = await app.redis.set(
+      orderIdempotencyKey,
+      ORDER_IDEMPOTENCY_PROCESSING,
+      "EX",
+      ORDER_IDEMPOTENCY_LOCK_SECONDS,
+      "NX",
+    );
+    if (claim !== "OK") {
+      const current = await app.redis.get(orderIdempotencyKey);
+      if (current && current !== ORDER_IDEMPOTENCY_PROCESSING) {
+        const existingOrder = await app.prisma.order.findUnique({
+          where: { id: current },
+          include: orderInclude,
+        });
+        if (existingOrder) {
+          return reply.status(200).send({
+            success: true,
+            data: existingOrder,
+            meta: { idempotentReplay: true },
+          });
+        }
+      }
+      return reply.status(409).send({
+        success: false,
+        error: {
+          code: "ORDER_IN_PROGRESS",
+          message: "Une commande identique est déjà en cours de traitement",
+        },
+      });
+    }
+
+    type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+    let order: { id: string };
+    let fullOrder: OrderWithRelations | null = null;
+    try {
+      // 8. Create order in a transaction
+      order = await app.prisma.$transaction(async (tx) => {
       // Create the order
       const newOrder = await tx.order.create({
         data: {
@@ -567,33 +650,31 @@ export async function orderRoutes(app: FastifyInstance) {
         });
       }
 
-      return newOrder;
-    });
+        return newOrder;
+      });
 
-    // 8. Clear cart in Redis
-    await app.redis.del(cartKey);
+      // Persist idempotence result before cart cleanup (if cleanup fails, replays are still deduped).
+      await app.redis.set(orderIdempotencyKey, order.id, "EX", ORDER_IDEMPOTENCY_TTL_SECONDS);
 
-    // 9. Fetch the full order to return
-    const fullOrder = await app.prisma.order.findUnique({
-      where: { id: order.id },
-      include: {
-        items: {
-          include: {
-            product: {
-              select: { name: true, slug: true, sku: true },
-            },
-            variant: {
-              select: { name: true, sku: true },
-            },
-          },
-        },
-        payments: true,
-        installments: { orderBy: { installmentNumber: "asc" } },
-        statusHistory: { orderBy: { changedAt: "desc" } },
-      },
-    });
+      // 9. Clear cart in Redis (best effort)
+      await app.redis.del(cartKey).catch((err: unknown) => {
+        app.log.error({ err, cartKey }, "Failed to clear cart after order creation");
+      });
 
-    // 10. Send confirmation email (non-blocking)
+      // 10. Fetch the full order to return
+      fullOrder = await app.prisma.order.findUnique({
+        where: { id: order.id },
+        include: orderInclude,
+      });
+    } catch (err) {
+      const current = await app.redis.get(orderIdempotencyKey);
+      if (current === ORDER_IDEMPOTENCY_PROCESSING) {
+        await app.redis.del(orderIdempotencyKey);
+      }
+      throw err;
+    }
+
+    // 11. Send confirmation email (non-blocking)
     if (fullOrder) {
       const customerEmail = await app.prisma.user.findUnique({
         where: { id: userId },
@@ -665,6 +746,20 @@ export async function orderRoutes(app: FastifyInstance) {
         error: { code: "EMPTY_CART", message: "Cart is empty" },
       });
     }
+    const checkoutToken = await ensureCheckoutToken(app, cartKey, cart);
+    const orderIdempotencyKey = getOrderIdempotencyKey(checkoutToken);
+
+    const orderInclude = {
+      items: {
+        include: {
+          product: { select: { name: true, slug: true, sku: true } },
+          variant: { select: { name: true, sku: true } },
+        },
+      },
+      payments: true,
+      installments: { orderBy: { installmentNumber: "asc" } },
+      statusHistory: { orderBy: { changedAt: "desc" } },
+    } as const;
 
     // Validate products and stock (same logic as authenticated checkout)
     const productIds = [...new Set(cart.items.map((i) => i.productId))];
@@ -757,158 +852,194 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    // Create guest user + address + order in a single transaction
-    const order = await app.prisma.$transaction(async (tx) => {
-      // Create guest user (random password, they can claim the account later)
-      const guestUser = await tx.user.create({
-        data: {
-          email,
-          passwordHash: `guest_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-          firstName: shippingAddress.firstName,
-          lastName: shippingAddress.lastName,
-          phone: shippingAddress.phone || null,
-          role: "CLIENT",
-          emailVerified: false,
-        },
-      });
-
-      // Create CRM profile for guest
-      await tx.customerProfile.create({
-        data: {
-          userId: guestUser.id,
-          loyaltyTier: "BRONZE",
-          loyaltyPoints: 0,
-          totalOrders: 1,
-          totalSpent: Number(totalTtc),
-          source: "WEBSITE",
-        },
-      }).catch(() => {}); // ignore if profile table doesn't exist or constraint
-
-      // Create shipping address
-      const addr = await tx.address.create({
-        data: {
-          userId: guestUser.id,
-          ...shippingAddress,
-          street2: shippingAddress.street2 || null,
-          phone: shippingAddress.phone || null,
-          label: "Livraison",
-          type: "SHIPPING",
-          isDefault: true,
-        },
-      });
-
-      // Create the order
-      const newOrder = await tx.order.create({
-        data: {
-          customerId: guestUser.id,
-          status: "PENDING",
-          paymentMethod,
-          paymentStatus: "PENDING",
-          shippingMethod,
-          shippingAddress: shippingAddressJson,
-          billingAddress: billingAddressJson,
-          subtotalHt,
-          tvaAmount,
-          shippingCost,
-          totalTtc,
-          notes: notes ?? null,
-          items: {
-            create: orderItemsData.map((item) => ({
-              productId: item.productId,
-              variantId: item.variantId,
-              quantity: item.quantity,
-              unitPriceHt: item.unitPriceHt,
-              tvaRate: item.tvaRate,
-              totalHt: item.totalHt,
-            })),
-          },
-          statusHistory: {
-            create: {
-              fromStatus: "NEW",
-              toStatus: "PENDING",
-              note: "Guest order created",
-              changedBy: guestUser.id,
-            },
-          },
-        },
-        include: { items: true, statusHistory: true },
-      });
-
-      // Decrement stock
-      for (const item of cart.items) {
-        if (!item.variantId) continue;
-        if (isInstallment) {
-          await tx.productVariant.update({
-            where: { id: item.variantId },
-            data: { stockReserved: { increment: item.quantity } },
-          });
-        } else {
-          await decrementStockOrThrow(tx, item.variantId, item.quantity);
-        }
-      }
-
-      // Create installment records if applicable
-      const installmentCount = getInstallmentCount(paymentMethod);
-      if (installmentCount) {
-        const installmentAmount = totalTtc.div(installmentCount);
-        const now = new Date();
-        for (let i = 1; i <= installmentCount; i++) {
-          const dueDate = new Date(now);
-          dueDate.setMonth(dueDate.getMonth() + (i - 1));
-          await tx.paymentInstallment.create({
-            data: {
-              orderId: newOrder.id,
-              installmentNumber: i,
-              totalInstallments: installmentCount,
-              amountDue: installmentAmount,
-              dueDate,
-              status: "PENDING",
-            },
-          });
-        }
-      }
-
-      if (isBankTransfer) {
-        await tx.payment.create({
-          data: {
-            orderId: newOrder.id,
-            provider: "internal",
-            amount: totalTtc,
-            method: "BANK_TRANSFER",
-            status: "PENDING",
-            bankRef: generateBankReference(),
-          },
+    const claim = await app.redis.set(
+      orderIdempotencyKey,
+      ORDER_IDEMPOTENCY_PROCESSING,
+      "EX",
+      ORDER_IDEMPOTENCY_LOCK_SECONDS,
+      "NX",
+    );
+    if (claim !== "OK") {
+      const current = await app.redis.get(orderIdempotencyKey);
+      if (current && current !== ORDER_IDEMPOTENCY_PROCESSING) {
+        const existingOrder = await app.prisma.order.findUnique({
+          where: { id: current },
+          include: orderInclude,
         });
+        if (existingOrder) {
+          return reply.status(200).send({
+            success: true,
+            data: existingOrder,
+            meta: { idempotentReplay: true },
+          });
+        }
       }
-
-      return newOrder;
-    });
-
-    // Bind guest order to session for subsequent guest Stripe payment-intent calls.
-    // Short TTL to limit replay surface.
-    const guestSessionId = getSessionIdFromCartKey(cartKey);
-    if (guestSessionId) {
-      await app.redis.set(`checkout:guest-order:${order.id}`, guestSessionId, "EX", 60 * 30);
+      return reply.status(409).send({
+        success: false,
+        error: {
+          code: "ORDER_IN_PROGRESS",
+          message: "Une commande identique est déjà en cours de traitement",
+        },
+      });
     }
 
-    // Clear cart
-    await app.redis.del(cartKey);
-
-    // Fetch full order
-    const fullOrder = await app.prisma.order.findUnique({
-      where: { id: order.id },
-      include: {
-        items: {
-          include: {
-            product: { select: { name: true, slug: true, sku: true } },
-            variant: { select: { name: true, sku: true } },
+    type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+    let order: { id: string };
+    let fullOrder: OrderWithRelations | null = null;
+    try {
+      // Create guest user + address + order in a single transaction
+      order = await app.prisma.$transaction(async (tx) => {
+        // Create guest user (random password, they can claim the account later)
+        const guestUser = await tx.user.create({
+          data: {
+            email,
+            passwordHash: `guest_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            firstName: shippingAddress.firstName,
+            lastName: shippingAddress.lastName,
+            phone: shippingAddress.phone || null,
+            role: "CLIENT",
+            emailVerified: false,
           },
-        },
-        payments: true,
-        installments: { orderBy: { installmentNumber: "asc" } },
-        statusHistory: { orderBy: { changedAt: "desc" } },
-      },
-    });
+        });
+
+        // Create CRM profile for guest
+        await tx.customerProfile.create({
+          data: {
+            userId: guestUser.id,
+            loyaltyTier: "BRONZE",
+            loyaltyPoints: 0,
+            totalOrders: 1,
+            totalSpent: Number(totalTtc),
+            source: "WEBSITE",
+          },
+        }).catch(() => {}); // ignore if profile table doesn't exist or constraint
+
+        // Create shipping address
+        await tx.address.create({
+          data: {
+            userId: guestUser.id,
+            ...shippingAddress,
+            street2: shippingAddress.street2 || null,
+            phone: shippingAddress.phone || null,
+            label: "Livraison",
+            type: "SHIPPING",
+            isDefault: true,
+          },
+        });
+
+        // Create the order
+        const newOrder = await tx.order.create({
+          data: {
+            customerId: guestUser.id,
+            status: "PENDING",
+            paymentMethod,
+            paymentStatus: "PENDING",
+            shippingMethod,
+            shippingAddress: shippingAddressJson,
+            billingAddress: billingAddressJson,
+            subtotalHt,
+            tvaAmount,
+            shippingCost,
+            totalTtc,
+            notes: notes ?? null,
+            items: {
+              create: orderItemsData.map((item) => ({
+                productId: item.productId,
+                variantId: item.variantId,
+                quantity: item.quantity,
+                unitPriceHt: item.unitPriceHt,
+                tvaRate: item.tvaRate,
+                totalHt: item.totalHt,
+              })),
+            },
+            statusHistory: {
+              create: {
+                fromStatus: "NEW",
+                toStatus: "PENDING",
+                note: "Guest order created",
+                changedBy: guestUser.id,
+              },
+            },
+          },
+          include: { items: true, statusHistory: true },
+        });
+
+        // Decrement stock
+        for (const item of cart.items) {
+          if (!item.variantId) continue;
+          if (isInstallment) {
+            await tx.productVariant.update({
+              where: { id: item.variantId },
+              data: { stockReserved: { increment: item.quantity } },
+            });
+          } else {
+            await decrementStockOrThrow(tx, item.variantId, item.quantity);
+          }
+        }
+
+        // Create installment records if applicable
+        const installmentCount = getInstallmentCount(paymentMethod);
+        if (installmentCount) {
+          const installmentAmount = totalTtc.div(installmentCount);
+          const now = new Date();
+          for (let i = 1; i <= installmentCount; i++) {
+            const dueDate = new Date(now);
+            dueDate.setMonth(dueDate.getMonth() + (i - 1));
+            await tx.paymentInstallment.create({
+              data: {
+                orderId: newOrder.id,
+                installmentNumber: i,
+                totalInstallments: installmentCount,
+                amountDue: installmentAmount,
+                dueDate,
+                status: "PENDING",
+              },
+            });
+          }
+        }
+
+        if (isBankTransfer) {
+          await tx.payment.create({
+            data: {
+              orderId: newOrder.id,
+              provider: "internal",
+              amount: totalTtc,
+              method: "BANK_TRANSFER",
+              status: "PENDING",
+              bankRef: generateBankReference(),
+            },
+          });
+        }
+
+        return newOrder;
+      });
+
+      await app.redis.set(orderIdempotencyKey, order.id, "EX", ORDER_IDEMPOTENCY_TTL_SECONDS);
+
+      // Bind guest order to session for subsequent guest Stripe payment-intent calls.
+      // Short TTL to limit replay surface.
+      const guestSessionId = getSessionIdFromCartKey(cartKey);
+      if (guestSessionId) {
+        await app.redis.set(`checkout:guest-order:${order.id}`, guestSessionId, "EX", 60 * 30);
+      }
+
+      // Clear cart (best effort)
+      await app.redis.del(cartKey).catch((err: unknown) => {
+        app.log.error({ err, cartKey }, "Failed to clear guest cart after order creation");
+      });
+
+      // Fetch full order
+      fullOrder = await app.prisma.order.findUnique({
+        where: { id: order.id },
+        include: orderInclude,
+      });
+    } catch (err) {
+      const current = await app.redis.get(orderIdempotencyKey);
+      if (current === ORDER_IDEMPOTENCY_PROCESSING) {
+        await app.redis.del(orderIdempotencyKey);
+      }
+      throw err;
+    }
 
     // Send guest confirmation email (non-blocking)
     if (fullOrder && email) {
@@ -1541,8 +1672,22 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    const refundAmount = body.amount ?? Number(order.totalTtc);
-    const isFullRefund = !body.amount || body.amount >= Number(order.totalTtc);
+    // Item 3 — Use Decimal for precision (no Number() conversion on monetary values)
+    const orderTotalTtc = new Decimal(order.totalTtc);
+    const refundDecimal = body.amount ? new Decimal(body.amount) : orderTotalTtc;
+    const isFullRefund = !body.amount || refundDecimal.gte(orderTotalTtc);
+    const refundCents = refundDecimal.mul(100).round().toNumber(); // Safe: Decimal → integer cents
+
+    // Item 4 — Refund idempotence: check for existing refund payment on this order
+    const existingRefund = await app.prisma.payment.findFirst({
+      where: { orderId: id, amount: { lt: 0 }, status: "CONFIRMED" },
+    });
+    if (existingRefund && isFullRefund) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "REFUND_EXISTS", message: "Un remboursement a déjà été effectué sur cette commande" },
+      });
+    }
 
     // Attempt Stripe refund if a Stripe payment exists
     const stripePayment = order.payments[0];
@@ -1554,7 +1699,7 @@ export async function orderRoutes(app: FastifyInstance) {
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         const refund = await stripe.refunds.create({
           payment_intent: stripePayment.providerRef,
-          amount: Math.round(refundAmount * 100),
+          amount: refundCents,
           reason: "requested_by_customer",
         });
         stripeRefundId = refund.id;
@@ -1569,6 +1714,7 @@ export async function orderRoutes(app: FastifyInstance) {
 
     // Update order in transaction
     const userId = user.id ?? user.userId;
+    const refundAmountNum = refundDecimal.toNumber();
     await app.prisma.$transaction(async (tx) => {
       // Update order status
       await tx.order.update({
@@ -1585,7 +1731,7 @@ export async function orderRoutes(app: FastifyInstance) {
           orderId: id,
           provider: stripeRefundId ? "stripe" : "internal",
           providerRef: stripeRefundId,
-          amount: -refundAmount, // Negative = refund
+          amount: -refundAmountNum, // Negative = refund
           method: order.paymentMethod,
           status: "CONFIRMED",
           receivedAt: new Date(),
@@ -1598,12 +1744,12 @@ export async function orderRoutes(app: FastifyInstance) {
           orderId: id,
           fromStatus: order.status,
           toStatus: isFullRefund ? "REFUNDED" : order.status,
-          note: `Remboursement ${isFullRefund ? "total" : "partiel"}: ${refundAmount.toFixed(2)}€${body.reason ? ` — ${body.reason}` : ""}`,
+          note: `Remboursement ${isFullRefund ? "total" : "partiel"}: ${refundDecimal.toFixed(2)}€${body.reason ? ` — ${body.reason}` : ""}`,
           changedBy: userId,
         },
       });
 
-      // Restock items if requested
+      // Restock items if requested (only on full refund, idempotent via status check above)
       if (body.restockItems && isFullRefund) {
         for (const item of order.items) {
           if (item.variantId) {
@@ -1620,7 +1766,7 @@ export async function orderRoutes(app: FastifyInstance) {
       success: true,
       data: {
         orderId: id,
-        refundAmount,
+        refundAmount: refundAmountNum,
         isFullRefund,
         stripeRefundId,
         restocked: body.restockItems && isFullRefund,

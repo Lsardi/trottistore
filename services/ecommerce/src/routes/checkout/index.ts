@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { PrismaClient } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -100,7 +101,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
     const body = createPaymentIntentSchema.parse(request.body);
 
-    let totalTtc: number;
+    let totalTtc: Decimal;
     let amountCents: number;
     let paymentOwnerId = user?.userId ?? "guest";
 
@@ -144,8 +145,8 @@ export async function checkoutRoutes(app: FastifyInstance) {
       }
 
       paymentOwnerId = order.customerId;
-      totalTtc = Number(order.totalTtc);
-      amountCents = Math.round(totalTtc * 100);
+      totalTtc = new Decimal(order.totalTtc);
+      amountCents = totalTtc.mul(100).round().toNumber();
     } else {
       // Cart-first flow: calculate from Redis cart
       let cartKey: string;
@@ -192,23 +193,25 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
       const productMap = new Map(products.map((p) => [p.id, p]));
       const variantMap = new Map(variants.map((v) => [v.id, v]));
-      let totalHt = 0;
+      let totalHt = new Decimal(0);
       for (const item of cart.items) {
         const product = productMap.get(item.productId);
         if (!product) continue;
         const variant = item.variantId ? variantMap.get(item.variantId) : undefined;
-        const unitPriceHt =
+        const unitPriceHt = new Decimal(
           variant && variant.productId === item.productId && variant.priceOverride != null
-            ? Number(variant.priceOverride)
-            : Number(product.priceHt);
-        totalHt += unitPriceHt * (item.quantity || 1);
+            ? variant.priceOverride
+            : product.priceHt,
+        );
+        totalHt = totalHt.add(unitPriceHt.mul(item.quantity || 1));
       }
-      const tvaRate = 0.20;
-      const tvaAmount = Math.round(totalHt * tvaRate * 100) / 100;
+      const tvaAmount = totalHt.mul(20).div(100);
       // Store pickup = free shipping
-      const shippingCost = body.shippingMethod === "STORE_PICKUP" ? 0 : (totalHt >= 100 ? 0 : 6.90);
-      totalTtc = totalHt + tvaAmount + shippingCost;
-      amountCents = Math.round(totalTtc * 100);
+      const shippingCost = body.shippingMethod === "STORE_PICKUP"
+        ? new Decimal(0)
+        : (totalHt.gte(100) ? new Decimal(0) : new Decimal(6.9));
+      totalTtc = totalHt.add(tvaAmount).add(shippingCost);
+      amountCents = totalTtc.mul(100).round().toNumber();
     }
 
     if (amountCents < 50) {
@@ -247,7 +250,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
       data: {
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
-        amount: totalTtc,
+        amount: totalTtc.toNumber(),
         amountCents,
         currency: "eur",
       },
@@ -381,25 +384,44 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
       },
     });
 
-    // Update order status
-    await tx.order.update({
+    // Item 5 — Only overwrite order status if still PENDING.
+    // If admin has already advanced the order (e.g. PREPARING), don't regress it.
+    const currentOrder = await tx.order.findUnique({
       where: { id: orderId },
-      data: {
-        status: "CONFIRMED",
-        paymentStatus: "PAID",
-      },
+      select: { status: true },
     });
+
+    if (currentOrder?.status === "PENDING") {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: "CONFIRMED",
+          paymentStatus: "PAID",
+        },
+      });
+    } else {
+      // Order already advanced past PENDING — just confirm payment status
+      await tx.order.update({
+        where: { id: orderId },
+        data: { paymentStatus: "PAID" },
+      });
+      app.log.info(
+        { orderId, currentStatus: currentOrder?.status },
+        "Webhook: order already past PENDING, only updating paymentStatus",
+      );
+    }
 
     // Stock was already decremented (or reserved, for installments) at order creation
     // in routes/orders/index.ts. Decrementing here would cause a double-decrement
     // on every Stripe payment. Webhook only confirms payment + order status.
 
     // Add status history
+    const fromStatus = currentOrder?.status ?? "PENDING";
     await tx.orderStatusHistory.create({
       data: {
         orderId,
-        fromStatus: "PENDING",
-        toStatus: "CONFIRMED",
+        fromStatus,
+        toStatus: currentOrder?.status === "PENDING" ? "CONFIRMED" : fromStatus,
         note: `Paiement Stripe confirme (${pi.id})`,
       },
     });
