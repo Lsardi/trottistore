@@ -89,6 +89,9 @@ function buildApp(): FastifyInstance {
       create: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
+    financialLedger: {
+      create: vi.fn().mockResolvedValue({ id: "ledger-1" }),
+    },
     $transaction: vi.fn(async (arg: any) => {
       if (typeof arg === "function") return arg(app.prisma);
       return Promise.all(arg);

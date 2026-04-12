@@ -5,6 +5,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { randomUUID } from "node:crypto";
 import { sendEmail } from "@trottistore/shared/notifications";
 import { orderConfirmationEmail, orderShippedEmail } from "../../emails/templates.js";
+import { checkoutMetrics } from "../../plugins/metrics.js";
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -1537,7 +1538,7 @@ export async function orderRoutes(app: FastifyInstance) {
 
     const order = await app.prisma.order.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, orderNumber: true },
     });
 
     if (!order) {
@@ -1621,6 +1622,36 @@ export async function orderRoutes(app: FastifyInstance) {
           where: { orderId: id, status: "PENDING" },
           data: { status: "CANCELLED" },
         });
+
+        await tx.financialLedger.create({
+          data: {
+            orderId: id,
+            orderNumber: order.orderNumber,
+            operation: "CANCEL",
+            amountCents: 0,
+            currency: "EUR",
+            provider: "internal",
+            reason: note ?? "Order cancelled by backoffice",
+            performedBy: userId,
+            metadata: { fromStatus: order.status, toStatus: newStatus },
+          },
+        });
+        checkoutMetrics.ledgerEntries.inc({ operation: "CANCEL" });
+      } else if (order.status === "PENDING" && newStatus === "CONFIRMED") {
+        await tx.financialLedger.create({
+          data: {
+            orderId: id,
+            orderNumber: order.orderNumber,
+            operation: "MANUAL_CONFIRM",
+            amountCents: 0,
+            currency: "EUR",
+            provider: "manual",
+            reason: note ?? "Manual confirmation by backoffice",
+            performedBy: userId,
+            metadata: { fromStatus: order.status, toStatus: newStatus },
+          },
+        });
+        checkoutMetrics.ledgerEntries.inc({ operation: "MANUAL_CONFIRM" });
       }
 
       return updatedOrder;
@@ -1686,6 +1717,7 @@ export async function orderRoutes(app: FastifyInstance) {
     const order = await app.prisma.order.findUnique({
       where: { id },
       include: {
+        customer: { select: { id: true } },
         payments: { where: { status: "CONFIRMED", provider: "stripe" } },
         items: { select: { variantId: true, quantity: true } },
       },
@@ -1823,6 +1855,22 @@ export async function orderRoutes(app: FastifyInstance) {
             }
           }
         }
+
+        await tx.financialLedger.create({
+          data: {
+            orderId: id,
+            orderNumber: order.orderNumber,
+            operation: isFullRefund ? "REFUND_FULL" : "REFUND_PARTIAL",
+            amountCents: -refundCents,
+            currency: "EUR",
+            provider: stripeRefundId ? "stripe" : "internal",
+            providerRef: stripeRefundId ?? `refund:${id}:${refundOperationKey}`,
+            performedBy: userId,
+            reason: body.reason ?? null,
+            metadata: { idempotencyKey: refundOperationKey },
+          },
+        });
+        checkoutMetrics.ledgerEntries.inc({ operation: isFullRefund ? "REFUND_FULL" : "REFUND_PARTIAL" });
       });
     } catch (err) {
       const code = (err as { code?: string } | null)?.code;
