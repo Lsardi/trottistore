@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle2, Clock3, Loader2, PackageSearch, Wrench, X } from "lucide-react";
 import { repairsApi, triggersApi, type RepairStatus, type RepairTicket, type TriggerRunResult } from "@/lib/api";
@@ -391,7 +392,7 @@ export default function AdminSavPage() {
                       <div className="grid grid-cols-2 gap-2">
                         {selectedTicket.photosUrls?.map((url) => (
                           <a key={url} href={url} target="_blank" rel="noreferrer" className="block border border-border hover:border-neon">
-                            <img src={url} alt="Photo ticket SAV" className="w-full h-28 object-cover" />
+                            <Image src={url} alt="Photo ticket SAV" width={200} height={112} className="w-full h-28 object-cover" />
                           </a>
                         ))}
                       </div>
