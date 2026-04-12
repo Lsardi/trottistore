@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import { resolve } from "path";
+import { randomUUID } from "node:crypto";
 config({ path: resolve(process.cwd(), "../../.env") });
 
 import Fastify from "fastify";
@@ -28,7 +29,14 @@ import { invoiceRoutes } from "./routes/admin-invoices/index.js";
 import { financeRoutes } from "./routes/finance/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
-import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
+import {
+  validateEnv,
+  COMMON_ENV,
+  mapPrismaError,
+  AppError,
+  registerRequestCorrelation,
+  getRequestCorrelation,
+} from "@trottistore/shared";
 import { runFinancialReconciliation } from "./lib/finance-reconciliation.js";
 
 // Fail-fast if required env vars are missing
@@ -59,6 +67,8 @@ function resolveTrustProxy(): boolean | string[] {
 async function start() {
   const app = Fastify({
     trustProxy: resolveTrustProxy(),
+    requestIdHeader: "x-request-id",
+    genReqId: () => randomUUID(),
     logger: {
       level: process.env.NODE_ENV === "production" ? "info" : "debug",
       transport:
@@ -86,6 +96,7 @@ async function start() {
       "retry-after": true,
     },
   });
+  registerRequestCorrelation(app);
 
   // Plugins métier
   await app.register(prismaPlugin);
@@ -130,6 +141,7 @@ async function start() {
 
     app.log.error({
       err: error,
+      ...getRequestCorrelation(request),
       method: request.method,
       url: request.url,
       statusCode,

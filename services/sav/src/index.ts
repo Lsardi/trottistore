@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import { resolve } from "path";
+import { randomUUID } from "node:crypto";
 config({ path: resolve(process.cwd(), "../../.env") });
 
 import Fastify from "fastify";
@@ -16,7 +17,14 @@ import { statsRoutes } from "./routes/stats/index.js";
 import { scooterModelsRoutes } from "./routes/scooter-models/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
-import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
+import {
+  validateEnv,
+  COMMON_ENV,
+  mapPrismaError,
+  AppError,
+  registerRequestCorrelation,
+  getRequestCorrelation,
+} from "@trottistore/shared";
 
 validateEnv("sav", [
   ...COMMON_ENV,
@@ -44,6 +52,8 @@ function resolveTrustProxy(): boolean | string[] {
 async function start() {
   const app = Fastify({
     trustProxy: resolveTrustProxy(),
+    requestIdHeader: "x-request-id",
+    genReqId: () => randomUUID(),
     logger: {
       level: process.env.NODE_ENV === "production" ? "info" : "debug",
       transport:
@@ -66,6 +76,7 @@ async function start() {
     timeWindow: "1 minute",
     addHeaders: { "x-ratelimit-limit": true, "x-ratelimit-remaining": true, "x-ratelimit-reset": true, "retry-after": true },
   });
+  registerRequestCorrelation(app);
 
   // Plugins metier
   await app.register(prismaPlugin);
@@ -153,6 +164,7 @@ async function start() {
 
     app.log.error({
       err: error,
+      ...getRequestCorrelation(request),
       method: request.method,
       url: request.url,
       statusCode,

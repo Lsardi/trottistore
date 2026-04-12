@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import Stripe from "stripe";
 import { z } from "zod";
+import { getRequestCorrelation, mergeRequestCorrelation, type RequestCorrelation } from "@trottistore/shared";
 import { checkoutMetrics } from "../../plugins/metrics.js";
 
 /** Transaction client type — PrismaClient minus connection/transaction methods. */
@@ -287,6 +288,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
   // POST /checkout/webhook — Stripe webhook handler
   app.post("/checkout/webhook", async (request: FastifyRequest, reply: FastifyReply) => {
+    const correlation = getRequestCorrelation(request);
     const stripe = getStripe();
     if (!stripe) {
       return reply.status(503).send({ error: "Stripe not configured" });
@@ -309,13 +311,13 @@ export async function checkoutRoutes(app: FastifyInstance) {
           : Buffer.from(JSON.stringify(request.body));
       event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     } catch (err) {
-      app.log.error({ err }, "Webhook signature verification failed");
+      app.log.error({ err, ...correlation }, "Webhook signature verification failed");
       return reply.status(400).send({ error: "Invalid signature" });
     }
 
     // Handle events with bounded retries; if all retries fail, move to DLQ.
     try {
-      const attempt = await processWebhookEventWithRetry(app, event);
+      const attempt = await processWebhookEventWithRetry(app, event, correlation);
       checkoutMetrics.webhookEvents.inc({ event_type: event.type, result: "success" });
       if (attempt > 1) {
         checkoutMetrics.webhookRetries.inc({ event_type: event.type, result: "success" });
@@ -325,7 +327,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
       checkoutMetrics.webhookRetries.inc({ event_type: event.type, result: "failed" });
       await moveWebhookEventToDlq(app, event, err);
       checkoutMetrics.webhookDlq.inc({ event_type: event.type });
-      app.log.error({ err, eventType: event.type, eventId: event.id }, "Webhook moved to DLQ after retries");
+      app.log.error({ err, ...correlation, eventType: event.type, eventId: event.id }, "Webhook moved to DLQ after retries");
       // Ack to Stripe once persisted in DLQ to avoid infinite provider retries.
       return reply.status(202).send({ queued: true, eventId: event.id });
     }
@@ -392,7 +394,18 @@ export async function checkoutRoutes(app: FastifyInstance) {
     const results: Array<Record<string, unknown>> = [];
     for (const entry of toReplay) {
       try {
-        await processWebhookEventWithRetry(app, entry.payload);
+        await processWebhookEventWithRetry(
+          app,
+          entry.payload,
+          mergeRequestCorrelation(getRequestCorrelation(request), {
+            order_id: entry.payload.type.includes("payment_intent")
+              ? (entry.payload.data.object as Stripe.PaymentIntent).metadata.orderId
+              : undefined,
+            payment_intent_id: entry.payload.type.includes("payment_intent")
+              ? (entry.payload.data.object as Stripe.PaymentIntent).id
+              : undefined,
+          }),
+        );
         await removeWebhookDlqEntry(app, entry.eventId);
         checkoutMetrics.webhookReplay.inc({ result: "success" });
         results.push({ eventId: entry.eventId, result: "replayed" });
@@ -458,31 +471,50 @@ async function createPaymentIntent(
   });
 }
 
-async function processWebhookEvent(app: FastifyInstance, event: Stripe.Event): Promise<void> {
+async function processWebhookEvent(
+  app: FastifyInstance,
+  event: Stripe.Event,
+  correlation: RequestCorrelation,
+): Promise<void> {
   switch (event.type) {
     case "payment_intent.succeeded": {
       const pi = event.data.object as Stripe.PaymentIntent;
-      await handlePaymentSuccess(app, pi);
+      await handlePaymentSuccess(
+        app,
+        pi,
+        mergeRequestCorrelation(correlation, {
+          payment_intent_id: pi.id,
+          order_id: pi.metadata.orderId,
+        }),
+      );
       return;
     }
     case "payment_intent.payment_failed": {
       const pi = event.data.object as Stripe.PaymentIntent;
-      await handlePaymentFailure(app, pi);
+      await handlePaymentFailure(
+        app,
+        pi,
+        mergeRequestCorrelation(correlation, {
+          payment_intent_id: pi.id,
+          order_id: pi.metadata.orderId,
+        }),
+      );
       return;
     }
     default:
       checkoutMetrics.webhookEvents.inc({ event_type: event.type, result: "ignored" });
-      app.log.info({ type: event.type }, "Unhandled Stripe event");
+      app.log.info({ ...correlation, type: event.type }, "Unhandled Stripe event");
   }
 }
 
 async function processWebhookEventWithRetry(
   app: FastifyInstance,
   event: Stripe.Event,
+  correlation: RequestCorrelation,
 ): Promise<number> {
   for (let attempt = 1; attempt <= WEBHOOK_MAX_RETRIES; attempt += 1) {
     try {
-      await processWebhookEvent(app, event);
+      await processWebhookEvent(app, event, correlation);
       return attempt;
     } catch (err) {
       if (attempt >= WEBHOOK_MAX_RETRIES) throw err;
@@ -566,10 +598,17 @@ async function removeWebhookDlqEntry(app: FastifyInstance, eventId: string): Pro
   await setWebhookDlqIndex(app, ids.filter((id) => id !== eventId));
 }
 
-async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentIntent): Promise<void> {
+async function handlePaymentSuccess(
+  app: FastifyInstance,
+  pi: Stripe.PaymentIntent,
+  correlation: RequestCorrelation,
+): Promise<void> {
   const orderId = pi.metadata.orderId;
   if (!orderId) {
-    app.log.warn({ paymentIntentId: pi.id }, "PaymentIntent succeeded but no orderId in metadata");
+    app.log.warn(
+      { ...mergeRequestCorrelation(correlation, { payment_intent_id: pi.id }) },
+      "PaymentIntent succeeded but no orderId in metadata",
+    );
     return;
   }
 
@@ -578,7 +617,7 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
     where: { providerRef: pi.id, status: "CONFIRMED" },
   });
   if (existingPayment) {
-    app.log.info({ paymentIntentId: pi.id }, "Payment already confirmed (idempotent)");
+    app.log.info({ ...correlation }, "Payment already confirmed (idempotent)");
     return;
   }
 
@@ -646,7 +685,7 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
       });
     } else if (currentOrder?.status && WEBHOOK_TERMINAL_STATUSES.has(currentOrder.status)) {
       app.log.warn(
-        { orderId, currentStatus: currentOrder.status, paymentIntentId: pi.id },
+        { ...correlation, currentStatus: currentOrder.status },
         "Webhook payment success received for terminal order status; skipping status transition",
       );
     } else {
@@ -656,7 +695,7 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
         data: { paymentStatus: "PAID" },
       });
       app.log.info(
-        { orderId, currentStatus: currentOrder?.status },
+        { ...correlation, currentStatus: currentOrder?.status },
         "Webhook: order already past PENDING, only updating paymentStatus",
       );
     }
@@ -682,7 +721,7 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
     await awardLoyaltyPoints(tx, orderId, pi.amount / 100, app);
   });
 
-  app.log.info({ orderId, paymentIntentId: pi.id, amount: pi.amount / 100 }, "Payment confirmed, order updated");
+  app.log.info({ ...correlation, amount: pi.amount / 100 }, "Payment confirmed, order updated");
 }
 
 /**
@@ -754,7 +793,11 @@ async function awardLoyaltyPoints(
   }
 }
 
-async function handlePaymentFailure(app: FastifyInstance, pi: Stripe.PaymentIntent): Promise<void> {
+async function handlePaymentFailure(
+  app: FastifyInstance,
+  pi: Stripe.PaymentIntent,
+  correlation: RequestCorrelation,
+): Promise<void> {
   const orderId = pi.metadata.orderId;
   if (!orderId) return;
 
@@ -763,5 +806,11 @@ async function handlePaymentFailure(app: FastifyInstance, pi: Stripe.PaymentInte
     data: { status: "FAILED" },
   });
 
-  app.log.warn({ orderId, paymentIntentId: pi.id, error: pi.last_payment_error?.message }, "Payment failed");
+  app.log.warn(
+    {
+      ...mergeRequestCorrelation(correlation, { order_id: orderId, payment_intent_id: pi.id }),
+      error: pi.last_payment_error?.message,
+    },
+    "Payment failed",
+  );
 }
