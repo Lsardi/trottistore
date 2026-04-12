@@ -124,7 +124,10 @@ async function buildInvoicePdf(
   doc.text("Sous-total HT", 350, y, { width: 100 });
   doc.text(`${Number(order.subtotalHt).toFixed(2)} €`, 440, y, { width: 80, align: "right" });
   y += 14;
-  doc.text(`TVA (${Number(order.items[0]?.tvaRate || 20)}%)`, 350, y, { width: 100 });
+  // T-17: Show TVA breakdown per rate (not just first item's rate)
+  const tvaRates = [...new Set(order.items.map((i) => Number(i.tvaRate)))];
+  const tvaLabel = tvaRates.length === 1 ? `TVA (${tvaRates[0]}%)` : `TVA (multi-taux)`;
+  doc.text(tvaLabel, 350, y, { width: 100 });
   doc.text(`${Number(order.tvaAmount).toFixed(2)} €`, 440, y, { width: 80, align: "right" });
   y += 14;
   doc.text("Livraison", 350, y, { width: 100 });

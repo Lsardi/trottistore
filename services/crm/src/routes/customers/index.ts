@@ -590,9 +590,17 @@ export async function customerRoutes(app: FastifyInstance) {
   });
 
   // ───────────────────────────────────────────────────────────
-  // PUT /customers/:id/status — Activate, suspend, or ban a customer
+  // PUT /customers/:id/status — Activate, suspend, or ban a customer (ADMIN+ only)
   // ───────────────────────────────────────────────────────────
   app.put("/customers/:id/status", async (request, reply) => {
+    // T-04: RBAC — only SUPERADMIN/ADMIN can change account status
+    const reqUserStatus = request.user as { role?: string } | undefined;
+    if (!reqUserStatus || !["SUPERADMIN", "ADMIN"].includes(reqUserStatus.role ?? "")) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Seuls les administrateurs peuvent modifier le statut d'un compte" },
+      });
+    }
     const id = parseIdParam(request.params);
     const body = z.object({
       status: z.enum(["ACTIVE", "SUSPENDED", "BANNED"]),
@@ -635,11 +643,21 @@ export async function customerRoutes(app: FastifyInstance) {
   // POST /customers/merge — Merge two customer accounts into one
   // ───────────────────────────────────────────────────────────
   app.post("/customers/merge", async (request, reply) => {
+    // T-03: RBAC — only SUPERADMIN/ADMIN can merge accounts
+    const reqUser = request.user as { role?: string } | undefined;
+    if (!reqUser || !["SUPERADMIN", "ADMIN"].includes(reqUser.role ?? "")) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Seuls les administrateurs peuvent fusionner des comptes" },
+      });
+    }
+
     const body = z.object({
-      keepId: z.string().uuid(),    // Account to keep
-      mergeId: z.string().uuid(),   // Account to merge (will be deactivated)
+      keepId: z.string().uuid(),
+      mergeId: z.string().uuid(),
     }).parse(request.body);
 
+    // T-03: Prevent merging non-CLIENT accounts (protect backoffice users)
     if (body.keepId === body.mergeId) {
       return reply.status(400).send({
         success: false,
@@ -656,6 +674,14 @@ export async function customerRoutes(app: FastifyInstance) {
       return reply.status(404).send({
         success: false,
         error: { code: "NOT_FOUND", message: "Un des deux comptes est introuvable" },
+      });
+    }
+
+    // T-03: Only allow merging CLIENT accounts (protect backoffice users)
+    if (keepUser.role !== "CLIENT" || mergeUser.role !== "CLIENT") {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "NOT_CLIENT", message: "Seuls les comptes clients peuvent être fusionnés" },
       });
     }
 

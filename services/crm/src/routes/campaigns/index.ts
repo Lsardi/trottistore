@@ -299,6 +299,13 @@ export async function campaignRoutes(app: FastifyInstance) {
       }
     }
 
+    // T-06: Only send to users who have confirmed newsletter opt-in (RGPD)
+    const confirmedSubscribers = await app.prisma.newsletterSubscriber.findMany({
+      where: { status: "CONFIRMED" },
+      select: { email: true },
+    });
+    const confirmedEmails = new Set(confirmedSubscribers.map((s) => s.email));
+
     const profiles = await app.prisma.customerProfile.findMany({
       where: profileWhere,
       select: {
@@ -308,7 +315,10 @@ export async function campaignRoutes(app: FastifyInstance) {
       },
     });
 
-    if (profiles.length === 0) {
+    // Filter out recipients who haven't opted in
+    const eligibleProfiles = profiles.filter((p) => confirmedEmails.has(p.user.email));
+
+    if (eligibleProfiles.length === 0) {
       return reply.status(400).send({
         success: false,
         error: { code: "EMPTY_SEGMENT", message: "Aucun destinataire dans ce segment" },
@@ -325,7 +335,7 @@ export async function campaignRoutes(app: FastifyInstance) {
     let sent = 0;
     let failed = 0;
 
-    for (const profile of profiles) {
+    for (const profile of eligibleProfiles) {
       // Idempotence: skip if already sent
       const existing = await app.prisma.campaignSend.findUnique({
         where: { campaignId_customerId: { campaignId: id, customerId: profile.userId } },
@@ -370,7 +380,7 @@ export async function campaignRoutes(app: FastifyInstance) {
       success: true,
       data: {
         campaignId: id,
-        recipients: profiles.length,
+        recipients: eligibleProfiles.length,
         sent,
         failed,
       },

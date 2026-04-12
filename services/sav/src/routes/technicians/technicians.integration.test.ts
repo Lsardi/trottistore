@@ -33,6 +33,11 @@ function buildApp(): FastifyInstance {
 
   app.decorate("redis", { get: vi.fn(), set: vi.fn(), del: vi.fn() });
 
+  // Simulate authenticated ADMIN user for RBAC
+  app.addHook("onRequest", async (request) => {
+    request.user = { userId: "admin-1", role: "ADMIN" };
+  });
+
   return app;
 }
 

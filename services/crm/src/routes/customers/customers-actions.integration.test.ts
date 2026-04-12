@@ -54,6 +54,11 @@ function buildApp(): FastifyInstance {
 
   app.decorate("redis", { get: vi.fn(), set: vi.fn(), del: vi.fn() });
 
+  // Simulate ADMIN user for RBAC (T-03/T-04)
+  app.addHook("onRequest", async (request) => {
+    request.user = { userId: "admin-1", role: "ADMIN" };
+  });
+
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
     const isZodError = error instanceof ZodError;
     reply.status(isZodError ? 400 : error.statusCode || 500).send({

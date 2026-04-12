@@ -4,8 +4,15 @@ import { TERMINAL_STATUSES } from "../../utils/status-machine.js";
 const TERMINAL_ARRAY = [...TERMINAL_STATUSES];
 
 export async function statsRoutes(app: FastifyInstance) {
-  // GET /repairs/stats — SAV statistics with real Prisma aggregations
-  app.get("/repairs/stats", async () => {
+  // GET /repairs/stats — SAV statistics (STAFF+ only, T-10)
+  app.get("/repairs/stats", async (request, reply) => {
+    const user = request.user as { role?: string } | undefined;
+    if (!user || user.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Accès réservé au personnel" },
+      });
+    }
     // All queries run in parallel for performance
     const [
       byStatusRaw,

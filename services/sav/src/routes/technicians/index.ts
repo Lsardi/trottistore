@@ -14,9 +14,23 @@ const TERMINAL_ARRAY = [...TERMINAL_STATUSES];
 
 // --- Routes ---
 
+// T-08/09/10: RBAC guard — reject CLIENT on all technician routes
+function rejectClient(request: { user?: unknown }, reply: { status: (code: number) => { send: (body: unknown) => void } }): boolean {
+  const user = request.user as { role?: string } | undefined;
+  if (!user || user.role === "CLIENT") {
+    reply.status(403).send({
+      success: false,
+      error: { code: "FORBIDDEN", message: "Accès réservé au personnel" },
+    });
+    return true;
+  }
+  return false;
+}
+
 export async function technicianRoutes(app: FastifyInstance) {
-  // GET /technicians — List all technicians with user info
-  app.get("/technicians", async () => {
+  // GET /technicians — List all technicians (STAFF+ only)
+  app.get("/technicians", async (request, reply) => {
+    if (rejectClient(request, reply)) return;
     const technicians = await app.prisma.technician.findMany({
       include: {
         user: {
@@ -53,6 +67,7 @@ export async function technicianRoutes(app: FastifyInstance) {
 
   // GET /technicians/:id/schedule — Technician's active tickets
   app.get("/technicians/:id/schedule", async (request, reply) => {
+    if (rejectClient(request, reply)) return;
     const id = parseIdParam(request.params);
 
     // Look up technician by their own id (Technician table id)
@@ -113,8 +128,15 @@ export async function technicianRoutes(app: FastifyInstance) {
     };
   });
 
-  // PUT /technicians/:id/availability — Update availability
+  // PUT /technicians/:id/availability — Update availability (ADMIN/MANAGER only)
   app.put("/technicians/:id/availability", async (request, reply) => {
+    const user = request.user as { role?: string } | undefined;
+    if (!user || !["SUPERADMIN", "ADMIN", "MANAGER", "TECHNICIAN"].includes(user.role ?? "")) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Accès réservé aux techniciens et managers" },
+      });
+    }
     const id = parseIdParam(request.params);
     const body = updateAvailabilitySchema.parse(request.body);
 

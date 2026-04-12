@@ -210,7 +210,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
       const [products, variants] = await Promise.all([
         app.prisma.product.findMany({
           where: { id: { in: productIds }, status: "ACTIVE" },
-          select: { id: true, priceHt: true },
+          select: { id: true, priceHt: true, tvaRate: true },
         }),
         variantIds.length > 0
           ? app.prisma.productVariant.findMany({
@@ -222,7 +222,9 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
       const productMap = new Map(products.map((p) => [p.id, p]));
       const variantMap = new Map(variants.map((v) => [v.id, v]));
+      // T-01: Calculate TVA per item using product.tvaRate (not hardcoded 20%)
       let totalHt = new Decimal(0);
+      let tvaAmount = new Decimal(0);
       for (const item of cart.items) {
         const product = productMap.get(item.productId);
         if (!product) continue;
@@ -232,9 +234,10 @@ export async function checkoutRoutes(app: FastifyInstance) {
             ? variant.priceOverride
             : product.priceHt,
         );
-        totalHt = totalHt.add(unitPriceHt.mul(item.quantity || 1));
+        const itemTotalHt = unitPriceHt.mul(item.quantity || 1);
+        totalHt = totalHt.add(itemTotalHt);
+        tvaAmount = tvaAmount.add(itemTotalHt.mul(product.tvaRate).div(100));
       }
-      const tvaAmount = totalHt.mul(20).div(100);
       // Store pickup = free shipping
       const shippingCost = body.shippingMethod === "STORE_PICKUP"
         ? new Decimal(0)
