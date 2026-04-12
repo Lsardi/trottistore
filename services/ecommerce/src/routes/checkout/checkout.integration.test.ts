@@ -55,6 +55,7 @@ function buildApp(): FastifyInstance {
   process.env.STRIPE_PUBLISHABLE_KEY = "pk_test_fake";
 
   const app = Fastify({ logger: false });
+  const redisStore = new Map<string, string>();
 
   app.decorate("prisma", {
     order: {
@@ -90,9 +91,15 @@ function buildApp(): FastifyInstance {
   });
 
   app.decorate("redis", {
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue("OK"),
-    del: vi.fn().mockResolvedValue(1),
+    get: vi.fn(async (key: string) => redisStore.get(key) ?? null),
+    set: vi.fn(async (key: string, value: string) => {
+      redisStore.set(key, value);
+      return "OK";
+    }),
+    del: vi.fn(async (key: string) => {
+      const existed = redisStore.delete(key);
+      return existed ? 1 : 0;
+    }),
   });
 
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
@@ -111,8 +118,8 @@ function buildApp(): FastifyInstance {
 }
 
 /** Create a JWT token for authenticated requests (matches JwtAccessPayload). */
-async function getAuthToken(app: FastifyInstance, userId = "user-1"): Promise<string> {
-  return app.jwt.sign({ sub: userId, email: "test@test.com", role: "CLIENT" });
+async function getAuthToken(app: FastifyInstance, userId = "user-1", role = "CLIENT"): Promise<string> {
+  return app.jwt.sign({ sub: userId, email: "test@test.com", role });
 }
 
 /**
@@ -431,6 +438,108 @@ describe("Checkout routes", () => {
       expect(res.statusCode).toBe(200);
       expect(app.prisma.order.update).not.toHaveBeenCalled();
       delete process.env.STRIPE_WEBHOOK_SECRET;
+    });
+
+    it("moves failing webhook to DLQ after retries", async () => {
+      process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+      mockConstructEvent.mockReturnValueOnce({
+        id: "evt_dlq_1",
+        type: "payment_intent.succeeded",
+        data: {
+          object: {
+            id: "pi_dlq_1",
+            amount: 1200,
+            payment_method_types: ["card"],
+            metadata: { orderId: "00000000-0000-0000-0000-000000000010" },
+          },
+        },
+      });
+      (app.prisma.payment.upsert as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("db down"));
+      (app.prisma.payment.upsert as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("db down"));
+      (app.prisma.payment.upsert as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("db down"));
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/checkout/webhook",
+        headers: {
+          "stripe-signature": "t=123,v1=abc",
+          "content-type": "application/json",
+        },
+        payload: JSON.stringify({ id: "evt_dlq_1" }),
+      });
+
+      expect(res.statusCode).toBe(202);
+      const dlqRaw = await app.redis.get("checkout:webhook:dlq:index:evt_dlq_1");
+      expect(dlqRaw).toBeTruthy();
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+    });
+  });
+
+  describe("Webhook DLQ admin endpoints", () => {
+    it("lists webhook DLQ entries for backoffice users", async () => {
+      const token = await getAuthToken(app, "admin-1", "ADMIN");
+      await app.redis.set(
+        "checkout:webhook:dlq:index",
+        JSON.stringify(["evt_admin_1"]),
+      );
+      await app.redis.set(
+        "checkout:webhook:dlq:index:evt_admin_1",
+        JSON.stringify({
+          eventId: "evt_admin_1",
+          eventType: "payment_intent.succeeded",
+          attempts: 3,
+          failedAt: "2026-04-12T00:00:00.000Z",
+          nextRetryAt: "2026-04-12T00:01:00.000Z",
+          lastError: "boom",
+          payload: { id: "evt_admin_1", type: "payment_intent.succeeded", data: { object: { metadata: { orderId: "o1" } } } },
+        }),
+      );
+
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/v1/admin/checkout/webhooks/dlq",
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.count).toBe(1);
+    });
+
+    it("replays and removes a DLQ event for backoffice users", async () => {
+      const token = await getAuthToken(app, "admin-1", "ADMIN");
+      (app.prisma.payment.upsert as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        status: "PENDING",
+        paymentStatus: "PENDING",
+      });
+      (app.prisma.order.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+
+      await app.redis.set("checkout:webhook:dlq:index", JSON.stringify(["evt_replay_1"]));
+      await app.redis.set("checkout:webhook:dlq:index:evt_replay_1", JSON.stringify({
+        eventId: "evt_replay_1",
+        eventType: "payment_intent.succeeded",
+        attempts: 3,
+        failedAt: "2026-04-12T00:00:00.000Z",
+        nextRetryAt: "2026-04-12T00:01:00.000Z",
+        lastError: "db down",
+        payload: {
+          id: "evt_replay_1",
+          type: "payment_intent.succeeded",
+          data: { object: { id: "pi_replay_1", amount: 990, payment_method_types: ["card"], metadata: { orderId: "order-1" } } },
+        },
+      }));
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/admin/checkout/webhooks/dlq/replay",
+        headers: { authorization: `Bearer ${token}` },
+        payload: { eventId: "evt_replay_1" },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.replayed).toBe(1);
+      const indexRaw = await app.redis.get("checkout:webhook:dlq:index");
+      expect(indexRaw).toBe("[]");
     });
   });
 });

@@ -135,14 +135,16 @@ docker compose -f docker-compose.prod.yml exec postgres df -h /var/lib/postgresq
 ### Restore from backup
 ```bash
 # List available backups
-ls -la /backups/postgres/
+ls -la /backups/
 
 # Stop services
 docker compose -f docker-compose.prod.yml stop ecommerce crm sav analytics
 
-# Restore
-docker compose -f docker-compose.prod.yml exec postgres \
-  pg_restore -U trottistore -d trottistore --clean --if-exists /backups/postgres/latest.dump
+# Verify backup is restorable in isolated temp DB (recommended first)
+./infra/verify-backup-restore.sh /backups/trottistore_YYYYMMDD_HHMMSS.sql.gz
+
+# Restore into production DB
+./infra/restore-db.sh /backups/trottistore_YYYYMMDD_HHMMSS.sql.gz
 
 # Restart
 docker compose -f docker-compose.prod.yml start ecommerce crm sav analytics
