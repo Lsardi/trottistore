@@ -19,8 +19,12 @@ const EMAIL = process.env.NEXT_PUBLIC_BRAND_EMAIL || "contact@trottistore.fr";
 
 function legalFooter(): string {
   const siret = process.env.NEXT_PUBLIC_LEGAL_SIRET || "SIRET non renseigné";
+  const rcs = process.env.NEXT_PUBLIC_LEGAL_RCS || "";
   const tva = process.env.NEXT_PUBLIC_LEGAL_TVA_INTRACOM || "TVA non renseignée";
-  return `${BRAND} — SIRET: ${siret} — TVA intracommunautaire: ${tva}`;
+  const parts = [`${BRAND}`, `SIRET: ${siret}`];
+  if (rcs) parts.push(`RCS: ${rcs}`);
+  parts.push(`TVA: ${tva}`);
+  return parts.join(" — ");
 }
 
 async function buildInvoicePdf(

@@ -23,9 +23,10 @@ docker compose -f docker-compose.prod.yml up -d
 
 echo "[5/5] Verifying health..."
 sleep 10
+declare -A SERVICE_PORTS=( [ecommerce]=3001 [crm]=3002 [analytics]=3003 [sav]=3004 )
 for service in ecommerce crm analytics sav; do
-  port=$(docker compose -f docker-compose.prod.yml port $service 3001 2>/dev/null | cut -d: -f2 || echo "?")
-  echo "  $service: $(curl -sf http://localhost:${port}/health 2>/dev/null && echo 'OK' || echo 'PENDING')"
+  port=${SERVICE_PORTS[$service]}
+  echo "  $service (:$port): $(curl -sf http://localhost:${port}/health 2>/dev/null && echo 'OK' || echo 'PENDING')"
 done
 
 echo ""

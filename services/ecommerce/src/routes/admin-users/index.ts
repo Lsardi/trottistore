@@ -18,7 +18,8 @@ import { staffInvitationEmail } from "../../emails/templates.js";
 // Constants & schemas
 // ---------------------------------------------------------------------------
 
-const STAFF_ROLES = ["SUPERADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "STAFF"] as const;
+// SUPERADMIN excluded — only SUPERADMIN can promote to SUPERADMIN (handled separately)
+const STAFF_ROLES = ["ADMIN", "MANAGER", "TECHNICIAN", "STAFF"] as const;
 const INVITATION_EXPIRY_HOURS = 72;
 
 const createStaffSchema = z.object({

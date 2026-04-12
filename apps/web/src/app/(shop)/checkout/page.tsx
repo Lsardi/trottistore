@@ -148,9 +148,16 @@ export default function CheckoutPage() {
             setShowInlineAddressForm(true);
           }
         } catch (authErr) {
-          // Not authenticated — enable guest checkout
+          // Not authenticated or token expired — enable guest checkout
+          const hadToken = !!localStorage.getItem("accessToken");
+          if (hadToken) {
+            localStorage.removeItem("accessToken");
+          }
           setIsGuest(true);
           setShowInlineAddressForm(true);
+          if (hadToken) {
+            setError("Votre session a expiré. Vous pouvez continuer en tant qu'invité ou vous reconnecter.");
+          }
         }
 
         const stripeConfig = await checkoutApi.config().catch(() => null);
