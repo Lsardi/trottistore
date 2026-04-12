@@ -381,25 +381,44 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
       },
     });
 
-    // Update order status
-    await tx.order.update({
+    // Item 5 — Only overwrite order status if still PENDING.
+    // If admin has already advanced the order (e.g. PREPARING), don't regress it.
+    const currentOrder = await tx.order.findUnique({
       where: { id: orderId },
-      data: {
-        status: "CONFIRMED",
-        paymentStatus: "PAID",
-      },
+      select: { status: true },
     });
+
+    if (currentOrder?.status === "PENDING") {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: "CONFIRMED",
+          paymentStatus: "PAID",
+        },
+      });
+    } else {
+      // Order already advanced past PENDING — just confirm payment status
+      await tx.order.update({
+        where: { id: orderId },
+        data: { paymentStatus: "PAID" },
+      });
+      app.log.info(
+        { orderId, currentStatus: currentOrder?.status },
+        "Webhook: order already past PENDING, only updating paymentStatus",
+      );
+    }
 
     // Stock was already decremented (or reserved, for installments) at order creation
     // in routes/orders/index.ts. Decrementing here would cause a double-decrement
     // on every Stripe payment. Webhook only confirms payment + order status.
 
     // Add status history
+    const fromStatus = currentOrder?.status ?? "PENDING";
     await tx.orderStatusHistory.create({
       data: {
         orderId,
-        fromStatus: "PENDING",
-        toStatus: "CONFIRMED",
+        fromStatus,
+        toStatus: currentOrder?.status === "PENDING" ? "CONFIRMED" : fromStatus,
         note: `Paiement Stripe confirme (${pi.id})`,
       },
     });

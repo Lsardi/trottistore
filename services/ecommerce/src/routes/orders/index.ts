@@ -1541,8 +1541,22 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    const refundAmount = body.amount ?? Number(order.totalTtc);
-    const isFullRefund = !body.amount || body.amount >= Number(order.totalTtc);
+    // Item 3 — Use Decimal for precision (no Number() conversion on monetary values)
+    const orderTotalTtc = new Decimal(order.totalTtc);
+    const refundDecimal = body.amount ? new Decimal(body.amount) : orderTotalTtc;
+    const isFullRefund = !body.amount || refundDecimal.gte(orderTotalTtc);
+    const refundCents = refundDecimal.mul(100).round().toNumber(); // Safe: Decimal → integer cents
+
+    // Item 4 — Refund idempotence: check for existing refund payment on this order
+    const existingRefund = await app.prisma.payment.findFirst({
+      where: { orderId: id, amount: { lt: 0 }, status: "CONFIRMED" },
+    });
+    if (existingRefund && isFullRefund) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "REFUND_EXISTS", message: "Un remboursement a déjà été effectué sur cette commande" },
+      });
+    }
 
     // Attempt Stripe refund if a Stripe payment exists
     const stripePayment = order.payments[0];
@@ -1554,7 +1568,7 @@ export async function orderRoutes(app: FastifyInstance) {
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         const refund = await stripe.refunds.create({
           payment_intent: stripePayment.providerRef,
-          amount: Math.round(refundAmount * 100),
+          amount: refundCents,
           reason: "requested_by_customer",
         });
         stripeRefundId = refund.id;
@@ -1569,6 +1583,7 @@ export async function orderRoutes(app: FastifyInstance) {
 
     // Update order in transaction
     const userId = user.id ?? user.userId;
+    const refundAmountNum = refundDecimal.toNumber();
     await app.prisma.$transaction(async (tx) => {
       // Update order status
       await tx.order.update({
@@ -1585,7 +1600,7 @@ export async function orderRoutes(app: FastifyInstance) {
           orderId: id,
           provider: stripeRefundId ? "stripe" : "internal",
           providerRef: stripeRefundId,
-          amount: -refundAmount, // Negative = refund
+          amount: -refundAmountNum, // Negative = refund
           method: order.paymentMethod,
           status: "CONFIRMED",
           receivedAt: new Date(),
@@ -1598,12 +1613,12 @@ export async function orderRoutes(app: FastifyInstance) {
           orderId: id,
           fromStatus: order.status,
           toStatus: isFullRefund ? "REFUNDED" : order.status,
-          note: `Remboursement ${isFullRefund ? "total" : "partiel"}: ${refundAmount.toFixed(2)}€${body.reason ? ` — ${body.reason}` : ""}`,
+          note: `Remboursement ${isFullRefund ? "total" : "partiel"}: ${refundDecimal.toFixed(2)}€${body.reason ? ` — ${body.reason}` : ""}`,
           changedBy: userId,
         },
       });
 
-      // Restock items if requested
+      // Restock items if requested (only on full refund, idempotent via status check above)
       if (body.restockItems && isFullRefund) {
         for (const item of order.items) {
           if (item.variantId) {
@@ -1620,7 +1635,7 @@ export async function orderRoutes(app: FastifyInstance) {
       success: true,
       data: {
         orderId: id,
-        refundAmount,
+        refundAmount: refundAmountNum,
         isFullRefund,
         stripeRefundId,
         restocked: body.restockItems && isFullRefund,

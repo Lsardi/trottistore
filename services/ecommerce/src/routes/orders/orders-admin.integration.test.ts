@@ -83,6 +83,10 @@ function buildApp(): FastifyInstance {
     address: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    payment: {
+      findFirst: vi.fn().mockResolvedValue(null), // No existing refund
+      create: vi.fn().mockResolvedValue(null),
+    },
     paymentInstallment: {
       create: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
