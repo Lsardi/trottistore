@@ -5,6 +5,31 @@
 const BRAND = "TrottiStore";
 const BASE_URL = process.env.BASE_URL || "https://trottistore.fr";
 
+/**
+ * HTML entity escape for email templates (CL-03, 2026-04-12).
+ *
+ * Every variable interpolated into the HTML output of a template MUST go
+ * through this helper if it contains any user-controlled input (customer
+ * name, product name, address, etc). Without it, a product named
+ * `<img src=x onerror=alert(1)>` or a customer firstName
+ * `<script>alert(1)</script>` would render as executable HTML inside the
+ * email, leading to XSS in clients that render HTML (Outlook, Apple Mail,
+ * some webmails).
+ *
+ * Scope is intentionally narrow: escape `& < > " '` which is the minimal
+ * set that breaks HTML interpolation. Numbers, URLs built from constants,
+ * and server-side enums do NOT need escaping.
+ */
+function esc(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function layout(content: string): string {
   return `
 <!DOCTYPE html>
@@ -48,16 +73,16 @@ export function orderConfirmationEmail(data: OrderConfirmData): { subject: strin
     .map(
       (i) =>
         `<tr>
-          <td style="padding: 8px; border-bottom: 1px solid #eee;">${i.name}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${esc(i.name)}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${i.quantity}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${i.unitPrice} €</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${esc(i.unitPrice)} €</td>
         </tr>`
     )
     .join("");
 
   const html = layout(`
     <h2 style="color: #111; font-size: 18px;">Merci pour votre commande !</h2>
-    <p style="color: #555;">Bonjour ${data.customerName},</p>
+    <p style="color: #555;">Bonjour ${esc(data.customerName)},</p>
     <p style="color: #555;">
       Votre commande <strong>#${data.orderNumber}</strong> a bien été enregistrée.
     </p>
@@ -76,14 +101,14 @@ export function orderConfirmationEmail(data: OrderConfirmData): { subject: strin
     </table>
 
     <div style="text-align: right; margin: 16px 0;">
-      <p style="color: #555; margin: 4px 0;">Sous-total HT : <strong>${data.subtotalHt} €</strong></p>
-      <p style="color: #555; margin: 4px 0;">Livraison : <strong>${data.shippingCost} €</strong></p>
-      <p style="color: #111; margin: 4px 0; font-size: 16px;">Total TTC : <strong>${data.totalTtc} €</strong></p>
+      <p style="color: #555; margin: 4px 0;">Sous-total HT : <strong>${esc(data.subtotalHt)} €</strong></p>
+      <p style="color: #555; margin: 4px 0;">Livraison : <strong>${esc(data.shippingCost)} €</strong></p>
+      <p style="color: #111; margin: 4px 0; font-size: 16px;">Total TTC : <strong>${esc(data.totalTtc)} €</strong></p>
     </div>
 
     <div style="background: #f9f9f9; padding: 16px; margin: 16px 0;">
-      <p style="color: #555; margin: 4px 0;"><strong>Paiement :</strong> ${data.paymentMethod}</p>
-      <p style="color: #555; margin: 4px 0;"><strong>Livraison :</strong> ${data.shippingAddress}</p>
+      <p style="color: #555; margin: 4px 0;"><strong>Paiement :</strong> ${esc(data.paymentMethod)}</p>
+      <p style="color: #555; margin: 4px 0;"><strong>Livraison :</strong> ${esc(data.shippingAddress)}</p>
     </div>
 
     <p style="color: #555;">
@@ -99,9 +124,11 @@ export function orderConfirmationEmail(data: OrderConfirmData): { subject: strin
 }
 
 export function passwordResetEmail(name: string, resetUrl: string): { subject: string; html: string } {
+  // resetUrl is built server-side from BASE_URL + a randomUUID token,
+  // so it is safe to interpolate without escaping. name is user-controlled.
   const html = layout(`
     <h2 style="color: #111; font-size: 18px;">Réinitialisation de votre mot de passe</h2>
-    <p style="color: #555;">Bonjour ${name},</p>
+    <p style="color: #555;">Bonjour ${esc(name)},</p>
     <p style="color: #555;">
       Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau :
     </p>
@@ -128,9 +155,9 @@ export function staffInvitationEmail(
 ): { subject: string; html: string } {
   const html = layout(`
     <h2 style="color: #111; font-size: 18px;">Bienvenue dans l'équipe ${BRAND} !</h2>
-    <p style="color: #555;">Bonjour ${name},</p>
+    <p style="color: #555;">Bonjour ${esc(name)},</p>
     <p style="color: #555;">
-      Un compte <strong>${role}</strong> a été créé pour vous. Cliquez ci-dessous pour définir votre mot de passe et accéder au back-office :
+      Un compte <strong>${esc(role)}</strong> a été créé pour vous. Cliquez ci-dessous pour définir votre mot de passe et accéder au back-office :
     </p>
     <p>
       <a href="${resetUrl}" style="display: inline-block; background: #00CCa8; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold;">
@@ -158,7 +185,7 @@ interface OrderShippedData {
 export function orderShippedEmail(data: OrderShippedData): { subject: string; html: string } {
   const html = layout(`
     <h2 style="color: #111; font-size: 18px;">Votre commande est en route !</h2>
-    <p style="color: #555;">Bonjour ${data.customerName},</p>
+    <p style="color: #555;">Bonjour ${esc(data.customerName)},</p>
     <p style="color: #555;">
       Bonne nouvelle : votre commande <strong>#${data.orderNumber}</strong> vient d'être expédiée.
     </p>
@@ -166,9 +193,9 @@ export function orderShippedEmail(data: OrderShippedData): { subject: string; ht
     <div style="background: #f9f9f9; padding: 16px; margin: 20px 0; border-left: 3px solid #00CCa8;">
       <p style="color: #555; margin: 4px 0;"><strong>Numéro de suivi :</strong></p>
       <p style="color: #111; font-size: 16px; font-family: monospace; margin: 4px 0;">
-        ${data.trackingNumber}
+        ${esc(data.trackingNumber)}
       </p>
-      ${data.shippingAddress ? `<p style="color: #555; margin: 12px 0 4px 0; font-size: 13px;"><strong>Adresse de livraison :</strong> ${data.shippingAddress}</p>` : ""}
+      ${data.shippingAddress ? `<p style="color: #555; margin: 12px 0 4px 0; font-size: 13px;"><strong>Adresse de livraison :</strong> ${esc(data.shippingAddress)}</p>` : ""}
     </div>
 
     <p style="color: #555;">
@@ -190,7 +217,7 @@ export function orderShippedEmail(data: OrderShippedData): { subject: string; ht
 export function welcomeEmail(name: string): { subject: string; html: string } {
   const html = layout(`
     <h2 style="color: #111; font-size: 18px;">Bienvenue chez ${BRAND} !</h2>
-    <p style="color: #555;">Bonjour ${name},</p>
+    <p style="color: #555;">Bonjour ${esc(name)},</p>
     <p style="color: #555;">
       Votre compte a été créé avec succès. Vous pouvez maintenant :
     </p>
