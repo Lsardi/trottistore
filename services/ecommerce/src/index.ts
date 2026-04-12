@@ -27,6 +27,7 @@ import { adminUserRoutes } from "./routes/admin-users/index.js";
 import { auditRoutes } from "./routes/admin-audit/index.js";
 import { invoiceRoutes } from "./routes/admin-invoices/index.js";
 import { financeRoutes } from "./routes/finance/index.js";
+import { settingsRoutes } from "./routes/admin-settings/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
 import {
@@ -186,6 +187,7 @@ async function start() {
   await app.register(auditRoutes, { prefix: "/api/v1" });
   await app.register(invoiceRoutes, { prefix: "/api/v1" });
   await app.register(financeRoutes, { prefix: "/api/v1" });
+  await app.register(settingsRoutes, { prefix: "/api/v1" });
 
   // API docs — list available routes
   app.get("/api/v1/docs", async () => ({
