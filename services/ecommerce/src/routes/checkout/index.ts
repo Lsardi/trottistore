@@ -601,6 +601,34 @@ async function handlePaymentSuccess(app: FastifyInstance, pi: Stripe.PaymentInte
       },
     });
 
+    try {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { orderNumber: true },
+      });
+      if (order) {
+        await tx.financialLedger.create({
+          data: {
+            orderId,
+            orderNumber: order.orderNumber,
+            operation: "CHARGE",
+            amountCents: pi.amount,
+            currency: "EUR",
+            provider: "stripe",
+            providerRef: pi.id,
+            reason: "Stripe payment confirmed",
+            metadata: { paymentIntentId: pi.id, source: "webhook" },
+          },
+        });
+        checkoutMetrics.ledgerEntries.inc({ operation: "CHARGE" });
+      }
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code !== "P2002") {
+        throw err;
+      }
+    }
+
     // Item 5 — Only overwrite order status if still PENDING.
     // If admin has already advanced the order (e.g. PREPARING), don't regress it.
     const currentOrder = await tx.order.findUnique({

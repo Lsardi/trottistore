@@ -87,6 +87,9 @@ function buildApp(): FastifyInstance {
     loyaltyPoint: {
       create: vi.fn().mockResolvedValue(null),
     },
+    financialLedger: {
+      create: vi.fn().mockResolvedValue({ id: "ledger-1" }),
+    },
     $transaction: vi.fn(async (fn: any) => fn(app.prisma)),
   });
 
@@ -436,7 +439,11 @@ describe("Checkout routes", () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(app.prisma.order.update).not.toHaveBeenCalled();
+      expect(app.prisma.order.update).toHaveBeenCalledTimes(1);
+      expect(app.prisma.order.update).toHaveBeenCalledWith({
+        where: { id: "00000000-0000-0000-0000-000000000010" },
+        data: { paymentStatus: "PAID" },
+      });
       delete process.env.STRIPE_WEBHOOK_SECRET;
     });
 

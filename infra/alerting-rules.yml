@@ -91,3 +91,45 @@ groups:
         annotations:
           summary: "Stripe refund failed"
           description: "A refund failed via Stripe. Manual intervention may be needed."
+
+  - name: trottistore-finance
+    rules:
+      # High refund rate — more than 5% of orders refunded in 24h
+      - alert: HighRefundRate
+        expr: increase(trottistore_refunds_total{type="full"}[24h]) / increase(trottistore_orders_created_total[24h]) > 0.05
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Refund rate above 5%"
+          description: "{{ $value | humanizePercentage }} of orders refunded in last 24h. Review refund reasons."
+
+      # Reconciliation discrepancy detected
+      - alert: ReconciliationDiscrepancy
+        expr: trottistore_reconciliation_discrepancies > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Financial reconciliation found discrepancies"
+          description: "{{ $value }} orders have payment/charge mismatch. Run reconciliation report."
+
+      # Orphan payments — payment without matching order
+      - alert: OrphanPayments
+        expr: trottistore_orphan_payments > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Orphan payments detected"
+          description: "{{ $value }} payments exist without a matching order."
+
+      # Stale pending payments — pending for more than 24h
+      - alert: StalePendingPayments
+        expr: trottistore_stale_pending_payments > 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} payments stuck in PENDING > 24h"
+          description: "Payments may need manual confirmation or cancellation."

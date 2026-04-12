@@ -25,9 +25,11 @@ import { reviewRoutes } from "./routes/reviews/index.js";
 import { adminUserRoutes } from "./routes/admin-users/index.js";
 import { auditRoutes } from "./routes/admin-audit/index.js";
 import { invoiceRoutes } from "./routes/admin-invoices/index.js";
+import { financeRoutes } from "./routes/finance/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
 import { validateEnv, COMMON_ENV, mapPrismaError, AppError } from "@trottistore/shared";
+import { runFinancialReconciliation } from "./lib/finance-reconciliation.js";
 
 // Fail-fast if required env vars are missing
 validateEnv("ecommerce", [
@@ -171,6 +173,7 @@ async function start() {
   await app.register(adminUserRoutes, { prefix: "/api/v1" });
   await app.register(auditRoutes, { prefix: "/api/v1" });
   await app.register(invoiceRoutes, { prefix: "/api/v1" });
+  await app.register(financeRoutes, { prefix: "/api/v1" });
 
   // API docs — list available routes
   app.get("/api/v1/docs", async () => ({
@@ -219,6 +222,8 @@ async function start() {
         "PUT /api/v1/admin/orders/:id/tracking": "Add tracking number",
         "GET /api/v1/admin/checkout/webhooks/dlq": "List webhook DLQ entries",
         "POST /api/v1/admin/checkout/webhooks/dlq/replay": "Replay webhook DLQ entries",
+        "GET /api/v1/admin/finance/reconciliation": "Run financial reconciliation report",
+        "POST /api/v1/admin/finance/reconciliation/run": "Run financial reconciliation now",
         "GET /api/v1/admin/categories": "List categories with counts",
         "POST /api/v1/admin/categories": "Create category",
         "PUT /api/v1/admin/categories/:id": "Update category",
@@ -241,6 +246,34 @@ async function start() {
     }
     if (!process.env.STRIPE_SECRET_KEY) {
       app.log.warn("STRIPE_SECRET_KEY not set — checkout disabled.");
+    }
+
+    // Financial reconciliation scheduler (default every 60 minutes).
+    if (process.env.FINANCE_RECONCILE_ENABLED !== "false") {
+      const intervalMinutes = Number(process.env.FINANCE_RECONCILE_INTERVAL_MINUTES || "60");
+      const intervalMs = Math.max(5, Number.isFinite(intervalMinutes) ? intervalMinutes : 60) * 60 * 1000;
+
+      const run = async () => {
+        try {
+          const report = await runFinancialReconciliation(app);
+          app.log.info(
+            {
+              discrepancies: report.discrepanciesCount,
+              orphanPayments: report.orphanPaymentsCount,
+              stalePending: report.stalePendingPaymentsCount,
+            },
+            "Financial reconciliation completed",
+          );
+        } catch (error) {
+          app.log.error({ err: error }, "Financial reconciliation failed");
+        }
+      };
+
+      void run();
+      const timer = setInterval(() => void run(), intervalMs);
+      app.addHook("onClose", async () => {
+        clearInterval(timer);
+      });
     }
   } catch (err) {
     app.log.error(err);

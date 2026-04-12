@@ -92,6 +92,28 @@ export const checkoutMetrics = {
     help: "Order amounts in EUR",
     buckets: [10, 25, 50, 100, 200, 500, 1000, 2000],
   }),
+
+  // Financial controls gauges (set by reconciliation job)
+  reconciliationDiscrepancies: new client.Gauge({
+    name: "trottistore_reconciliation_discrepancies",
+    help: "Number of orders with payment/charge mismatch",
+  }),
+
+  orphanPayments: new client.Gauge({
+    name: "trottistore_orphan_payments",
+    help: "Payments without matching order",
+  }),
+
+  stalePendingPayments: new client.Gauge({
+    name: "trottistore_stale_pending_payments",
+    help: "Payments stuck in PENDING > 24h",
+  }),
+
+  ledgerEntries: new client.Counter({
+    name: "trottistore_ledger_entries_total",
+    help: "Financial ledger entries created",
+    labelNames: ["operation"], // CHARGE, REFUND_FULL, REFUND_PARTIAL, CANCEL, MANUAL_CONFIRM
+  }),
 };
 
 function resolveRouteLabel(request: { routeOptions?: { url?: string } }): string {
