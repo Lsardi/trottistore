@@ -421,7 +421,7 @@ export async function repairRoutes(app: FastifyInstance) {
     const dayStart = parisLocalDate(year, month, day, openingHour);
     const dayEnd = parisLocalDate(year, month, day, closingHour);
 
-    const existing = await (app.prisma as any).repairAppointment.findMany({
+    const existing = await app.prisma.repairAppointment.findMany({
       where: {
         status: { in: ["BOOKED", "CONFIRMED"] },
         startsAt: { lt: dayEnd },
@@ -458,7 +458,7 @@ export async function repairRoutes(app: FastifyInstance) {
     const startsAt = atParisTime(body.startsAt);
     const endsAt = computeEnd(startsAt, body.durationMin);
 
-    const overlapCount = await (app.prisma as any).repairAppointment.count({
+    const overlapCount = await app.prisma.repairAppointment.count({
       where: {
         status: { in: ["BOOKED", "CONFIRMED"] },
         startsAt: { lt: endsAt },
@@ -476,7 +476,7 @@ export async function repairRoutes(app: FastifyInstance) {
     }
 
     const expressSurcharge = body.isExpress ? 0.2 : 0;
-    const created = await (app.prisma as any).repairAppointment.create({
+    const created = await app.prisma.repairAppointment.create({
       data: {
         ticketId: body.ticketId ?? null,
         customerId: body.customerId ?? null,
