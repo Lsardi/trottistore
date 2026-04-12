@@ -22,6 +22,16 @@ export interface BrandConfig {
   domain: string;
   since: string;
 
+  // ── Legal (set by site owner via env vars, not hardcoded) ──
+  legal: {
+    siret: string;
+    rcs: string;
+    capital: string;
+    legalForm: string;
+    director: string;
+    tvaIntracom: string;
+  };
+
   // ── Contact ──
   email: string;
   dpoEmail: string; // RGPD Data Protection Officer — must be separate from SAV
@@ -87,6 +97,16 @@ export const brand: BrandConfig = {
   tagline: process.env.NEXT_PUBLIC_BRAND_TAGLINE || "Spécialiste trottinettes électriques depuis 2019",
   domain: process.env.NEXT_PUBLIC_BRAND_DOMAIN || "trottistore.fr",
   since: process.env.NEXT_PUBLIC_BRAND_SINCE || "2019",
+
+  // Legal (site owner fills these in env vars — no code change needed)
+  legal: {
+    siret: process.env.NEXT_PUBLIC_LEGAL_SIRET || "",
+    rcs: process.env.NEXT_PUBLIC_LEGAL_RCS || "",
+    capital: process.env.NEXT_PUBLIC_LEGAL_CAPITAL || "",
+    legalForm: process.env.NEXT_PUBLIC_LEGAL_FORM || "",
+    director: process.env.NEXT_PUBLIC_LEGAL_DIRECTOR || "",
+    tvaIntracom: process.env.NEXT_PUBLIC_LEGAL_TVA_INTRACOM || "",
+  },
 
   // Contact
   email: process.env.NEXT_PUBLIC_BRAND_EMAIL || "contact@trottistore.fr",
