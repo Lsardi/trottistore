@@ -17,7 +17,7 @@ import {
   User,
   Mail,
   UserCog,
-  Settings,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
@@ -34,7 +34,7 @@ const NAV_ITEMS = [
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
   { label: "Recherche", href: "/admin/recherche", icon: Search },
   { label: "Équipe", href: "/admin/equipe", icon: UserCog },
-  { label: "Paramètres", href: "/admin/parametres", icon: Settings },
+  { label: "Paramètres", href: "/admin/parametres", icon: SettingsIcon },
 ] as const;
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
