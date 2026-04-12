@@ -128,7 +128,7 @@ export async function reviewRoutes(app: FastifyInstance) {
   // POST /reviews — Submit a review (auth required)
   app.post(
     "/reviews",
-    { preHandler: [app.authenticate] },
+    { preHandler: [app.authenticate], config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const { userId } = request.user;
 

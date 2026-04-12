@@ -85,11 +85,21 @@ export async function stockRoutes(app: FastifyInstance) {
         throw new Error("INSUFFICIENT_STOCK");
       }
 
-      // Update stock
-      await tx.productVariant.update({
-        where: { id: body.variantId },
-        data: { stockQuantity: stockAfter },
-      });
+      // F2 fix: atomic stock update with WHERE guard (prevents race between read and write)
+      if (isIncoming) {
+        await tx.productVariant.update({
+          where: { id: body.variantId },
+          data: { stockQuantity: { increment: Math.abs(body.quantity) } },
+        });
+      } else {
+        const result = await tx.productVariant.updateMany({
+          where: { id: body.variantId, stockQuantity: { gte: Math.abs(body.quantity) } },
+          data: { stockQuantity: { decrement: Math.abs(body.quantity) } },
+        });
+        if (result.count === 0) {
+          throw new Error("INSUFFICIENT_STOCK");
+        }
+      }
 
       // Record movement
       const movement = await tx.stockMovement.create({

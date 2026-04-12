@@ -1017,13 +1017,15 @@ export async function repairRoutes(app: FastifyInstance) {
       });
 
       // Decrement stock if variantId provided
+      // F1 fix: atomic stock decrement with guard (prevents negative stock race)
       if (body.variantId) {
-        await tx.productVariant.update({
-          where: { id: body.variantId },
-          data: {
-            stockQuantity: { decrement: body.quantity },
-          },
+        const result = await tx.productVariant.updateMany({
+          where: { id: body.variantId, stockQuantity: { gte: body.quantity } },
+          data: { stockQuantity: { decrement: body.quantity } },
         });
+        if (result.count === 0) {
+          throw new Error("INSUFFICIENT_STOCK");
+        }
       }
 
       await tx.repairActivityLog.create({
@@ -1043,8 +1045,17 @@ export async function repairRoutes(app: FastifyInstance) {
       });
 
       return created;
+    }).catch((err: Error) => {
+      if (err.message === "INSUFFICIENT_STOCK") {
+        return reply.status(409).send({
+          success: false,
+          error: { code: "INSUFFICIENT_STOCK", message: "Stock insuffisant pour cette piece" },
+        });
+      }
+      throw err;
     });
 
+    if (reply.sent) return;
     return reply.status(201).send({ success: true, data: part });
   });
 
