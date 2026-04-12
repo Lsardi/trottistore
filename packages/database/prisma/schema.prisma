@@ -101,6 +101,31 @@ model AuditLog {
   @@schema("shared")
 }
 
+model FinancialLedger {
+  id            String   @id @default(uuid()) @db.Uuid
+  orderId       String   @map("order_id") @db.Uuid
+  orderNumber   Int      @map("order_number")
+  operation     String   @db.VarChar(30) // CHARGE, REFUND_FULL, REFUND_PARTIAL, CANCEL, MANUAL_CONFIRM
+  amountCents   Int      @map("amount_cents") // Always in cents to avoid float. Negative = refund.
+  currency      String   @default("EUR") @db.VarChar(3)
+  provider      String   @db.VarChar(30) // stripe, internal, manual
+  providerRef   String?  @map("provider_ref") @db.VarChar(255) // Stripe PaymentIntent/Refund ID
+  balanceBefore Int?     @map("balance_before") // Running balance in cents (optional)
+  balanceAfter  Int?     @map("balance_after")
+  performedBy   String?  @map("performed_by") @db.Uuid // User who triggered the operation
+  reason        String?  @db.VarChar(500)
+  metadata      Json?    // Extra context (idempotencyKey, Stripe event ID, etc.)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  // NO updatedAt — append-only, immutable
+
+  @@index([orderId])
+  @@index([orderNumber])
+  @@index([operation])
+  @@index([createdAt])
+  @@map("financial_ledger")
+  @@schema("ecommerce")
+}
+
 model Address {
   id         String  @id @default(uuid()) @db.Uuid
   userId     String  @map("user_id") @db.Uuid
