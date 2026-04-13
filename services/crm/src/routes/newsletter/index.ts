@@ -26,7 +26,8 @@ function publicBaseUrl(): string {
 }
 
 async function trySendConfirmEmail(email: string, token: string): Promise<boolean> {
-  const confirmUrl = `${publicBaseUrl()}/newsletter/confirm?token=${token}`;
+  // T-30: URL must match the actual API route (was /newsletter/confirm, should be /api/v1/newsletter/confirm)
+  const confirmUrl = `${publicBaseUrl()}/api/v1/newsletter/confirm?token=${token}`;
   const html = `
     <p>Bonjour,</p>
     <p>Merci de vouloir vous inscrire à la newsletter TrottiStore.</p>
@@ -64,10 +65,10 @@ export async function newsletterRoutes(app: FastifyInstance) {
       const confirmToken = genToken();
       const unsubscribeToken = existing?.unsubscribeToken ?? genToken();
 
-      // Try to send the double opt-in email. If transport is unavailable
-      // (no SMTP, no Brevo), auto-confirm so the feature works in dev/staging.
+      // T-51: Always require double opt-in (RGPD). Only auto-confirm in dev.
       const emailSent = await trySendConfirmEmail(email, confirmToken);
-      const status = emailSent ? "PENDING" : "CONFIRMED";
+      const isDev = process.env.NODE_ENV !== "production";
+      const status = emailSent ? "PENDING" : (isDev ? "CONFIRMED" : "PENDING");
 
       await app.prisma.newsletterSubscriber.upsert({
         where: { email },

@@ -458,6 +458,14 @@ export async function repairRoutes(app: FastifyInstance) {
     const startsAt = atParisTime(body.startsAt);
     const endsAt = computeEnd(startsAt, body.durationMin);
 
+    // T-33: Reject past dates
+    if (startsAt.getTime() <= Date.now()) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "PAST_DATE", message: "Impossible de réserver un créneau dans le passé" },
+      });
+    }
+
     const overlapCount = await app.prisma.repairAppointment.count({
       where: {
         status: { in: ["BOOKED", "CONFIRMED"] },
