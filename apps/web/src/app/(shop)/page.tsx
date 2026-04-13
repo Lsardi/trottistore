@@ -49,7 +49,7 @@ const CATEGORIES_SMALL = [
 // ─── HOMEPAGE ─────────────────────────────────────────────
 
 async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
-  const ecommerceBaseUrl = process.env.ECOMMERCE_URL || process.env.NEXT_PUBLIC_API_ECOMMERCE || "http://localhost:3001";
+  const ecommerceBaseUrl = process.env.API_URL || "http://localhost:3001";
   try {
     const res = await fetch(`${ecommerceBaseUrl}/api/v1/products/featured`, {
       next: { revalidate: 120 },

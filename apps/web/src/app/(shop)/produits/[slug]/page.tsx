@@ -27,7 +27,7 @@ interface ProductResponse {
   product?: Product;
 }
 
-const ECOMMERCE_BASE_URL = process.env.ECOMMERCE_URL || process.env.NEXT_PUBLIC_API_ECOMMERCE || "http://localhost:3001";
+const ECOMMERCE_BASE_URL = process.env.API_URL || "http://localhost:3001";
 
 function formatHT(priceHt: string): string {
   const num = parseFloat(priceHt);

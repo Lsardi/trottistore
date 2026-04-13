@@ -71,7 +71,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let productEntries: MetadataRoute.Sitemap = [];
   try {
     const res = await fetch(
-      `${process.env.ECOMMERCE_URL || "http://localhost:3001"}/api/v1/products?limit=500&status=ACTIVE`,
+      `${process.env.API_URL || "http://localhost:3001"}/api/v1/products?limit=500&status=ACTIVE`,
       { next: { revalidate: 3600 } },
     );
     if (res.ok) {
