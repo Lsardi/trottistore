@@ -38,4 +38,5 @@ COPY --from=build --chown=node:node /app/services/sav/src ./src
 COPY --from=build --chown=node:node /app/services/sav/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/services/sav/package.json ./package.json
 USER node
+EXPOSE 8080
 CMD ["node", "--import", "tsx", "src/index.ts"]
