@@ -236,7 +236,7 @@ async function start() {
     cron.schedule("0 * * * *", async () => {
       // Distributed lock: only one instance runs the cron at a time
       const lockKey = "cron:triggers:lock";
-      const locked = await app.redis.set(lockKey, "1", "EX", 300, "NX"); // 5min TTL
+      const locked = await app.redis.set(lockKey, "1", "EX", 1800, "NX"); // T-44: 30min TTL (was 5min, too short for large trigger batches)
       if (!locked) {
         app.log.info("[cron] Skipping — another instance holds the lock");
         return;
@@ -255,7 +255,9 @@ async function start() {
       } catch (err) {
         app.log.error({ err }, "[cron] Triggers execution failed");
       } finally {
-        await app.redis.del(lockKey).catch(() => {});
+        await app.redis.del(lockKey).catch((err) => {
+          app.log.warn({ err }, "[cron] Failed to release lock (will expire via TTL)");
+        });
       }
     });
 
