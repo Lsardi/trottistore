@@ -148,8 +148,20 @@ function getRequestUser(
   return { userId: user.userId, role: user.role };
 }
 
+// T-34: Parse ISO string and ensure it's treated as Paris time
 function atParisTime(dateTime: string) {
-  return new Date(dateTime);
+  const d = new Date(dateTime);
+  // If the input has no timezone info (e.g. "2026-04-13T10:00"), treat as Paris local
+  if (!dateTime.includes("Z") && !dateTime.includes("+") && !/\d{2}:\d{2}:\d{2}-/.test(dateTime)) {
+    // Parse as local date components and build Paris time
+    const [datePart, timePart] = dateTime.split("T");
+    if (datePart && timePart) {
+      const [y, m, day] = datePart.split("-").map(Number);
+      const [h, min] = timePart.split(":").map(Number);
+      return parisLocalDate(y, m, day, h, min || 0);
+    }
+  }
+  return d;
 }
 
 function getParisOffsetMinutes(year: number, month: number, day: number, hour: number): number {
