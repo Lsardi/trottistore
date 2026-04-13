@@ -52,7 +52,7 @@ export async function salesRoutes(app: FastifyInstance) {
     const cacheKey = `analytics:sales:${period}:${group}`;
     const cached = await app.redis.get(cacheKey);
     if (cached) {
-      return reply.send(JSON.parse(cached));
+      return reply.send({ success: true, data: JSON.parse(cached) });
     }
 
     const periodStart = new Date();
@@ -101,7 +101,7 @@ export async function salesRoutes(app: FastifyInstance) {
 
     await app.redis.set(cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
 
-    return reply.send(result);
+    return reply.send({ success: true, data: result });
   });
 
   // GET /analytics/products/top — top products by revenue
@@ -112,7 +112,7 @@ export async function salesRoutes(app: FastifyInstance) {
     const cacheKey = `analytics:products:top:${period}:${limit}`;
     const cached = await app.redis.get(cacheKey);
     if (cached) {
-      return reply.send(JSON.parse(cached));
+      return reply.send({ success: true, data: JSON.parse(cached) });
     }
 
     const periodStart = new Date();
@@ -160,6 +160,6 @@ export async function salesRoutes(app: FastifyInstance) {
 
     await app.redis.set(cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
 
-    return reply.send(result);
+    return reply.send({ success: true, data: result });
   });
 }

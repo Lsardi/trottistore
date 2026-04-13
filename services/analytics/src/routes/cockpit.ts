@@ -7,7 +7,7 @@ export async function cockpitRoutes(app: FastifyInstance) {
   app.get("/analytics/cockpit", async (_request, reply) => {
     const cached = await app.redis.get(CACHE_KEY);
     if (cached) {
-      return reply.send(JSON.parse(cached));
+      return reply.send({ success: true, data: JSON.parse(cached) });
     }
 
     const now = new Date();
@@ -163,6 +163,6 @@ export async function cockpitRoutes(app: FastifyInstance) {
 
     await app.redis.set(CACHE_KEY, JSON.stringify(payload), "EX", CACHE_TTL);
 
-    return reply.send(payload);
+    return reply.send({ success: true, data: payload });
   });
 }

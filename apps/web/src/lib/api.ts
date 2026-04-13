@@ -1020,9 +1020,9 @@ export interface RealtimeKpis {
 }
 
 export interface AggregatedKpis {
-  totalRevenue: number;
-  totalOrders: number;
-  avgOrderValue: number;
+  revenue: number;
+  orders: number;
+  averageOrderValue: number;
   newCustomers: number;
 }
 
