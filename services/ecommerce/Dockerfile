@@ -53,5 +53,6 @@ COPY --from=build --chown=node:node /app/services/ecommerce/src ./src
 COPY --from=build --chown=node:node /app/services/ecommerce/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/services/ecommerce/package.json ./package.json
 USER node
-EXPOSE 3001
+# No EXPOSE — Railway injects PORT and routes traffic to it automatically.
+# Hardcoding EXPOSE conflicts with Railway's dynamic port assignment.
 CMD ["node", "--import", "tsx", "src/index.ts"]
