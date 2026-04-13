@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { Decimal } from "@prisma/client/runtime/library";
+import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { randomUUID } from "node:crypto";
 import { sendEmail } from "@trottistore/shared/notifications";
 import { orderConfirmationEmail, orderShippedEmail } from "../../emails/templates.js";
@@ -708,7 +709,11 @@ export async function orderRoutes(app: FastifyInstance) {
           shippingCost: Number(fullOrder.shippingCost).toFixed(2),
           totalTtc: Number(fullOrder.totalTtc).toFixed(2),
           paymentMethod: fullOrder.paymentMethod,
-          shippingAddress: `${shippingAddr.street}, ${shippingAddr.postalCode} ${shippingAddr.city}`,
+          // T-31: Use saved order address, not current DB address
+          shippingAddress: (() => {
+            const a = fullOrder.shippingAddress as Record<string, string> | null;
+            return a ? `${a.street || ""}, ${a.postalCode || ""} ${a.city || ""}` : "";
+          })(),
         });
         sendEmail(customerEmail.email, subject, html).catch((e: unknown) =>
           app.log.error({ err: e }, "Failed to send order confirmation email"),
@@ -932,7 +937,9 @@ export async function orderRoutes(app: FastifyInstance) {
             totalSpent: 0,
             source: "WEBSITE",
           },
-        }).catch(() => {}); // ignore if profile table doesn't exist or constraint
+        }).catch((err) => {
+          app.log.warn({ err, email }, "Guest customer profile creation failed (non-blocking)");
+        });
 
         // Create shipping address
         await tx.address.create({
@@ -1997,6 +2004,7 @@ export async function orderRoutes(app: FastifyInstance) {
       })).min(1),
       paymentMethod: z.enum(["CASH", "CHECK", "CARD", "BANK_TRANSFER"]),
       shippingMethod: z.enum(["DELIVERY", "STORE_PICKUP"]).default("STORE_PICKUP"),
+      shippingAddressId: z.string().uuid().optional(), // T-41: Required for DELIVERY
       notes: z.string().max(1000).optional(),
     }).parse(request.body);
 
@@ -2010,6 +2018,32 @@ export async function orderRoutes(app: FastifyInstance) {
         success: false,
         error: { code: "CUSTOMER_NOT_FOUND", message: "Client introuvable ou inactif" },
       });
+    }
+
+    // T-41: Fetch shipping address for DELIVERY orders
+    let shippingAddressJson: Record<string, unknown> = {};
+    if (body.shippingMethod === "DELIVERY") {
+      if (!body.shippingAddressId) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "ADDRESS_REQUIRED", message: "Adresse de livraison requise pour une livraison" },
+        });
+      }
+      const addr = await app.prisma.address.findFirst({
+        where: { id: body.shippingAddressId, userId: body.customerId },
+      });
+      if (!addr) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "ADDRESS_NOT_FOUND", message: "Adresse introuvable" },
+        });
+      }
+      shippingAddressJson = {
+        firstName: addr.firstName, lastName: addr.lastName,
+        street: addr.street, street2: addr.street2,
+        city: addr.city, postalCode: addr.postalCode, country: addr.country,
+        phone: addr.phone,
+      };
     }
 
     // Fetch products and variants
@@ -2079,8 +2113,8 @@ export async function orderRoutes(app: FastifyInstance) {
           paymentMethod: body.paymentMethod,
           paymentStatus: body.paymentMethod === "BANK_TRANSFER" ? "PENDING" : "PAID",
           shippingMethod: body.shippingMethod,
-          shippingAddress: {}, // Store pickup = no address needed
-          billingAddress: {},
+          shippingAddress: shippingAddressJson as InputJsonValue,
+          billingAddress: {} as InputJsonValue,
           subtotalHt,
           tvaAmount,
           shippingCost,

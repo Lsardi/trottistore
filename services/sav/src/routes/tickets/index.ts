@@ -651,7 +651,7 @@ export async function repairRoutes(app: FastifyInstance) {
           fromStatus: ticket.status,
           toStatus: body.status,
           note: body.note ?? null,
-          performedBy: body.performedBy ?? null,
+          performedBy: user?.userId ?? null,
         },
       });
 
@@ -659,7 +659,7 @@ export async function repairRoutes(app: FastifyInstance) {
         data: {
           ticketId: id,
           action: "STATUS_CHANGE",
-          performedBy: body.performedBy ?? user?.userId ?? null,
+          performedBy: user?.userId ?? null,
           details: body.note ?? `Statut: ${ticket.status} → ${body.status}`,
           metadata: { fromStatus: ticket.status, toStatus: body.status },
         },
@@ -681,7 +681,7 @@ export async function repairRoutes(app: FastifyInstance) {
       toStatus: body.status,
       estimatedCost: ticket.estimatedCost ? Number(ticket.estimatedCost) : null,
       estimatedDays: ticket.estimatedDays,
-      performedBy: body.performedBy ?? user?.userId ?? null,
+      performedBy: user?.userId ?? null,
     }).catch((err) => app.log.error({ err }, "Notification failed"));
 
     return { success: true, data: updated };
