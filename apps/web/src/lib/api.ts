@@ -7,10 +7,10 @@
 const isBrowser = typeof window !== "undefined";
 
 const API_URLS = {
-  ecommerce: isBrowser ? "" : (process.env.NEXT_PUBLIC_API_ECOMMERCE || 'http://localhost:3001'),
-  crm: isBrowser ? "" : (process.env.NEXT_PUBLIC_API_CRM || 'http://localhost:3002'),
-  analytics: isBrowser ? "" : (process.env.NEXT_PUBLIC_API_ANALYTICS || 'http://localhost:3003'),
-  sav: isBrowser ? "" : (process.env.NEXT_PUBLIC_API_SAV || 'http://localhost:3004'),
+  ecommerce: isBrowser ? "" : (process.env.API_URL || 'http://localhost:3001'),
+  crm: isBrowser ? "" : (process.env.API_CRM_URL || 'http://localhost:3002'),
+  analytics: isBrowser ? "" : (process.env.API_ANALYTICS_URL || 'http://localhost:3003'),
+  sav: isBrowser ? "" : (process.env.API_SAV_URL || 'http://localhost:3004'),
 } as const;
 
 type Service = keyof typeof API_URLS;
