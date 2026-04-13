@@ -147,7 +147,7 @@ export const brand: BrandConfig = {
   heroTitle: [
     process.env.NEXT_PUBLIC_BRAND_HERO_L1 || "ROULEZ PLUS",
     process.env.NEXT_PUBLIC_BRAND_HERO_L2 || "DÉPENSEZ MOINS",
-    process.env.NEXT_PUBLIC_BRAND_HERO_L3 || "RÉPARATION INCLUSE",
+    process.env.NEXT_PUBLIC_BRAND_HERO_L3 || "RÉPAREZ MIEUX",
   ],
   heroSubtitle: process.env.NEXT_PUBLIC_BRAND_HERO_SUBTITLE || "La boutique #1 en Île-de-France. 2000+ pièces et un atelier de réparation intégré.",
   footerTagline: process.env.NEXT_PUBLIC_BRAND_FOOTER_TAGLINE || "Spécialiste trottinettes électriques depuis 2019",
