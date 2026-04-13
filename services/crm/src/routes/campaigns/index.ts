@@ -262,8 +262,12 @@ export async function campaignRoutes(app: FastifyInstance) {
     };
   });
 
-  // POST /campaigns/:id/send — Execute campaign: resolve segment → send to each customer
+  // POST /campaigns/:id/send — Execute campaign (ADMIN+ only, T-11)
   app.post("/campaigns/:id/send", async (request, reply) => {
+    const u = request.user as { role?: string } | undefined;
+    if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });
+    }
     const id = parseIdParam(request.params);
 
     const campaign = await app.prisma.emailCampaign.findUnique({ where: { id } });

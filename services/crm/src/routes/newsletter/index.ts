@@ -221,8 +221,12 @@ export async function newsletterRoutes(app: FastifyInstance) {
     });
   });
 
-  // GET /api/v1/newsletter/admin/export.csv — full CSV export for RGPD/marketing
+  // GET /api/v1/newsletter/admin/export.csv — ADMIN+ only (T-13)
   app.get("/newsletter/admin/export.csv", async (request, reply) => {
+    const u = request.user as { role?: string } | undefined;
+    if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });
+    }
     const parsed = z
       .object({ status: z.enum(["PENDING", "CONFIRMED", "UNSUBSCRIBED", "ALL"]).optional().default("CONFIRMED") })
       .safeParse(request.query);
