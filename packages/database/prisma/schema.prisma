@@ -747,6 +747,8 @@ model NotificationLog {
 
   trigger AutomatedTrigger? @relation(fields: [triggerId], references: [id])
 
+  // T-39: Prevent duplicate trigger notifications for the same ticket
+  @@unique([triggerId, ticketId])
   @@index([triggerId])
   @@index([ticketId])
   @@index([customerId])

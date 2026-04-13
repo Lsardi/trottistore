@@ -190,6 +190,9 @@ function buildRaceApp(role: UserRole, stock: { quantity: number }): FastifyInsta
     customerProfile: {
       create: vi.fn().mockResolvedValue(null),
     },
+    financialLedger: {
+      create: vi.fn().mockResolvedValue({ id: "ledger-1" }),
+    },
     $transaction: vi.fn(async (arg: unknown) => {
       if (typeof arg === "function") {
         return (arg as (tx: unknown) => Promise<unknown>)(prisma);

@@ -56,7 +56,10 @@ async function buildInvoicePdf(
   }
 
   // B4 — Sequential invoice number (CGI art. 289 compliant)
-  // Create invoice record if first time, reuse if already exists (idempotent)
+  // Create invoice record if first time, reuse if already exists (idempotent).
+  // T-43: PostgreSQL sequences can gap on rollback. The upsert pattern ensures
+  // idempotency (no new number consumed on retry). Gaps are tolerated under
+  // CGI art. 289 — what matters is chronological order and no duplicates.
   const invoice = await app.prisma.invoice.upsert({
     where: { orderId },
     create: {

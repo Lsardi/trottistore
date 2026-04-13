@@ -148,8 +148,20 @@ function getRequestUser(
   return { userId: user.userId, role: user.role };
 }
 
+// T-34: Parse ISO string and ensure it's treated as Paris time
 function atParisTime(dateTime: string) {
-  return new Date(dateTime);
+  const d = new Date(dateTime);
+  // If the input has no timezone info (e.g. "2026-04-13T10:00"), treat as Paris local
+  if (!dateTime.includes("Z") && !dateTime.includes("+") && !/\d{2}:\d{2}:\d{2}-/.test(dateTime)) {
+    // Parse as local date components and build Paris time
+    const [datePart, timePart] = dateTime.split("T");
+    if (datePart && timePart) {
+      const [y, m, day] = datePart.split("-").map(Number);
+      const [h, min] = timePart.split(":").map(Number);
+      return parisLocalDate(y, m, day, h, min || 0);
+    }
+  }
+  return d;
 }
 
 function getParisOffsetMinutes(year: number, month: number, day: number, hour: number): number {
@@ -466,14 +478,39 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    const overlapCount = await app.prisma.repairAppointment.count({
-      where: {
-        status: { in: ["BOOKED", "CONFIRMED"] },
-        startsAt: { lt: endsAt },
-        endsAt: { gt: startsAt },
-      },
+    // T-32: Atomic check-then-insert inside a transaction to prevent race condition
+    const expressSurcharge = body.isExpress ? 0.2 : 0;
+    const created = await app.prisma.$transaction(async (tx) => {
+      const overlapCount = await tx.repairAppointment.count({
+        where: {
+          status: { in: ["BOOKED", "CONFIRMED"] },
+          startsAt: { lt: endsAt },
+          endsAt: { gt: startsAt },
+        },
+      });
+      if (overlapCount > 0) {
+        return null; // Slot taken
+      }
+
+      return tx.repairAppointment.create({
+        data: {
+          ticketId: body.ticketId ?? null,
+          customerId: body.customerId ?? null,
+          customerName: body.customerName,
+          customerEmail: body.customerEmail ?? null,
+          customerPhone: body.customerPhone,
+          serviceType: body.serviceType,
+          isExpress: body.isExpress,
+          expressSurcharge,
+          startsAt,
+          endsAt,
+          notes: body.notes ?? null,
+          status: "BOOKED",
+        },
+      });
     });
-    if (overlapCount > 0) {
+
+    if (!created) {
       return reply.status(409).send({
         success: false,
         error: {
@@ -482,24 +519,6 @@ export async function repairRoutes(app: FastifyInstance) {
         },
       });
     }
-
-    const expressSurcharge = body.isExpress ? 0.2 : 0;
-    const created = await app.prisma.repairAppointment.create({
-      data: {
-        ticketId: body.ticketId ?? null,
-        customerId: body.customerId ?? null,
-        customerName: body.customerName,
-        customerEmail: body.customerEmail ?? null,
-        customerPhone: body.customerPhone,
-        serviceType: body.serviceType,
-        isExpress: body.isExpress,
-        expressSurcharge,
-        startsAt,
-        endsAt,
-        notes: body.notes ?? null,
-        status: "BOOKED",
-      },
-    });
 
     return reply.status(201).send({ success: true, data: created });
   });

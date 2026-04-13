@@ -2149,8 +2149,52 @@ export async function orderRoutes(app: FastifyInstance) {
         }
       }
 
+      // T-36: Financial ledger entry for manual orders
+      await tx.financialLedger.create({
+        data: {
+          orderId: newOrder.id,
+          orderNumber: newOrder.orderNumber,
+          operation: "MANUAL_CONFIRM",
+          amountCents: totalTtc.mul(100).round().toNumber(),
+          currency: "EUR",
+          provider: "manual",
+          performedBy: userId,
+          reason: `Commande manuelle créée par ${user.email}`,
+        },
+      });
+
       return newOrder;
     });
+
+    // T-35: Send confirmation email to customer
+    const customerData = await app.prisma.user.findUnique({
+      where: { id: body.customerId },
+      select: { email: true, firstName: true },
+    });
+    if (customerData?.email) {
+      const { orderConfirmationEmail } = await import("../../emails/templates.js");
+      const { sendEmail } = await import("@trottistore/shared/notifications");
+      const { subject, html } = orderConfirmationEmail({
+        orderNumber: order.orderNumber,
+        customerName: customerData.firstName || "Client",
+        items: orderItems.map((i) => ({
+          name: i.productId,
+          quantity: i.quantity,
+          unitPrice: Number(i.unitPriceHt).toFixed(2),
+        })),
+        subtotalHt: Number(subtotalHt).toFixed(2),
+        shippingCost: Number(shippingCost).toFixed(2),
+        totalTtc: Number(totalTtc).toFixed(2),
+        paymentMethod: body.paymentMethod,
+        shippingAddress: (() => {
+          const a = shippingAddressJson as Record<string, string>;
+          return a.street ? `${a.street}, ${a.postalCode} ${a.city}` : "Retrait boutique";
+        })(),
+      });
+      sendEmail(customerData.email, subject, html).catch((e) =>
+        app.log.error({ err: e }, "Failed to send manual order confirmation email"),
+      );
+    }
 
     return reply.status(201).send({ success: true, data: order });
   });
