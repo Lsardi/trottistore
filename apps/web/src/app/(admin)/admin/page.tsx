@@ -120,10 +120,10 @@ export default function AdminDashboardPage() {
       setRevenueDay(cockpitRes.value.data.revenue.today || 0);
     }
     if (kpisWeekRes.status === "fulfilled") {
-      setRevenueWeek(kpisWeekRes.value.data.totalRevenue || 0);
+      setRevenueWeek(kpisWeekRes.value.data.revenue || 0);
     }
     if (kpisMonthRes.status === "fulfilled") {
-      setRevenueMonth(kpisMonthRes.value.data.totalRevenue || 0);
+      setRevenueMonth(kpisMonthRes.value.data.revenue || 0);
     }
 
     if (ordersRes.status === "fulfilled") {

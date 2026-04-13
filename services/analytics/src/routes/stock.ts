@@ -25,7 +25,7 @@ export async function stockRoutes(app: FastifyInstance) {
   app.get("/analytics/stock/overview", async (_request, reply) => {
     const cached = await app.redis.get(CACHE_KEY);
     if (cached) {
-      return reply.send(JSON.parse(cached));
+      return reply.send({ success: true, data: JSON.parse(cached) });
     }
 
     const [overviewResult, lowStockItems] = await Promise.all([
@@ -89,6 +89,6 @@ export async function stockRoutes(app: FastifyInstance) {
 
     await app.redis.set(CACHE_KEY, JSON.stringify(result), "EX", CACHE_TTL);
 
-    return reply.send(result);
+    return reply.send({ success: true, data: result });
   });
 }

@@ -49,7 +49,7 @@ export async function customersRoutes(app: FastifyInstance) {
     const cacheKey = `analytics:customers:overview:${period}`;
     const cached = await app.redis.get(cacheKey);
     if (cached) {
-      return reply.send(JSON.parse(cached));
+      return reply.send({ success: true, data: JSON.parse(cached) });
     }
 
     const periodStart = new Date();
@@ -145,7 +145,7 @@ export async function customersRoutes(app: FastifyInstance) {
 
     await app.redis.set(cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
 
-    return reply.send(result);
+    return reply.send({ success: true, data: result });
   });
 
   // GET /analytics/customers/cohorts — monthly acquisition cohorts
@@ -153,7 +153,7 @@ export async function customersRoutes(app: FastifyInstance) {
     const cacheKey = "analytics:customers:cohorts";
     const cached = await app.redis.get(cacheKey);
     if (cached) {
-      return reply.send(JSON.parse(cached));
+      return reply.send({ success: true, data: JSON.parse(cached) });
     }
 
     // Monthly cohorts for the last 12 months
@@ -224,6 +224,6 @@ export async function customersRoutes(app: FastifyInstance) {
 
     await app.redis.set(cacheKey, JSON.stringify(result), "EX", CACHE_TTL);
 
-    return reply.send(result);
+    return reply.send({ success: true, data: result });
   });
 }

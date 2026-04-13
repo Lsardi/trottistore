@@ -19,7 +19,7 @@ export async function realtimeRoutes(app: FastifyInstance) {
     // Check Redis cache
     const cached = await app.redis.get(CACHE_KEY);
     if (cached) {
-      return reply.send(JSON.parse(cached));
+      return reply.send({ success: true, data: JSON.parse(cached) });
     }
 
     const now = new Date();
@@ -101,6 +101,6 @@ export async function realtimeRoutes(app: FastifyInstance) {
     // Cache result
     await app.redis.set(CACHE_KEY, JSON.stringify(result), "EX", CACHE_TTL);
 
-    return reply.send(result);
+    return reply.send({ success: true, data: result });
   });
 }
