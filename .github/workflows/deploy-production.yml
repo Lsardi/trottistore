@@ -162,41 +162,31 @@ jobs:
       - name: Wait for services to start
         run: sleep 30
 
-      - name: Check Web
+      # Only the web is publicly exposed. Backend services (ecommerce, crm, sav,
+      # analytics) live on Railway's private network and are reached through the
+      # web's Next.js rewrites. Checking the web + a rewrite-backed API endpoint
+      # is enough to prove the critical path is healthy end-to-end.
+
+      - name: Check Web homepage
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_WEB_URL || 'https://trottistore.fr' }}/" || echo "000")
-          echo "Web: $STATUS"
+          URL="${{ vars.PROD_WEB_URL || 'https://trottistoreweb-production.up.railway.app' }}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/" || echo "000")
+          echo "Web /: $STATUS"
           [ "$STATUS" = "200" ] || [ "$STATUS" = "308" ] || exit 1
 
-      - name: Check Ecommerce /health
+      - name: Check Products API (proves ecommerce via internal rewrite)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_ECOMMERCE_URL || 'https://ecommerce.trottistore.fr' }}/health" || echo "000")
-          echo "Ecommerce: $STATUS"
+          URL="${{ vars.PROD_WEB_URL || 'https://trottistoreweb-production.up.railway.app' }}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/api/v1/products" || echo "000")
+          echo "Web /api/v1/products: $STATUS"
           [ "$STATUS" = "200" ] || exit 1
 
-      - name: Check CRM /health
+      - name: Check /produits SSR (proves end-to-end product page)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_CRM_URL || 'https://crm.trottistore.fr' }}/health" || echo "000")
-          echo "CRM: $STATUS"
+          URL="${{ vars.PROD_WEB_URL || 'https://trottistoreweb-production.up.railway.app' }}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/produits" || echo "000")
+          echo "Web /produits: $STATUS"
           [ "$STATUS" = "200" ] || exit 1
-
-      - name: Check SAV /health
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_SAV_URL || 'https://sav.trottistore.fr' }}/health" || echo "000")
-          echo "SAV: $STATUS"
-          [ "$STATUS" = "200" ] || exit 1
-
-      - name: Check Analytics /health
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PROD_ANALYTICS_URL || 'https://analytics.trottistore.fr' }}/health" || echo "000")
-          echo "Analytics: $STATUS"
-          [ "$STATUS" = "200" ] || exit 1
-
-      - name: Check Ecommerce /ready
-        run: |
-          BODY=$(curl -s "${{ vars.PROD_ECOMMERCE_URL || 'https://ecommerce.trottistore.fr' }}/ready")
-          echo "Ecommerce ready: $BODY"
-          echo "$BODY" | grep -q '"ready"' || exit 1
 
       - name: Summary
         if: always()
