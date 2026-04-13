@@ -37,7 +37,7 @@ const CAMPAIGN_DRAFT = {
 // App builder
 // ---------------------------------------------------------------------------
 
-function buildApp(): FastifyInstance {
+function buildApp(role = "ADMIN"): FastifyInstance {
   const app = Fastify({ logger: false });
 
   app.decorate("prisma", {
@@ -80,6 +80,10 @@ function buildApp(): FastifyInstance {
       success: false,
       error: { code: isZodError ? "VALIDATION_ERROR" : "REQUEST_ERROR", message: error.message },
     });
+  });
+
+  app.addHook("onRequest", async (request) => {
+    request.user = { userId: `${role.toLowerCase()}-1`, role };
   });
 
   return app;
@@ -227,6 +231,23 @@ describe("Campaign routes", () => {
       });
       expect(res.statusCode).toBe(400);
       expect(res.json().error.code).toBe("NO_CONTENT");
+    });
+
+    it("forbids non-admin roles", async () => {
+      const managerApp = buildApp("MANAGER");
+      await managerApp.register(campaignRoutes, { prefix: "/api/v1" });
+      await managerApp.ready();
+      try {
+        (managerApp.prisma.emailCampaign.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(CAMPAIGN_DRAFT);
+        const res = await managerApp.inject({
+          method: "POST",
+          url: "/api/v1/campaigns/camp-1/send",
+        });
+        expect(res.statusCode).toBe(403);
+        expect(res.json().error.code).toBe("FORBIDDEN");
+      } finally {
+        await managerApp.close();
+      }
     });
   });
 

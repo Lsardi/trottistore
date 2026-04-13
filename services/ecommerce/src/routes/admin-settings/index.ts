@@ -16,7 +16,7 @@ const SETTINGS_ID = "default"; // Singleton row
 
 const updateSettingsSchema = z.object({
   legal: z.object({
-    siret: z.string().max(20).optional(),
+    siret: z.string().regex(/^(\d{3}\s?\d{3}\s?\d{3}\s?\d{5})?$/, "Format SIRET invalide (14 chiffres)").optional(),
     rcs: z.string().max(50).optional(),
     capital: z.string().max(30).optional(),
     legalForm: z.string().max(30).optional(),

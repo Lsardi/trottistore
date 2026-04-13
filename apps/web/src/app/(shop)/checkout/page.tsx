@@ -265,6 +265,11 @@ export default function CheckoutPage() {
       setError("Veuillez accepter les conditions générales de vente.");
       return;
     }
+    // T-49: Prevent submit with empty cart
+    if (items.length === 0) {
+      setError("Votre panier est vide.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     let selectedShippingAddressId = shippingAddressId;

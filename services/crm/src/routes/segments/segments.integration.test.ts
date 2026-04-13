@@ -17,7 +17,7 @@ const SEG_FIXTURE = {
   updatedAt: new Date(),
 };
 
-function buildApp(): FastifyInstance {
+function buildApp(role = "ADMIN"): FastifyInstance {
   const app = Fastify({ logger: false });
 
   app.decorate("prisma", {
@@ -40,6 +40,10 @@ function buildApp(): FastifyInstance {
       success: false,
       error: { code: isZodError ? "VALIDATION_ERROR" : "REQUEST_ERROR", message: error.message },
     });
+  });
+
+  app.addHook("onRequest", async (request) => {
+    request.user = { userId: `${role.toLowerCase()}-1`, role };
   });
 
   return app;
@@ -81,5 +85,28 @@ describe("Segment routes", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().data.count).toBe(5);
+  });
+
+  it("forbids non-admin roles on segment writes", async () => {
+    const managerApp = buildApp("MANAGER");
+    await managerApp.register(segmentRoutes, { prefix: "/api/v1" });
+    await managerApp.ready();
+    try {
+      const createRes = await managerApp.inject({
+        method: "POST",
+        url: "/api/v1/segments",
+        payload: { name: "x", criteria: { minOrders: 1 } },
+      });
+      expect(createRes.statusCode).toBe(403);
+
+      (managerApp.prisma.customerSegment.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(SEG_FIXTURE);
+      const evalRes = await managerApp.inject({
+        method: "POST",
+        url: "/api/v1/segments/seg-1/evaluate",
+      });
+      expect(evalRes.statusCode).toBe(403);
+    } finally {
+      await managerApp.close();
+    }
   });
 });

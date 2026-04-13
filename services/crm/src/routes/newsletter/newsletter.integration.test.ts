@@ -189,4 +189,15 @@ describe("Newsletter routes", () => {
       expect(res.statusCode).toBe(404);
     });
   });
+
+  describe("Admin endpoints RBAC", () => {
+    it("forbids newsletter admin export for non-admin users", async () => {
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/v1/newsletter/admin/export.csv",
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe("FORBIDDEN");
+    });
+  });
 });

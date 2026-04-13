@@ -926,8 +926,10 @@ export async function orderRoutes(app: FastifyInstance) {
             userId: guestUser.id,
             loyaltyTier: "BRONZE",
             loyaltyPoints: 0,
-            totalOrders: 1,
-            totalSpent: Number(totalTtc),
+            // Order metrics are accounted when payment is confirmed (webhook),
+            // not at pending order creation time.
+            totalOrders: 0,
+            totalSpent: 0,
             source: "WEBSITE",
           },
         }).catch(() => {}); // ignore if profile table doesn't exist or constraint

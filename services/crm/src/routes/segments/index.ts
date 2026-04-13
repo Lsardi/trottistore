@@ -71,9 +71,13 @@ export async function segmentRoutes(app: FastifyInstance) {
   });
 
   // ───────────────────────────────────────────────────────────
-  // POST /segments — Create a new segment
+  // POST /segments — Create a new segment (ADMIN+ only, T-12)
   // ───────────────────────────────────────────────────────────
-  app.post("/segments", async (request, _reply) => {
+  app.post("/segments", async (request, reply) => {
+    const u = request.user as { role?: string } | undefined;
+    if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });
+    }
     const body = createSegmentSchema.parse(request.body);
 
     // Initial count evaluation
@@ -94,9 +98,13 @@ export async function segmentRoutes(app: FastifyInstance) {
   });
 
   // ───────────────────────────────────────────────────────────
-  // POST /segments/:id/evaluate — Re-evaluate segment count
+  // POST /segments/:id/evaluate — Re-evaluate segment count (ADMIN+ only, T-12)
   // ───────────────────────────────────────────────────────────
   app.post("/segments/:id/evaluate", async (request, reply) => {
+    const u = request.user as { role?: string } | undefined;
+    if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });
+    }
     const id = parseIdParam(request.params);
 
     const segment = await app.prisma.customerSegment.findUnique({
