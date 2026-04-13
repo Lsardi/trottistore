@@ -91,6 +91,23 @@ describe("Trigger routes", () => {
     expect(res.statusCode).toBe(201);
   });
 
+  it("POST /triggers forbids STAFF role", async () => {
+    const staffApp = buildApp("STAFF");
+    await staffApp.register(triggerRoutes, { prefix: "/api/v1" });
+    await staffApp.ready();
+    try {
+      const res = await staffApp.inject({
+        method: "POST",
+        url: "/api/v1/triggers",
+        payload: { type: "PICKUP_REMINDER", delayHours: 72, channel: "EMAIL" },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe("FORBIDDEN");
+    } finally {
+      await staffApp.close();
+    }
+  });
+
   it("POST /triggers/run executes with valid x-internal-cron secret", async () => {
     const res = await app.inject({
       method: "POST",

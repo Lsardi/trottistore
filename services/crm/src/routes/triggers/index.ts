@@ -66,7 +66,7 @@ export async function triggerRoutes(app: FastifyInstance) {
   // POST /triggers — Create a new trigger config
   app.post("/triggers", async (request, reply) => {
     const user = getRequestUser(request);
-    if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN") {
+    if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({
         success: false,
         error: { code: "FORBIDDEN", message: "Acces reserve aux managers" },
