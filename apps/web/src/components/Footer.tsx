@@ -6,8 +6,11 @@ const NAV_LINKS = [
   { label: brand.nav.mainCategory, href: `/produits?categorySlug=${brand.nav.mainCategorySlug}` },
   { label: brand.nav.parts, href: `/produits?categorySlug=${brand.nav.partsSlug}` },
   { label: "Catalogue", href: "/produits" },
-  { label: "Quiz — Trouvez votre trott", href: "/quiz" },
+  { label: "Quiz", href: "/quiz" },
   { label: "Mon compte", href: "/mon-compte" },
+  { label: "Suivi commande", href: "/mon-compte" },
+  { label: "Livraison & Retours", href: "/livraison" },
+  { label: "FAQ", href: "/faq" },
 ];
 
 const SERVICE_LINKS = [
@@ -16,16 +19,16 @@ const SERVICE_LINKS = [
   { label: "Atelier", href: "/atelier" },
   { label: "Diagnostic", href: "/diagnostic" },
   { label: "Compatibilité", href: "/compatibilite" },
+  { label: "Guides", href: "/guide" },
   { label: "Avis clients", href: "/avis" },
   { label: "Offre Pro", href: "/pro" },
-  { label: "Suivi commande", href: "/mon-compte" },
-  { label: "Livraison & Retours", href: "/livraison" },
-  { label: "FAQ", href: "/faq" },
-  { label: "Guides", href: "/guide" },
+];
+
+const LEGAL_LINKS = [
   { label: "À propos", href: "/a-propos" },
   { label: "Mentions légales", href: "/mentions-legales" },
   { label: "CGV", href: "/cgv" },
-  { label: "Politique de confidentialité", href: "/politique-confidentialite" },
+  { label: "Confidentialité", href: "/politique-confidentialite" },
   { label: "Cookies", href: "/cookies" },
 ];
 
@@ -39,7 +42,7 @@ export default function Footer() {
         style={{
           maxWidth: 1280,
           margin: "0 auto",
-          padding: "48px 24px",
+          padding: "36px 24px 24px",
         }}
       >
         <div
@@ -85,12 +88,12 @@ export default function Footer() {
             </h4>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {NAV_LINKS.map((link) => (
-                <li key={link.href} style={{ marginBottom: 10 }}>
+                <li key={link.href + link.label} style={{ marginBottom: 7 }}>
                   <Link
                     href={link.href}
                     className="font-mono footer-link"
                     style={{
-                      fontSize: "0.75rem",
+                      fontSize: "0.72rem",
                       color: "var(--color-text-muted)",
                       textDecoration: "none",
                       transition: "color 150ms",
@@ -113,12 +116,12 @@ export default function Footer() {
             </h4>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {SERVICE_LINKS.map((link) => (
-                <li key={link.href + link.label} style={{ marginBottom: 10 }}>
+                <li key={link.href + link.label} style={{ marginBottom: 7 }}>
                   <Link
                     href={link.href}
                     className="font-mono footer-link"
                     style={{
-                      fontSize: "0.75rem",
+                      fontSize: "0.72rem",
                       color: "var(--color-text-muted)",
                       textDecoration: "none",
                       transition: "color 150ms",
@@ -182,30 +185,46 @@ export default function Footer() {
         {/* Bottom bar */}
         <div
           style={{
-            marginTop: 40,
-            paddingTop: 20,
+            marginTop: 32,
+            paddingTop: 16,
             borderTop: "1px solid var(--color-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             flexWrap: "wrap",
-            gap: 12,
+            gap: 16,
           }}
         >
-          <span
+          <div
             className="font-mono"
-            style={{ fontSize: "0.65rem", color: "var(--color-text-dim)", letterSpacing: "0.06em" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 16,
+              fontSize: "0.68rem",
+              color: "var(--color-text-dim)",
+              letterSpacing: "0.06em",
+            }}
           >
-            &copy; {new Date().getFullYear()} {brand.name}
-          </span>
+            <span>&copy; {new Date().getFullYear()} {brand.name}</span>
+            {LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="footer-link"
+                style={{ color: "var(--color-text-dim)", textDecoration: "none" }}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
           <span
             className="font-mono"
             style={{
-              fontSize: "0.65rem",
+              fontSize: "0.68rem",
               color: "var(--color-text-dim)",
-              maxWidth: "100%",
-              overflowWrap: "anywhere",
-              whiteSpace: "normal",
+              letterSpacing: "0.06em",
             }}
           >
             CB &middot; APPLE PAY &middot; GOOGLE PAY &middot; VIREMENT

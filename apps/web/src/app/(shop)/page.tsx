@@ -122,9 +122,9 @@ export default async function HomePage() {
               <h1
                 className="heading-xl animate-slide-up stagger-2"
                 style={{
-                  fontSize: "clamp(1.9rem, 10vw, 5rem)",
-                  overflowWrap: "anywhere",
-                  wordBreak: "break-word",
+                  fontSize: "clamp(1.75rem, 7vw, 4.5rem)",
+                  lineHeight: 1.05,
+                  hyphens: "none",
                 }}
               >
                 {brand.heroTitle[0]}
@@ -185,20 +185,21 @@ export default async function HomePage() {
                 }}
               />
               <Image
-                src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg"
+                src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS.jpg"
                 alt="Trottinette électrique Teverun Tetra"
-                width={300}
-                height={300}
+                width={800}
+                height={800}
                 priority
+                sizes="(max-width: 1280px) 40vw, 520px"
                 style={{
-                  maxWidth: "100%",
-                  maxHeight: 400,
+                  width: "100%",
+                  height: "auto",
+                  maxHeight: 520,
                   objectFit: "contain",
                   transform: "rotate(-5deg)",
                   position: "relative",
                   zIndex: 2,
-                  width: "auto",
-                  height: "auto",
+                  filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.5))",
                 }}
               />
             </div>

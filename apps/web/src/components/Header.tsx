@@ -89,7 +89,7 @@ export default function Header() {
       <div
         className="hidden md:block"
         style={{
-          height: 32,
+          height: 36,
           backgroundColor: "var(--color-surface)",
           borderBottom: "1px solid var(--color-border)",
         }}
@@ -108,9 +108,9 @@ export default function Header() {
           <span
             className="font-mono"
             style={{
-              fontSize: "0.65rem",
+              fontSize: "0.7rem",
               textTransform: "uppercase",
-              letterSpacing: "0.12em",
+              letterSpacing: "0.14em",
               color: "var(--color-text-dim)",
             }}
           >
@@ -121,17 +121,26 @@ export default function Header() {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              fontSize: "0.65rem",
+              gap: 20,
+              fontSize: "0.7rem",
               letterSpacing: "0.06em",
             }}
           >
-            <a href={`tel:${brand.phoneIntl}`} style={{ color: "var(--color-text-muted)" }}>
+            <a href={`tel:${brand.phoneIntl}`} style={{ color: "var(--color-text-muted)", textDecoration: "none" }}>
               {brand.phone}
             </a>
-            <span style={{ color: "var(--color-border-light)" }}>&middot;</span>
-            <span style={{ color: "var(--color-neon)" }}>{getStoreStatusLabel()}</span>
-            <span style={{ color: "var(--color-border-light)" }}>&middot;</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--color-neon)" }}>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  backgroundColor: "var(--color-neon)",
+                  boxShadow: "0 0 6px var(--color-neon-glow, rgba(0,255,209,0.6))",
+                }}
+              />
+              {getStoreStatusLabel()}
+            </span>
             <a
               href={GOOGLE_MAPS_DIR_URL}
               target="_blank"
@@ -140,7 +149,6 @@ export default function Header() {
             >
               ITINÉRAIRE
             </a>
-            <span style={{ color: "var(--color-border-light)" }}>&middot;</span>
             <span style={{ color: "var(--color-text-dim)", textTransform: "uppercase" }}>
               {brand.address.cityShort}
             </span>
@@ -151,7 +159,7 @@ export default function Header() {
       {/* ── Main Bar ── */}
       <div
         style={{
-          height: 56,
+          height: 68,
           backgroundColor: "var(--color-void)",
           position: "sticky",
           top: 0,
@@ -175,7 +183,7 @@ export default function Header() {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
+              gap: 10,
               textDecoration: "none",
               minWidth: 0,
               maxWidth: "calc(100% - 132px)",
@@ -184,18 +192,18 @@ export default function Header() {
           >
             <span
               style={{
-                width: 6,
-                height: 6,
+                width: 10,
+                height: 10,
                 backgroundColor: "var(--color-neon)",
                 display: "inline-block",
-                boxShadow: "0 0 8px var(--color-neon-glow, rgba(0,255,209,0.6))",
+                boxShadow: "0 0 10px var(--color-neon-glow, rgba(0,255,209,0.6))",
               }}
             />
             <span
               className="font-display"
               style={{
                 fontWeight: 800,
-                fontSize: "clamp(1rem, 6vw, 1.3rem)",
+                fontSize: "clamp(1.15rem, 4vw, 1.75rem)",
                 letterSpacing: "-0.02em",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
@@ -320,7 +328,7 @@ export default function Header() {
         style={{
           backgroundColor: "var(--color-void)",
           borderTop: "1px solid var(--color-border)",
-          padding: "10px 0",
+          padding: "12px 0",
         }}
       >
         <div
@@ -330,34 +338,25 @@ export default function Header() {
             padding: "0 24px",
             display: "flex",
             alignItems: "center",
-            gap: 0,
+            gap: 32,
           }}
         >
-          {NAV_ITEMS.map((item, i) => (
-            <span key={item.label} style={{ display: "flex", alignItems: "center" }}>
-              {i > 0 && (
-                <span
-                  className="font-mono"
-                  style={{ color: "var(--color-border-light)", margin: "0 16px", fontSize: "0.7rem" }}
-                >
-                  &middot;
-                </span>
-              )}
-              <Link
-                href={item.href}
-                className="font-mono nav-link"
-                style={{
-                  fontSize: "0.7rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  color: "var(--color-text-dim)",
-                  textDecoration: "none",
-                  transition: "color 150ms",
-                }}
-              >
-                {item.label}
-              </Link>
-            </span>
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="font-mono nav-link"
+              style={{
+                fontSize: "0.72rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                color: "var(--color-text-dim)",
+                textDecoration: "none",
+                transition: "color 150ms",
+              }}
+            >
+              {item.label}
+            </Link>
           ))}
         </div>
       </nav>
