@@ -96,7 +96,8 @@ export async function checkoutRoutes(app: FastifyInstance) {
       } else {
         // All other routes need parsed JSON
         try {
-          const parsed = JSON.parse(body.toString());
+          const str = body.toString().trim();
+          const parsed = str ? JSON.parse(str) : {};
           done(null, parsed);
         } catch (err) {
           done(err as Error, undefined);
