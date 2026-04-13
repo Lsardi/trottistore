@@ -39,5 +39,4 @@ COPY --from=build --chown=node:node /app/services/crm/src ./src
 COPY --from=build --chown=node:node /app/services/crm/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/services/crm/package.json ./package.json
 USER node
-EXPOSE 3002
 CMD ["node", "--import", "tsx", "src/index.ts"]

@@ -38,5 +38,4 @@ COPY --from=build --chown=node:node /app/services/analytics/src ./src
 COPY --from=build --chown=node:node /app/services/analytics/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/services/analytics/package.json ./package.json
 USER node
-EXPOSE 3003
 CMD ["node", "--import", "tsx", "src/index.ts"]
