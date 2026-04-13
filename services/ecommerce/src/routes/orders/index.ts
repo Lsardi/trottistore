@@ -2149,6 +2149,20 @@ export async function orderRoutes(app: FastifyInstance) {
         }
       }
 
+      // T-36: Financial ledger entry for manual orders
+      await tx.financialLedger.create({
+        data: {
+          orderId: newOrder.id,
+          orderNumber: newOrder.orderNumber,
+          operation: "MANUAL_CONFIRM",
+          amountCents: totalTtc.mul(100).round().toNumber(),
+          currency: "EUR",
+          provider: "manual",
+          performedBy: userId,
+          reason: `Commande manuelle créée par ${user.email}`,
+        },
+      });
+
       return newOrder;
     });
 

@@ -478,14 +478,39 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
-    const overlapCount = await app.prisma.repairAppointment.count({
-      where: {
-        status: { in: ["BOOKED", "CONFIRMED"] },
-        startsAt: { lt: endsAt },
-        endsAt: { gt: startsAt },
-      },
+    // T-32: Atomic check-then-insert inside a transaction to prevent race condition
+    const expressSurcharge = body.isExpress ? 0.2 : 0;
+    const created = await app.prisma.$transaction(async (tx) => {
+      const overlapCount = await tx.repairAppointment.count({
+        where: {
+          status: { in: ["BOOKED", "CONFIRMED"] },
+          startsAt: { lt: endsAt },
+          endsAt: { gt: startsAt },
+        },
+      });
+      if (overlapCount > 0) {
+        return null; // Slot taken
+      }
+
+      return tx.repairAppointment.create({
+        data: {
+          ticketId: body.ticketId ?? null,
+          customerId: body.customerId ?? null,
+          customerName: body.customerName,
+          customerEmail: body.customerEmail ?? null,
+          customerPhone: body.customerPhone,
+          serviceType: body.serviceType,
+          isExpress: body.isExpress,
+          expressSurcharge,
+          startsAt,
+          endsAt,
+          notes: body.notes ?? null,
+          status: "BOOKED",
+        },
+      });
     });
-    if (overlapCount > 0) {
+
+    if (!created) {
       return reply.status(409).send({
         success: false,
         error: {
@@ -494,24 +519,6 @@ export async function repairRoutes(app: FastifyInstance) {
         },
       });
     }
-
-    const expressSurcharge = body.isExpress ? 0.2 : 0;
-    const created = await app.prisma.repairAppointment.create({
-      data: {
-        ticketId: body.ticketId ?? null,
-        customerId: body.customerId ?? null,
-        customerName: body.customerName,
-        customerEmail: body.customerEmail ?? null,
-        customerPhone: body.customerPhone,
-        serviceType: body.serviceType,
-        isExpress: body.isExpress,
-        expressSurcharge,
-        startsAt,
-        endsAt,
-        notes: body.notes ?? null,
-        status: "BOOKED",
-      },
-    });
 
     return reply.status(201).send({ success: true, data: created });
   });
