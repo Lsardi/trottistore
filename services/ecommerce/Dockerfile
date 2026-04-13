@@ -53,5 +53,5 @@ COPY --from=build --chown=node:node /app/services/ecommerce/src ./src
 COPY --from=build --chown=node:node /app/services/ecommerce/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/services/ecommerce/package.json ./package.json
 USER node
-EXPOSE 8080
+EXPOSE 3001
 CMD ["node", "--import", "tsx", "src/index.ts"]
