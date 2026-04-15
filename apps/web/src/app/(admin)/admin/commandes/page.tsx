@@ -452,12 +452,12 @@ function AdminCommandesContent() {
                   <p className="spec-label mb-3">ARTICLES</p>
                   <div className="space-y-3">
                     {selectedOrder.items?.map((item) => (
-                      <div key={item.id} className="border border-border p-3 bg-surface-2">
-                        <p className="font-mono text-xs text-text">{item.product?.name ?? "Produit"}</p>
-                        <p className="font-mono text-[11px] text-text-dim">
-                          Qté: {item.quantity} • PU HT: {formatPrice(item.unitPriceHt)} • Total HT: {formatPrice(item.totalHt)}
-                        </p>
-                      </div>
+                      <OrderItemCard
+                        key={item.id}
+                        orderId={selectedOrder.id}
+                        item={item}
+                        onSaved={() => void loadOrderDetail(selectedOrder.id)}
+                      />
                     ))}
                   </div>
                 </section>
@@ -484,6 +484,188 @@ function AdminCommandesContent() {
                 ) : null}
               </div>
             )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── OrderItemCard: item line + serial number editor ──────────────
+
+type OrderItemLite = {
+  id: string;
+  quantity: number;
+  unitPriceHt: string | number | null;
+  totalHt?: string | number | null;
+  serialNumbers?: string[];
+  product?: { name?: string } | null;
+};
+
+function OrderItemCard({
+  orderId,
+  item,
+  onSaved,
+}: {
+  orderId: string;
+  item: OrderItemLite;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [serials, setSerials] = useState<string[]>(item.serialNumbers ?? []);
+  const [draft, setDraft] = useState("");
+
+  function addSn(raw: string) {
+    const s = raw.trim();
+    if (!s) return;
+    if (serials.includes(s)) return;
+    if (serials.length >= item.quantity) {
+      setError(`Maximum ${item.quantity} numéro(s) de série pour cet article.`);
+      return;
+    }
+    setSerials([...serials, s]);
+    setDraft("");
+    setError(null);
+  }
+
+  function removeSn(s: string) {
+    setSerials(serials.filter((x) => x !== s));
+    setError(null);
+  }
+
+  function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addSn(draft);
+    } else if (e.key === "Backspace" && draft === "" && serials.length > 0) {
+      setSerials(serials.slice(0, -1));
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      await ordersApi.adminUpdateItemSerialNumbers(orderId, item.id, serials);
+      setEditing(false);
+      onSaved();
+    } catch {
+      setError("Échec de l'enregistrement.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function cancel() {
+    setSerials(item.serialNumbers ?? []);
+    setDraft("");
+    setEditing(false);
+    setError(null);
+  }
+
+  const hasSerials = (item.serialNumbers ?? []).length > 0;
+
+  return (
+    <div className="border border-border p-3 bg-surface-2 space-y-2">
+      <div>
+        <p className="font-mono text-xs text-text">{item.product?.name ?? "Produit"}</p>
+        <p className="font-mono text-[11px] text-text-dim">
+          Qté: {item.quantity} • PU HT: {formatPrice(item.unitPriceHt)} • Total HT:{" "}
+          {formatPrice(item.totalHt)}
+        </p>
+      </div>
+
+      {/* Serial numbers display / editor */}
+      {!editing ? (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1">
+            {hasSerials ? (
+              (item.serialNumbers ?? []).map((sn) => (
+                <span
+                  key={sn}
+                  className="inline-flex items-center gap-1 bg-neon-dim border border-neon/40 text-neon font-mono text-[10px] px-1.5 py-0.5"
+                >
+                  SN · {sn}
+                </span>
+              ))
+            ) : (
+              <span className="font-mono text-[10px] text-text-dim">
+                Aucun numéro de série enregistré
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="font-mono text-[10px] text-text-muted hover:text-neon uppercase tracking-wider border border-border px-2 py-0.5"
+          >
+            {hasSerials ? "Modifier" : "Ajouter SN"}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2 border-t border-border pt-2">
+          <div className="flex flex-wrap gap-1 min-h-[24px]">
+            {serials.map((s) => (
+              <span
+                key={s}
+                className="inline-flex items-center gap-1 bg-neon-dim border border-neon/40 text-neon font-mono text-[10px] px-1.5 py-0.5"
+              >
+                {s}
+                <button
+                  type="button"
+                  onClick={() => removeSn(s)}
+                  className="hover:text-text"
+                  aria-label={`Retirer ${s}`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-1">
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleKey}
+              placeholder={`N° série ${serials.length + 1}/${item.quantity} (Entrée)`}
+              className="input-dark flex-1 text-xs"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => addSn(draft)}
+              disabled={serials.length >= item.quantity}
+              className="btn-outline px-2 disabled:opacity-40"
+              aria-label="Ajouter"
+            >
+              +
+            </button>
+          </div>
+          {error ? (
+            <p className="font-mono text-[10px] text-danger" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={saving}
+              className="btn-neon px-3 py-1 text-[11px] disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              Enregistrer
+            </button>
+            <button
+              type="button"
+              onClick={cancel}
+              className="btn-outline px-3 py-1 text-[11px]"
+            >
+              Annuler
+            </button>
           </div>
         </div>
       )}
