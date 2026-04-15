@@ -238,7 +238,8 @@ model Supplier {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  purchaseOrders PurchaseOrder[]
+  purchaseOrders  PurchaseOrder[]
+  primaryProducts Product[]
 
   @@index([slug])
   @@index([isActive])
@@ -297,37 +298,40 @@ model DiscountCode {
 }
 
 model Product {
-  id               String  @id @default(uuid()) @db.Uuid
-  sku              String  @unique @db.VarChar(100)
-  name             String  @db.VarChar(500)
-  slug             String  @unique @db.VarChar(550)
-  description      String? @db.Text
-  shortDescription String? @map("short_description") @db.Text
-  brandId          String? @map("brand_id") @db.Uuid
-  priceHt          Decimal @map("price_ht") @db.Decimal(10, 2)
-  tvaRate          Decimal @default(20.0) @map("tva_rate") @db.Decimal(4, 2)
-  weightGrams      Int?    @map("weight_grams")
-  dimensions       Json?   // { length, width, height } en mm
-  status           String  @default("ACTIVE") @db.VarChar(20) // ACTIVE, DRAFT, ARCHIVED
-  isFeatured       Boolean @default(false) @map("is_featured")
-  metaTitle        String? @map("meta_title") @db.VarChar(200)
-  metaDesc         String? @map("meta_description") @db.VarChar(500)
-  compatibleModels String[] @default([]) @map("compatible_models") // Scooter models this part fits (e.g. "Xiaomi M365 Pro", "Dualtron Storm")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  id                 String  @id @default(uuid()) @db.Uuid
+  sku                String  @unique @db.VarChar(100)
+  name               String  @db.VarChar(500)
+  slug               String  @unique @db.VarChar(550)
+  description        String? @db.Text
+  shortDescription   String? @map("short_description") @db.Text
+  brandId            String? @map("brand_id") @db.Uuid
+  primarySupplierId  String? @map("primary_supplier_id") @db.Uuid
+  priceHt            Decimal @map("price_ht") @db.Decimal(10, 2)
+  tvaRate            Decimal @default(20.0) @map("tva_rate") @db.Decimal(4, 2)
+  weightGrams        Int?    @map("weight_grams")
+  dimensions         Json?   // { length, width, height } en mm
+  status             String  @default("ACTIVE") @db.VarChar(20) // ACTIVE, DRAFT, ARCHIVED
+  isFeatured         Boolean @default(false) @map("is_featured")
+  metaTitle          String? @map("meta_title") @db.VarChar(200)
+  metaDesc           String? @map("meta_description") @db.VarChar(500)
+  compatibleModels   String[] @default([]) @map("compatible_models") // Scooter models this part fits (e.g. "Xiaomi M365 Pro", "Dualtron Storm")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  brand      Brand?           @relation(fields: [brandId], references: [id])
-  categories ProductCategory[]
-  images     ProductImage[]
-  variants   ProductVariant[]
-  stockAlerts StockAlert[]
-  orderItems OrderItem[]
-  reviews    Review[]
+  brand           Brand?           @relation(fields: [brandId], references: [id])
+  primarySupplier Supplier?        @relation(fields: [primarySupplierId], references: [id])
+  categories      ProductCategory[]
+  images          ProductImage[]
+  variants        ProductVariant[]
+  stockAlerts     StockAlert[]
+  orderItems      OrderItem[]
+  reviews         Review[]
 
   @@index([sku])
   @@index([slug])
   @@index([brandId])
   @@index([status])
+  @@index([primarySupplierId])
   @@map("products")
   @@schema("ecommerce")
 }

@@ -26,6 +26,9 @@ import {
   FileSpreadsheet,
   Truck,
   ShieldCheck,
+  Star,
+  ChevronDown,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -93,6 +96,39 @@ const NAV_SECTIONS: NavSection[] = [
 // be too much visual noise on a narrow screen.
 const NAV_ITEMS_FLAT: NavItem[] = NAV_SECTIONS.flatMap((section) => section.items);
 
+// Quick lookup from href to full NavItem for rendering the favorites section.
+const NAV_ITEM_BY_HREF: Record<string, NavItem> = Object.fromEntries(
+  NAV_ITEMS_FLAT.map((item) => [item.href, item]),
+);
+
+// localStorage keys — kept as constants so we don't typo between reader/writer.
+const STORAGE_COLLAPSED = "admin-sidebar-collapsed-sections";
+const STORAGE_FAVORITES = "admin-sidebar-favorites";
+
+function readSetFromStorage(key: string): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return new Set(parsed.filter((x): x is string => typeof x === "string"));
+    }
+  } catch {
+    /* ignore */
+  }
+  return new Set();
+}
+
+function writeSetToStorage(key: string, value: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.from(value)));
+  } catch {
+    /* ignore quota / privacy modes */
+  }
+}
+
 // The search form uses `useSearchParams`, which Next.js 15 requires to be
 // wrapped in a Suspense boundary so the layout shell can still prerender.
 // Extracting it into its own component lets us do exactly that.
@@ -136,6 +172,50 @@ function SidebarSearchForm({
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  // Persisted UI state — collapsible sections + favorites.
+  // Hydrated in a useEffect so SSR doesn't dump the wrong set and trigger
+  // a mismatch.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(readSetFromStorage(STORAGE_COLLAPSED));
+    setFavorites(readSetFromStorage(STORAGE_FAVORITES));
+    setHydrated(true);
+  }, []);
+
+  function toggleCollapsed(label: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      writeSetToStorage(STORAGE_COLLAPSED, next);
+      return next;
+    });
+  }
+
+  function toggleFavorite(href: string) {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
+      writeSetToStorage(STORAGE_FAVORITES, next);
+      return next;
+    });
+  }
+
+  // Displayed sections = favorites (if any) + the 6 metier sections.
+  // Favorites are derived from the set of starred hrefs, preserving
+  // their original NavItem order based on NAV_ITEMS_FLAT.
+  const favoriteItems: NavItem[] = hydrated
+    ? NAV_ITEMS_FLAT.filter((item) => favorites.has(item.href))
+    : [];
+  const displayedSections: NavSection[] =
+    favoriteItems.length > 0
+      ? [{ label: "★ Favoris", items: favoriteItems }, ...NAV_SECTIONS]
+      : NAV_SECTIONS;
 
   return (
     <div className="min-h-screen bg-void">
@@ -208,45 +288,86 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <SidebarSearchForm placeholder="Produits, commandes, clients..." className="px-3 pb-3" />
         </Suspense>
 
-        {/* Nav — grouped by metier section */}
+        {/* Nav — grouped by metier section, sections collapsible + favorites */}
         <nav className="flex-1 px-3 overflow-y-auto">
-          {NAV_SECTIONS.map((section, sectionIdx) => (
-            <div key={section.label} className={cn(sectionIdx > 0 && "mt-4")}>
-              <div className="px-3 pb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">
-                {section.label}
-              </div>
-              <div className="space-y-0.5">
-                {section.items.map((item) => {
-                  const isActive =
-                    item.href === "/admin"
-                      ? pathname === "/admin"
-                      : pathname.startsWith(item.href);
-                  const Icon = item.icon;
+          {displayedSections.map((section, sectionIdx) => {
+            const isFavoriteSection = section.label.startsWith("★");
+            const isCollapsed = collapsed.has(section.label);
+            return (
+              <div key={section.label} className={cn(sectionIdx > 0 && "mt-4")}>
+                <button
+                  type="button"
+                  onClick={() => toggleCollapsed(section.label)}
+                  className="w-full flex items-center justify-between px-3 pb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim hover:text-text-muted transition-colors"
+                  aria-expanded={!isCollapsed}
+                >
+                  <span className={cn(isFavoriteSection && "text-neon")}>
+                    {section.label}
+                  </span>
+                  {isCollapsed ? (
+                    <ChevronRight className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </button>
+                {!isCollapsed ? (
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => {
+                      const isActive =
+                        item.href === "/admin"
+                          ? pathname === "/admin"
+                          : pathname.startsWith(item.href);
+                      const Icon = item.icon;
+                      const isFav = favorites.has(item.href);
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "group flex items-center gap-3 px-3 py-2 font-mono text-sm transition-all duration-150 border-l-2",
-                        isActive
-                          ? "border-neon bg-neon-dim text-neon"
-                          : "border-transparent text-text-muted hover:bg-surface hover:text-text",
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-[18px] w-[18px]",
-                          isActive ? "text-neon" : "text-text-dim group-hover:text-text-muted",
-                        )}
-                      />
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
+                      return (
+                        <div
+                          key={`${section.label}-${item.href}`}
+                          className={cn(
+                            "group relative flex items-center gap-3 pl-3 pr-8 py-2 font-mono text-sm transition-all duration-150 border-l-2",
+                            isActive
+                              ? "border-neon bg-neon-dim text-neon"
+                              : "border-transparent text-text-muted hover:bg-surface hover:text-text",
+                          )}
+                        >
+                          <Link href={item.href} className="flex items-center gap-3 flex-1 min-w-0">
+                            <Icon
+                              className={cn(
+                                "h-[18px] w-[18px] shrink-0",
+                                isActive ? "text-neon" : "text-text-dim group-hover:text-text-muted",
+                              )}
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              toggleFavorite(item.href);
+                            }}
+                            className={cn(
+                              "absolute right-2 top-1/2 -translate-y-1/2 p-1 transition-opacity",
+                              isFav
+                                ? "opacity-100 text-neon"
+                                : "opacity-0 group-hover:opacity-100 text-text-dim hover:text-neon",
+                            )}
+                            aria-label={isFav ? `Retirer ${item.label} des favoris` : `Ajouter ${item.label} aux favoris`}
+                            title={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
+                          >
+                            <Star
+                              className="h-3.5 w-3.5"
+                              fill={isFav ? "currentColor" : "none"}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Bottom section */}
