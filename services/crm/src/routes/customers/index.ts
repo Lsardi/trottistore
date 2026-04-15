@@ -92,8 +92,16 @@ export async function customerRoutes(app: FastifyInstance) {
     }
 
     // Build User where clause — search across name/email
+    // Only real customers:
+    //   1. role must be CLIENT (exclude SUPERADMIN/ADMIN/MANAGER/TECHNICIAN/STAFF)
+    //   2. customerProfile must actually exist — Prisma treats an empty
+    //      relation filter `{}` as "no filter", which would include users
+    //      without a profile. Use `is:` with conditions (or `isNot: null`)
+    //      to force the existence check.
+    const hasProfileFilter = Object.keys(profileWhere).length > 0;
     const userWhere: {
-      customerProfile: typeof profileWhere;
+      role: "CLIENT";
+      customerProfile: { is: typeof profileWhere } | { isNot: null };
       OR?: Array<{
         email?: { contains: string; mode: "insensitive" };
         firstName?: { contains: string; mode: "insensitive" };
@@ -101,7 +109,8 @@ export async function customerRoutes(app: FastifyInstance) {
         phone?: { contains: string; mode: "insensitive" };
       }>;
     } = {
-      customerProfile: profileWhere,
+      role: "CLIENT",
+      customerProfile: hasProfileFilter ? { is: profileWhere } : { isNot: null },
     };
 
     if (search) {
@@ -250,7 +259,9 @@ export async function customerRoutes(app: FastifyInstance) {
       },
     });
 
-    if (!customer) {
+    if (!customer || customer.role !== "CLIENT") {
+      // Hide staff/admin users behind a 404 — this endpoint is only meant
+      // to serve customer profiles, not backoffice accounts.
       return reply.status(404).send({
         success: false,
         error: { code: "NOT_FOUND", message: `Client '${id}' introuvable` },
@@ -535,7 +546,7 @@ export async function customerRoutes(app: FastifyInstance) {
           items: {
             select: {
               quantity: true,
-              product: { select: { name: true } },
+              product: { select: { id: true, name: true, slug: true } },
             },
           },
         },

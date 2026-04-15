@@ -4,11 +4,35 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { customersApi, type CustomerGarage, type CustomerDetail } from "@/lib/api";
-import { ArrowLeft, Loader2, Wrench, ShoppingBag, MessageSquare, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Wrench, ShoppingBag, MessageSquare, Save, Eye, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
+}
+
+// The invoice endpoint requires a Bearer token; a plain <a href> link would
+// hit it unauthenticated and get 401. Fetch with the token, build a blob URL,
+// and trigger a download.
+async function downloadInvoice(orderId: string, orderNumber: number | undefined): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const res = await fetch(`/api/v1/admin/orders/${orderId}/invoice`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Invoice download failed: ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = orderNumber ? `facture-commande-${orderNumber}.pdf` : `facture-${orderId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function formatDate(iso: string): string {
@@ -226,11 +250,65 @@ export default function AdminClientGaragePage() {
                         </div>
                       ) : null}
 
-                      {event.type === "ORDER" ? (
-                        <div className="mt-2 font-mono text-xs text-text">
-                          Commande #{String(data.orderNumber ?? "")} · {String(data.status ?? "")} · {formatCurrency(Number(data.totalTtc ?? 0))}
-                        </div>
-                      ) : null}
+                      {event.type === "ORDER" ? (() => {
+                        const o = data as {
+                          id?: string;
+                          orderNumber?: number;
+                          status?: string;
+                          totalTtc?: number | string;
+                          items?: Array<{
+                            quantity?: number;
+                            product?: { id?: string; name?: string; slug?: string };
+                          }>;
+                        };
+                        return (
+                          <div className="mt-2 space-y-2">
+                            <div className="font-mono text-xs text-text">
+                              Commande #{String(o.orderNumber ?? "")} · {String(o.status ?? "")} · {formatCurrency(Number(o.totalTtc ?? 0))}
+                            </div>
+                            {o.items && o.items.length > 0 ? (
+                              <ul className="pl-3 space-y-0.5">
+                                {o.items.map((it, i) => (
+                                  <li key={i} className="font-mono text-[11px] text-text-dim">
+                                    <span className="text-text">{it.quantity ?? 1}×</span>{" "}
+                                    {it.product?.id ? (
+                                      <Link
+                                        href={`/admin/produits/${it.product.id}`}
+                                        className="text-text hover:text-neon underline underline-offset-2"
+                                      >
+                                        {it.product.name ?? "Produit"}
+                                      </Link>
+                                    ) : (
+                                      <span>{it.product?.name ?? "—"}</span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            {o.id ? (
+                              <div className="flex gap-2 flex-wrap pt-1">
+                                <Link
+                                  href={`/admin/commandes?order=${o.id}`}
+                                  className="inline-flex items-center gap-1 border border-border bg-surface-2 px-2 py-1 font-mono text-[11px] text-text-muted hover:border-neon hover:text-neon transition-colors"
+                                >
+                                  <Eye className="h-3 w-3" /> Détail
+                                </Link>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void downloadInvoice(o.id!, o.orderNumber).catch((err) => {
+                                      console.error("downloadInvoice failed:", err);
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1 border border-border bg-surface-2 px-2 py-1 font-mono text-[11px] text-text-muted hover:border-neon hover:text-neon transition-colors"
+                                >
+                                  <FileText className="h-3 w-3" /> Facture PDF
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })() : null}
 
                       {event.type === "INTERACTION" ? (
                         <div className="mt-2 font-mono text-xs text-text">
