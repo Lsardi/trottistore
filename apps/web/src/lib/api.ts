@@ -916,6 +916,70 @@ export const repairsApi = {
       success: boolean;
       data: Array<{ brand: string; models: string[] }>;
     }>('sav', '/repairs/scooter-models'),
+
+  // ─── Atelier-specific ────────────────────────────────────
+  // Stock-aware part tracking, quote generation, completion.
+
+  addPart: (
+    id: string,
+    body: {
+      partName: string;
+      partRef?: string | null;
+      variantId?: string | null;
+      quantity: number;
+      unitCost: number;
+    },
+  ) =>
+    apiFetch<{ success: boolean; data: RepairPartUsed }>(
+      'sav',
+      `/repairs/${id}/parts`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+
+  updateDiagnosis: (
+    id: string,
+    body: { diagnosis: string; estimatedDays?: number | null },
+  ) =>
+    apiFetch<{ success: boolean; data: RepairTicket }>(
+      'sav',
+      `/repairs/${id}/diagnosis`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+
+  createQuote: (
+    id: string,
+    body: {
+      parts: Array<{
+        partName: string;
+        partRef?: string;
+        variantId?: string;
+        quantity: number;
+        unitCost: number;
+      }>;
+      laborCost: number;
+    },
+  ) =>
+    apiFetch<{
+      success: boolean;
+      data: { estimatedCost: number; laborCost: number };
+    }>('sav', `/repairs/${id}/quote`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  acceptQuote: (id: string) =>
+    apiFetch<{ success: boolean; data: RepairTicket }>(
+      'sav',
+      `/repairs/${id}/quote/accept`,
+      { method: 'PUT' },
+    ),
+
+  complete: (id: string, body?: { actualCost?: number; note?: string }) =>
+    apiFetch<{ success: boolean; data: RepairTicket }>(
+      'sav',
+      `/repairs/${id}/complete`,
+      { method: 'POST', body: JSON.stringify(body ?? {}) },
+    ),
 };
 
 // ─── Newsletter (admin) ─────────────────────────────────────
@@ -1285,12 +1349,24 @@ export interface User {
   } | null;
 }
 
+export interface RepairPartUsed {
+  id: string;
+  ticketId: string;
+  variantId: string | null;
+  partName: string;
+  partRef: string | null;
+  quantity: number;
+  unitCost: string;
+  createdAt: string;
+}
+
 export interface RepairTicket {
   id: string;
   ticketNumber: number;
   trackingToken?: string;
   trackingUrl?: string;
   productModel: string;
+  serialNumber?: string | null;
   status: string;
   type: string;
   priority: string;
@@ -1301,7 +1377,9 @@ export interface RepairTicket {
   photosUrls?: string[];
   diagnosis?: string;
   estimatedCost?: string;
+  actualCost?: string;
   quoteAcceptedAt?: string;
+  partsUsed?: RepairPartUsed[];
   statusLog?: Array<{
     fromStatus: string;
     toStatus: string;
