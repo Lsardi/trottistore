@@ -20,6 +20,7 @@ import { authRoutes } from "./routes/auth/index.js";
 import { adminRoutes } from "./routes/admin/index.js";
 import { adminSupplierRoutes } from "./routes/admin-suppliers/index.js";
 import { adminPromoRoutes } from "./routes/admin-promos/index.js";
+import { adminExportRoutes } from "./routes/admin-exports/index.js";
 import { leadRoutes } from "./routes/leads/index.js";
 import { addressRoutes } from "./routes/addresses/index.js";
 import { stockRoutes } from "./routes/stock/index.js";
@@ -183,6 +184,7 @@ async function start() {
   await app.register(adminRoutes, { prefix: "/api/v1" });
   await app.register(adminSupplierRoutes, { prefix: "/api/v1" });
   await app.register(adminPromoRoutes, { prefix: "/api/v1" });
+  await app.register(adminExportRoutes, { prefix: "/api/v1" });
   await app.register(leadRoutes, { prefix: "/api/v1" });
   await app.register(stockRoutes, { prefix: "/api/v1" });
   await app.register(checkoutRoutes, { prefix: "/api/v1" });
