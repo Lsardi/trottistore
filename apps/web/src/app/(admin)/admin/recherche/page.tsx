@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense } from "react";
+import { FormEvent, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   customersApi,
@@ -34,7 +34,19 @@ export default function AdminGlobalSearchPage() {
 
 function SearchContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const query = (searchParams.get("q") || "").trim();
+
+  const [localQuery, setLocalQuery] = useState(query);
+  useEffect(() => {
+    setLocalQuery(query);
+  }, [query]);
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const normalized = localQuery.trim();
+    router.push(normalized ? `/admin/recherche?q=${encodeURIComponent(normalized)}` : "/admin/recherche");
+  }
 
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -98,13 +110,27 @@ function SearchContent() {
       <div>
         <h1 className="heading-lg">RECHERCHE GLOBALE</h1>
         <p className="font-mono text-sm text-text-muted mt-1">
-          {query ? `Resultats pour: ${query}` : "Saisis une recherche depuis la barre en haut."}
+          {query ? `Résultats pour: ${query}` : "Tape une requête ci-dessous pour chercher produits, commandes, clients, tickets SAV."}
         </p>
       </div>
 
+      <form onSubmit={handleSubmit} className="bg-surface border border-border p-3">
+        <div className="relative">
+          <Search className="h-4 w-4 text-text-dim absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="search"
+            value={localQuery}
+            onChange={(e) => setLocalQuery(e.target.value)}
+            placeholder="Produits, commandes, clients, SAV…"
+            className="input-dark w-full pl-9"
+            autoFocus
+          />
+        </div>
+      </form>
+
       {query ? (
         <div className="bg-surface border border-border p-3 font-mono text-xs text-text-muted">
-          {loading ? "Recherche en cours..." : `${totalResults} resultat(s)`}
+          {loading ? "Recherche en cours..." : `${totalResults} résultat(s)`}
         </div>
       ) : null}
 
@@ -226,7 +252,7 @@ function SearchContent() {
       {!query ? (
         <div className="bg-surface border border-border p-4 flex items-center gap-2 font-mono text-sm text-text-muted">
           <Search className="h-4 w-4" />
-          Lance une recherche depuis le champ global de la barre admin.
+          Utilise le champ ci-dessus pour lancer une recherche globale.
         </div>
       ) : null}
     </div>

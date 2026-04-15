@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -38,7 +38,16 @@ const NAV_ITEMS = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams?.get("q") ?? "";
+  const [query, setQuery] = useState(urlQuery);
+
+  // Keep the sidebar input in sync with the URL so refining an existing
+  // search (or landing on /admin/recherche?q=... via a deep link) shows
+  // the current query instead of an empty field.
+  useEffect(() => {
+    setQuery(urlQuery);
+  }, [urlQuery]);
 
   function handleSearch(e: FormEvent) {
     e.preventDefault();
