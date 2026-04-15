@@ -360,7 +360,7 @@ export default function AdminDashboardPage() {
               stockAlerts.slice(0, 8).map((alert) => (
                 <Link
                   key={`${alert.variantId}-${alert.severity}`}
-                  href="/admin/stock"
+                  href={`/admin/produits/${alert.productId}`}
                   className="block border border-border bg-surface-2 px-3 py-2 hover:border-neon/40"
                 >
                   <p className="font-mono text-xs text-text">{alert.productName}</p>
