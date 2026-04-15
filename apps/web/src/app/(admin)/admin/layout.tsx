@@ -15,25 +15,62 @@ import {
   Search,
   ExternalLink,
   User,
+  UserCog,
   Mail,
+  Settings,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Commandes", href: "/admin/commandes", icon: ShoppingCart },
-  { label: "Produits", href: "/admin/produits", icon: Package },
-  { label: "Categories", href: "/admin/categories", icon: Tags },
-  { label: "Stock", href: "/admin/stock", icon: Boxes },
-  { label: "Clients", href: "/admin/clients", icon: Users },
-  { label: "SAV", href: "/admin/sav", icon: Wrench },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-  { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
-  { label: "Recherche", href: "/admin/recherche", icon: Search },
-  { label: "Équipe", href: "/admin/equipe", icon: Users },
-  { label: "Paramètres", href: "/admin/parametres", icon: Wrench },
-] as const;
+type NavItem = { label: string; href: string; icon: LucideIcon };
+type NavSection = { label: string; items: NavItem[] };
+
+// Sections are ordered by how often you touch them in a day. Each section
+// has a clear metier purpose — this is the container we'll later drop the
+// new features into (atelier hub, fournisseurs, factures, etc).
+const NAV_SECTIONS: NavSection[] = [
+  {
+    label: "Opérations",
+    items: [
+      { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+      { label: "Commandes", href: "/admin/commandes", icon: ShoppingCart },
+      { label: "SAV", href: "/admin/sav", icon: Wrench },
+      { label: "Stock", href: "/admin/stock", icon: Boxes },
+    ],
+  },
+  {
+    label: "Catalogue",
+    items: [
+      { label: "Produits", href: "/admin/produits", icon: Package },
+      { label: "Catégories", href: "/admin/categories", icon: Tags },
+    ],
+  },
+  {
+    label: "Clients",
+    items: [
+      { label: "Clients", href: "/admin/clients", icon: Users },
+      { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Système",
+    items: [
+      { label: "Équipe", href: "/admin/equipe", icon: UserCog },
+      { label: "Paramètres", href: "/admin/parametres", icon: Settings },
+    ],
+  },
+];
+
+// Flat list used by the mobile top-bar scroll strip — grouping there would
+// be too much visual noise on a narrow screen.
+const NAV_ITEMS_FLAT: NavItem[] = NAV_SECTIONS.flatMap((section) => section.items);
 
 // The search form uses `useSearchParams`, which Next.js 15 requires to be
 // wrapped in a Suspense boundary so the layout shell can still prerender.
@@ -105,7 +142,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </Suspense>
         <nav className="px-3 pb-3 overflow-x-auto">
           <div className="flex items-center gap-2 min-w-max">
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS_FLAT.map((item) => {
               const isActive =
                 item.href === "/admin"
                   ? pathname === "/admin"
@@ -150,31 +187,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <SidebarSearchForm placeholder="Produits, commandes, clients..." className="px-3 pb-3" />
         </Suspense>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive =
-              item.href === "/admin"
-                ? pathname === "/admin"
-                : pathname.startsWith(item.href);
-            const Icon = item.icon;
+        {/* Nav — grouped by metier section */}
+        <nav className="flex-1 px-3 overflow-y-auto">
+          {NAV_SECTIONS.map((section, sectionIdx) => (
+            <div key={section.label} className={cn(sectionIdx > 0 && "mt-4")}>
+              <div className="px-3 pb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">
+                {section.label}
+              </div>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive =
+                    item.href === "/admin"
+                      ? pathname === "/admin"
+                      : pathname.startsWith(item.href);
+                  const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "group flex items-center gap-3 px-3 py-2.5 font-mono text-sm transition-all duration-150 border-l-2",
-                  isActive
-                    ? "border-neon bg-neon-dim text-neon"
-                    : "border-transparent text-text-muted hover:bg-surface hover:text-text"
-                )}
-              >
-                <Icon className={cn("h-[18px] w-[18px]", isActive ? "text-neon" : "text-text-dim group-hover:text-text-muted")} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "group flex items-center gap-3 px-3 py-2 font-mono text-sm transition-all duration-150 border-l-2",
+                        isActive
+                          ? "border-neon bg-neon-dim text-neon"
+                          : "border-transparent text-text-muted hover:bg-surface hover:text-text",
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "h-[18px] w-[18px]",
+                          isActive ? "text-neon" : "text-text-dim group-hover:text-text-muted",
+                        )}
+                      />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Bottom section */}
