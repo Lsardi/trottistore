@@ -34,6 +34,7 @@ const createProductSchema = z.object({
   description: z.string().optional(),
   shortDescription: z.string().optional(),
   brandId: z.string().uuid().optional().nullable(),
+  primarySupplierId: z.string().uuid().optional().nullable(),
   priceHt: z.number().nonnegative(),
   tvaRate: z.number().min(0).max(100).default(20),
   weightGrams: z.number().int().nonnegative().optional().nullable(),
@@ -60,6 +61,7 @@ const updateProductSchema = z.object({
   description: z.string().optional().nullable(),
   shortDescription: z.string().optional().nullable(),
   brandId: z.string().uuid().optional().nullable(),
+  primarySupplierId: z.string().uuid().optional().nullable(),
   priceHt: z.number().nonnegative().optional(),
   tvaRate: z.number().min(0).max(100).optional(),
   weightGrams: z.number().int().nonnegative().optional().nullable(),
@@ -102,6 +104,7 @@ const bulkStatusSchema = z.object({
 // Full include for responses
 const fullProductInclude = {
   brand: { select: { id: true, name: true, slug: true } },
+  primarySupplier: { select: { id: true, name: true, slug: true } },
   categories: {
     include: {
       category: { select: { id: true, name: true, slug: true } },
@@ -494,6 +497,7 @@ export async function adminRoutes(app: FastifyInstance) {
       where: { id },
       include: {
         brand: { select: { id: true, name: true, slug: true } },
+        primarySupplier: { select: { id: true, name: true, slug: true } },
         categories: {
           include: {
             category: { select: { id: true, name: true, slug: true } },

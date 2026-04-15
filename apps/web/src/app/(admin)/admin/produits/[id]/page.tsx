@@ -6,8 +6,10 @@ import Link from "next/link";
 import {
   adminProductsApi,
   categoriesApi,
+  suppliersApi,
   type Product,
   type Category,
+  type Supplier,
   type AdminProductPayload,
 } from "@/lib/api";
 import {
@@ -89,6 +91,8 @@ export default function AdminProductEditPage() {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDesc, setMetaDesc] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [primarySupplierId, setPrimarySupplierId] = useState<string>("");
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [compatibleModels, setCompatibleModels] = useState<string[]>([]);
   const [compatDraft, setCompatDraft] = useState("");
   const [images, setImages] = useState<ImageEntry[]>([]);
@@ -124,12 +128,15 @@ export default function AdminProductEditPage() {
     async function load() {
       setLoading(true);
       try {
-        const [productRes, catRes] = await Promise.all([
+        const [productRes, catRes, supRes] = await Promise.all([
           adminProductsApi.getById(id),
           categoriesApi.list(),
+          suppliersApi.list({ active: "true" }),
         ]);
 
         const p = productRes.data;
+        setSuppliers(supRes.data || []);
+        setPrimarySupplierId((p as unknown as { primarySupplierId?: string | null }).primarySupplierId ?? "");
         setName(p.name);
         setSku(p.sku);
         setDescription(p.description || "");
@@ -276,6 +283,7 @@ export default function AdminProductEditPage() {
         metaTitle: metaTitle || null,
         metaDesc: metaDesc || null,
         compatibleModels,
+        primarySupplierId: primarySupplierId || null,
         categories: selectedCategories,
         images: images.map((img) => ({
           url: img.url,
@@ -788,6 +796,36 @@ export default function AdminProductEditPage() {
                 ))
               )}
             </div>
+          </section>
+
+          {/* Primary supplier */}
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-1">Fournisseur principal</h2>
+            <p className="text-[11px] text-text-dim font-mono mb-3">
+              À qui re-commander cette pièce quand le stock tombe.
+            </p>
+            <select
+              value={primarySupplierId}
+              onChange={(e) => {
+                setPrimarySupplierId(e.target.value);
+                markDirty();
+              }}
+              className="input-dark w-full text-xs"
+            >
+              <option value="">— Aucun —</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                  {s.leadTimeDays != null ? ` (${s.leadTimeDays}j)` : ""}
+                </option>
+              ))}
+            </select>
+            <Link
+              href="/admin/fournisseurs"
+              className="block mt-2 font-mono text-[10px] text-text-dim hover:text-neon uppercase tracking-wider"
+            >
+              → Gérer les fournisseurs
+            </Link>
           </section>
 
           {/* Compatible scooter models (fitment) */}

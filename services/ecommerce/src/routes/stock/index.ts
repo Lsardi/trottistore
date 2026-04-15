@@ -261,6 +261,8 @@ export async function stockRoutes(app: FastifyInstance) {
         product_id: string;
         product_slug: string;
         product_name: string;
+        primary_supplier_id: string | null;
+        supplier_name: string | null;
       }>
     >`
       SELECT
@@ -271,9 +273,12 @@ export async function stockRoutes(app: FastifyInstance) {
         pv.low_stock_threshold,
         p.id as product_id,
         p.slug as product_slug,
-        p.name as product_name
+        p.name as product_name,
+        p.primary_supplier_id,
+        s.name as supplier_name
       FROM ecommerce.product_variants pv
       JOIN ecommerce.products p ON p.id = pv.product_id
+      LEFT JOIN ecommerce.suppliers s ON s.id = p.primary_supplier_id
       WHERE pv.is_active = true
         AND pv.stock_quantity <= ${query.threshold ?? 0} + pv.low_stock_threshold
       ORDER BY pv.stock_quantity ASC
@@ -288,6 +293,8 @@ export async function stockRoutes(app: FastifyInstance) {
         productId: a.product_id,
         productSlug: a.product_slug,
         productName: a.product_name,
+        primarySupplierId: a.primary_supplier_id,
+        primarySupplierName: a.supplier_name,
         stockQuantity: a.stock_quantity,
         lowStockThreshold: a.low_stock_threshold,
         severity: a.stock_quantity === 0 ? "OUT_OF_STOCK" : "LOW_STOCK",
