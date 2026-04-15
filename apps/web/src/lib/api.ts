@@ -30,6 +30,54 @@ export class ApiError extends Error {
   }
 }
 
+// Singleton promise so 8 dashboard calls that all 401 at once share ONE
+// refresh attempt instead of hammering /auth/refresh in parallel.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function tryRefreshAccessToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const res = await fetch(`/api/v1/auth/refresh`, {
+          method: "POST",
+          credentials: "include", // send refresh_token cookie
+        });
+        if (!res.ok) return null;
+        const body = (await res.json().catch(() => null)) as
+          | { success?: boolean; data?: { accessToken?: string } }
+          | null;
+        const token = body?.data?.accessToken ?? null;
+        if (token) {
+          localStorage.setItem("accessToken", token);
+        }
+        return token;
+      } catch {
+        return null;
+      }
+    })().finally(() => {
+      // Clear after the current microtask so concurrent awaiters still
+      // observe the same resolved promise via their own reference.
+      queueMicrotask(() => {
+        refreshPromise = null;
+      });
+    });
+  }
+  return refreshPromise;
+}
+
+function buildAuthHeaders(base: Record<string, string>): Record<string, string> {
+  if (typeof window === "undefined") return base;
+  const token = localStorage.getItem("accessToken");
+  const next: Record<string, string> = { ...base };
+  if (token) {
+    next["Authorization"] = `Bearer ${token}`;
+  } else {
+    delete next["Authorization"];
+  }
+  return next;
+}
+
 async function apiFetch<T>(
   service: Service,
   path: string,
@@ -50,17 +98,14 @@ async function apiFetch<T>(
     if (qs) url += `?${qs}`;
   }
 
-  const headers: Record<string, string> = {
+  let headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(fetchOptions.headers as Record<string, string>),
   };
 
   // Ajouter le token d'auth si disponible (côté client)
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    headers = buildAuthHeaders(headers);
 
     const sessionStorageKey = "trottistore-session-id";
     let sessionId = localStorage.getItem(sessionStorageKey);
@@ -74,11 +119,29 @@ async function apiFetch<T>(
     headers["x-session-id"] = sessionId;
   }
 
-  const response = await fetch(url, {
+  let response = await fetch(url, {
     ...fetchOptions,
     headers,
     credentials: 'include', // Pour les cookies refresh_token
   });
+
+  // Token expired → try refresh once (but not for /auth/* endpoints to
+  // avoid recursive loops on a dead refresh token).
+  if (
+    response.status === 401 &&
+    typeof window !== "undefined" &&
+    !path.startsWith("/auth/")
+  ) {
+    const refreshed = await tryRefreshAccessToken();
+    if (refreshed) {
+      headers = buildAuthHeaders(headers);
+      response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        credentials: 'include',
+      });
+    }
+  }
 
   if (!response.ok) {
     const data = await response.json().catch(() => null);
