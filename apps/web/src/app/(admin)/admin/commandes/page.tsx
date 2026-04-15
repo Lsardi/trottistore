@@ -102,17 +102,22 @@ export default function AdminCommandesPage() {
   }
 
   async function loadOrderDetail(orderId: string) {
+    // Open the drawer immediately so the click feels responsive and any
+    // fetch error stays visible (the drawer is the only place actionError
+    // is rendered).
+    setSelectedOrderId(orderId);
+    setSelectedOrder(null);
     setLoadingDetail(true);
     setActionError(null);
     try {
       const res = await ordersApi.adminGetById(orderId);
       setSelectedOrder(res.data);
-      setSelectedOrderId(orderId);
       setTrackingNumber(res.data.trackingNumber || "");
       setNextStatus("");
       setStatusNote("");
       setTrackingNote("");
-    } catch {
+    } catch (err) {
+      console.error("loadOrderDetail failed:", err);
       setActionError("Impossible de charger le détail de la commande.");
     } finally {
       setLoadingDetail(false);
@@ -327,9 +332,16 @@ export default function AdminCommandesPage() {
               </button>
             </div>
 
-            {loadingDetail || !selectedOrder ? (
-              <div className="p-6">
+            {loadingDetail ? (
+              <div className="p-6 flex items-center gap-2 font-mono text-xs text-text-muted">
                 <Loader2 className="w-5 h-5 animate-spin text-neon" />
+                Chargement du détail…
+              </div>
+            ) : !selectedOrder ? (
+              <div className="p-6">
+                <div role="alert" className="border border-danger/40 bg-danger/10 text-danger font-mono text-xs p-3">
+                  {actionError ?? "Aucun détail disponible pour cette commande."}
+                </div>
               </div>
             ) : (
               <div className="p-6 space-y-6">
