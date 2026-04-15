@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { customersApi, type CustomerGarage, type CustomerDetail } from "@/lib/api";
-import { ArrowLeft, Loader2, Wrench, ShoppingBag, MessageSquare, Save, Eye, FileText } from "lucide-react";
+import { customersApi, customerRgpdApi, type CustomerGarage, type CustomerDetail } from "@/lib/api";
+import { ArrowLeft, Loader2, Wrench, ShoppingBag, MessageSquare, Save, Eye, FileText, ShieldCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function formatCurrency(amount: number): string {
@@ -45,6 +45,7 @@ function formatDate(iso: string): string {
 
 export default function AdminClientGaragePage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const customerId = params?.id;
 
   const [garage, setGarage] = useState<CustomerGarage | null>(null);
@@ -123,15 +124,18 @@ export default function AdminClientGaragePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="heading-lg">FICHE CLIENT GARAGE</h1>
           <p className="font-mono text-sm text-text-muted mt-1">Historique reparation + achats + interactions.</p>
         </div>
-        <Link href="/admin/clients" className="btn-outline inline-flex items-center gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Retour clients
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <RgpdActions customerId={customerId} onAnonymized={() => router.push("/admin/clients")} />
+          <Link href="/admin/clients" className="btn-outline inline-flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Retour clients
+          </Link>
+        </div>
       </div>
 
       {loading ? (
@@ -323,6 +327,119 @@ export default function AdminClientGaragePage() {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── RGPD action buttons ──────────────────────────────────────────
+
+async function downloadRgpdExport(customerId: string): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const res = await fetch(`/api/v1/customers/${customerId}/rgpd-export`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Export failed: ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rgpd-client-${customerId}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function RgpdActions({
+  customerId,
+  onAnonymized,
+}: {
+  customerId: string | undefined;
+  onAnonymized: () => void;
+}) {
+  const [downloading, setDownloading] = useState(false);
+  const [anonymizing, setAnonymizing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleExport() {
+    if (!customerId) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      await downloadRgpdExport(customerId);
+    } catch {
+      setError("Échec du téléchargement.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function handleAnonymize() {
+    if (!customerId) return;
+    if (
+      !confirm(
+        "Anonymiser ce client ?\n\n" +
+          "Les données personnelles (email, nom, prénom, téléphone, adresses) " +
+          "seront effacées de façon irréversible. L'historique des commandes " +
+          "reste conservé pour raison comptable/fiscale (obligation de rétention " +
+          "de 10 ans). Le compte sera banni et le client ne pourra plus se connecter.",
+      )
+    ) {
+      return;
+    }
+    setAnonymizing(true);
+    setError(null);
+    try {
+      await customerRgpdApi.anonymize(customerId);
+      onAnonymized();
+    } catch {
+      setError("Échec de l'anonymisation.");
+    } finally {
+      setAnonymizing(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void handleExport()}
+          disabled={downloading || !customerId}
+          className="btn-outline inline-flex items-center gap-1.5 text-xs disabled:opacity-60"
+          title="Art. 15 RGPD — droit d'accès"
+        >
+          {downloading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ShieldCheck className="h-3.5 w-3.5" />
+          )}
+          Export RGPD
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleAnonymize()}
+          disabled={anonymizing || !customerId}
+          className="btn-outline inline-flex items-center gap-1.5 text-xs text-danger border-danger/40 disabled:opacity-60"
+          title="Art. 17 RGPD — droit à l'effacement"
+        >
+          {anonymizing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <UserX className="h-3.5 w-3.5" />
+          )}
+          Anonymiser
+        </button>
+      </div>
+      {error ? (
+        <p className="font-mono text-[10px] text-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

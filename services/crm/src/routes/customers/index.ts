@@ -651,6 +651,162 @@ export async function customerRoutes(app: FastifyInstance) {
   });
 
   // ───────────────────────────────────────────────────────────
+  // GET /customers/:id/rgpd-export — Full data export (RGPD art. 15)
+  // ───────────────────────────────────────────────────────────
+  // Aggregates everything the CRM can read about a customer into a
+  // single JSON document. Returned as a downloadable file so the
+  // admin can forward it to the customer on request.
+  app.get("/customers/:id/rgpd-export", async (request, reply) => {
+    const id = parseIdParam(request.params);
+    const customer = await app.prisma.user.findUnique({
+      where: { id },
+      include: {
+        customerProfile: { include: { loyaltyLog: true } },
+        addresses: true,
+        orders: {
+          include: {
+            items: {
+              include: {
+                product: { select: { id: true, name: true, sku: true } },
+              },
+            },
+          },
+        },
+        repairTickets: {
+          include: {
+            partsUsed: true,
+            statusLog: true,
+          },
+        },
+        interactions: true,
+      },
+    });
+
+    if (!customer || customer.role !== "CLIENT") {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Client introuvable" },
+      });
+    }
+
+    const exportDoc = {
+      generatedAt: new Date().toISOString(),
+      exportKind: "RGPD_ART_15_ACCESS",
+      customer: {
+        id: customer.id,
+        email: customer.email,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        phone: customer.phone,
+        role: customer.role,
+        status: customer.status,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt,
+        lastLoginAt: customer.lastLoginAt,
+        loginCount: customer.loginCount,
+      },
+      profile: customer.customerProfile,
+      addresses: customer.addresses,
+      orders: customer.orders,
+      repairTickets: customer.repairTickets,
+      interactions: customer.interactions,
+    };
+
+    const filename = `rgpd-${customer.email.replace(/[^a-z0-9.-]/gi, "_")}-${new Date()
+      .toISOString()
+      .slice(0, 10)}.json`;
+    reply.header("Content-Type", "application/json; charset=utf-8");
+    reply.header("Content-Disposition", `attachment; filename="${filename}"`);
+    return reply.send(JSON.stringify(exportDoc, null, 2));
+  });
+
+  // ───────────────────────────────────────────────────────────
+  // POST /customers/:id/anonymize — Right to erasure (RGPD art. 17)
+  // ───────────────────────────────────────────────────────────
+  // Replaces PII with anonymous placeholders but keeps the user row
+  // + order history because the orders have legal value for tax
+  // purposes (min 10 years retention). The customer is banned to
+  // prevent new logins, the email is rewritten to a non-routable
+  // sentinel, and the customerProfile is wiped of identifying tags.
+  app.post("/customers/:id/anonymize", async (request, reply) => {
+    const reqUser = request.user as { role?: string } | undefined;
+    if (!reqUser || !["SUPERADMIN", "ADMIN"].includes(reqUser.role ?? "")) {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "Seuls SUPERADMIN et ADMIN peuvent anonymiser un compte",
+        },
+      });
+    }
+
+    const id = parseIdParam(request.params);
+    const existing = await app.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, email: true },
+    });
+    if (!existing || existing.role !== "CLIENT") {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Client introuvable" },
+      });
+    }
+
+    // Guard: the email must not already look anonymized to avoid double-
+    // processing in case of a retry.
+    if (existing.email.startsWith("anonymized+")) {
+      return reply.status(409).send({
+        success: false,
+        error: { code: "ALREADY_ANONYMIZED", message: "Ce compte est déjà anonymisé" },
+      });
+    }
+
+    const sentinelEmail = `anonymized+${id}@invalid.trottistore.local`;
+
+    await app.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: {
+          email: sentinelEmail,
+          firstName: "Client",
+          lastName: "Anonymisé",
+          phone: null,
+          passwordHash: null,
+          status: "BANNED",
+          metadata: {},
+        },
+      });
+
+      // Reset profile fields that carry PII/behavioral data.
+      await tx.customerProfile.updateMany({
+        where: { userId: id },
+        data: {
+          tags: [],
+          scooterModels: [],
+          notes: null,
+        },
+      });
+
+      // Drop addresses — they're PII and no longer needed once the
+      // account is gone.
+      await tx.address.deleteMany({ where: { userId: id } });
+
+      // Log the interaction for audit trail.
+      await tx.customerInteraction.create({
+        data: {
+          customerId: id,
+          type: "NOTE",
+          channel: "SYSTEM",
+          subject: "Compte anonymisé (RGPD art. 17)",
+          content: "Données personnelles effacées à la demande du client.",
+        },
+      });
+    });
+
+    return { success: true };
+  });
+
+  // ───────────────────────────────────────────────────────────
   // POST /customers/merge — Merge two customer accounts into one
   // ───────────────────────────────────────────────────────────
   app.post("/customers/merge", async (request, reply) => {

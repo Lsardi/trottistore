@@ -713,6 +713,17 @@ export const adminProductsApi = {
 };
 
 // ─── FITMENTS (compatibility database) ──────────────────────────
+// ─── Customer RGPD actions ──────────────────────────────────────
+export const customerRgpdApi = {
+  anonymize: (id: string) =>
+    apiFetch<{ success: boolean }>('crm', `/customers/${id}/anonymize`, {
+      method: 'POST',
+    }),
+  // The export is returned as a JSON file attachment; we fetch the raw
+  // response via an inline helper so the component can trigger a
+  // download instead of parsing.
+};
+
 export const fitmentsApi = {
   listModels: () =>
     apiFetch<{ success: boolean; data: FitmentModel[] }>('ecommerce', '/admin/fitments/models'),
