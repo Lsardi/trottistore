@@ -465,6 +465,43 @@ export const discountCodesApi = {
     ),
 };
 
+// ─── INVOICES ────────────────────────────────────────────────
+
+export interface InvoiceRegistryEntry {
+  orderId: string;
+  orderNumber: number;
+  status: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  subtotalHt: string;
+  tvaAmount: string;
+  totalTtc: string;
+  orderCreatedAt: string;
+  customer: {
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+  } | null;
+  invoiceNumber: number | null;
+  invoiceIssuedAt: string | null;
+  invoiceRef: string | null;
+}
+
+export const invoicesApi = {
+  list: (params?: {
+    from?: string;
+    to?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    apiFetch<{
+      success: boolean;
+      data: InvoiceRegistryEntry[];
+      pagination: Pagination;
+    }>('ecommerce', '/admin/invoices', { params }),
+};
+
 export interface AuditLogEntry {
   id: string;
   userId: string | null;

@@ -159,6 +159,117 @@ export async function invoiceRoutes(app: FastifyInstance) {
     preHandler: [app.authenticate, requireRole("SUPERADMIN", "ADMIN", "MANAGER")],
   };
 
+  // ─── GET /admin/invoices — Chronological registry ────────────
+  // Lists billable orders (anything not PENDING / CANCELLED) with
+  // their Invoice record if it exists, joined left so we can also
+  // show orders that don't have a PDF generated yet.
+  app.get("/admin/invoices", adminOnly, async (request) => {
+    const query = (request.query ?? {}) as {
+      from?: string;
+      to?: string;
+      search?: string;
+      status?: string;
+      page?: string;
+      limit?: string;
+    };
+    const page = Math.max(1, Number(query.page ?? 1));
+    const limit = Math.min(100, Math.max(10, Number(query.limit ?? 50)));
+    const skip = (page - 1) * limit;
+
+    const where: {
+      status?: { notIn: string[] };
+      createdAt?: { gte?: Date; lte?: Date };
+      OR?: Array<
+        | { customer: { email: { contains: string; mode: "insensitive" } } }
+        | { orderNumber: number }
+      >;
+    } = {
+      // Only billable orders — drafts and pending-payment carts don't
+      // have a legal invoice until they're actually confirmed.
+      status: { notIn: ["PENDING", "CANCELLED"] },
+    };
+    if (query.from || query.to) {
+      where.createdAt = {};
+      if (query.from && /^\d{4}-\d{2}-\d{2}$/.test(query.from)) {
+        where.createdAt.gte = new Date(`${query.from}T00:00:00.000Z`);
+      }
+      if (query.to && /^\d{4}-\d{2}-\d{2}$/.test(query.to)) {
+        where.createdAt.lte = new Date(`${query.to}T23:59:59.999Z`);
+      }
+    }
+    if (query.search && query.search.trim()) {
+      const s = query.search.trim();
+      where.OR = [{ customer: { email: { contains: s, mode: "insensitive" } } }];
+      if (/^\d+$/.test(s)) {
+        where.OR.push({ orderNumber: Number(s) });
+      }
+    }
+
+    const [orders, total] = await Promise.all([
+      app.prisma.order.findMany({
+        where,
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          paymentStatus: true,
+          paymentMethod: true,
+          totalTtc: true,
+          tvaAmount: true,
+          subtotalHt: true,
+          createdAt: true,
+          customer: {
+            select: { email: true, firstName: true, lastName: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      app.prisma.order.count({ where }),
+    ]);
+
+    // Pull matching invoices in one query so we don't N+1.
+    const orderIds = orders.map((o) => o.id);
+    const invoices = orderIds.length
+      ? await app.prisma.invoice.findMany({
+          where: { orderId: { in: orderIds } },
+          select: { orderId: true, invoiceNumber: true, issuedAt: true },
+        })
+      : [];
+    const invoiceByOrder = new Map(invoices.map((i) => [i.orderId, i]));
+
+    return {
+      success: true,
+      data: orders.map((o) => {
+        const inv = invoiceByOrder.get(o.id) ?? null;
+        return {
+          orderId: o.id,
+          orderNumber: o.orderNumber,
+          status: o.status,
+          paymentStatus: o.paymentStatus,
+          paymentMethod: o.paymentMethod,
+          subtotalHt: o.subtotalHt,
+          tvaAmount: o.tvaAmount,
+          totalTtc: o.totalTtc,
+          orderCreatedAt: o.createdAt,
+          customer: o.customer,
+          invoiceNumber: inv?.invoiceNumber ?? null,
+          invoiceIssuedAt: inv?.issuedAt ?? null,
+          invoiceRef: inv
+            ? `FAC-${new Date(inv.issuedAt).getFullYear()}-${String(inv.invoiceNumber).padStart(6, "0")}`
+            : null,
+        };
+      }),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  });
+
   app.get("/admin/orders/:id/invoice", adminOnly, async (request, reply) => {
     const { id } = request.params as { id: string };
     const result = await buildInvoicePdf(app, id, reply);
