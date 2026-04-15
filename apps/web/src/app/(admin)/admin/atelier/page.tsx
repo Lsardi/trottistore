@@ -20,8 +20,32 @@ import {
   X,
   FileText,
   CheckCircle2,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Download the repair quote PDF through a fetch-with-auth flow (the
+// endpoint requires a Bearer token, so a plain <a href> would 401).
+async function downloadQuotePdf(ticketId: string, ticketNumber: number): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const res = await fetch(`/api/v1/repairs/${ticketId}/quote/pdf`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Download failed: ${res.status}`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `devis-SAV-${String(ticketNumber).padStart(4, "0")}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 // Atelier-specific workflow: only the statuses where actual work is
 // happening on a scooter. The client-facing SAV page handles the rest.
@@ -484,6 +508,20 @@ function AtelierDrawer({
               </div>
 
               <div className="flex flex-wrap gap-2">
+                {ticket.estimatedCost ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void downloadQuotePdf(ticket.id, ticket.ticketNumber).catch((err) => {
+                        console.error("quote pdf download failed:", err);
+                        setError("Échec du téléchargement du devis.");
+                      });
+                    }}
+                    className="btn-outline inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Devis PDF
+                  </button>
+                ) : null}
                 {["DIAGNOSTIC", "EN_REPARATION"].includes(ticket.status) ? (
                   <button
                     type="button"
