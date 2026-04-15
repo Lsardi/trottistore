@@ -609,6 +609,7 @@ export interface AdminProductPayload {
   description?: string;
   shortDescription?: string;
   brandId?: string | null;
+  primarySupplierId?: string | null;
   priceHt: number;
   tvaRate?: number;
   weightGrams?: number | null;
@@ -1579,6 +1580,8 @@ export interface StockAlert {
   productId: string;
   productSlug: string;
   productName: string;
+  primarySupplierId: string | null;
+  primarySupplierName: string | null;
   stockQuantity: number;
   lowStockThreshold: number;
   severity: "OUT_OF_STOCK" | "LOW_STOCK";

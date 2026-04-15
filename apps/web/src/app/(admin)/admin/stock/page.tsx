@@ -4,12 +4,13 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   stockApi,
+  purchaseOrdersApi,
   type StockAlert,
   type StockMovement,
   type StockMovementSummary,
   type StockMovementType,
 } from "@/lib/api";
-import { AlertTriangle, ArrowRight, Loader2, Package, Plus, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, Package, Plus, RefreshCw, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MOVEMENT_TYPES: Array<{ value: StockMovementType; label: string; direction: "IN" | "OUT" }> = [
@@ -293,30 +294,7 @@ export default function AdminStockPage() {
           ) : (
             <div className="space-y-2 max-h-96 overflow-auto">
               {alerts.slice(0, 20).map((item) => (
-                <Link
-                  key={item.variantId}
-                  href={`/admin/produits/${item.productId}`}
-                  className="group block border border-border bg-surface-2 p-2 hover:border-neon transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-mono text-xs text-text truncate">{item.productName}</p>
-                      <p className="font-mono text-[11px] text-text-dim truncate">
-                        {item.sku} · {item.variantName}
-                      </p>
-                      <p
-                        className={cn(
-                          "font-mono text-[11px] mt-1",
-                          item.severity === "OUT_OF_STOCK" ? "text-danger" : "text-warning",
-                        )}
-                      >
-                        {item.stockQuantity}/{item.lowStockThreshold} ·{" "}
-                        {item.severity === "OUT_OF_STOCK" ? "Rupture" : "Stock faible"}
-                      </p>
-                    </div>
-                    <ArrowRight className="h-3.5 w-3.5 text-text-dim shrink-0 group-hover:text-neon mt-0.5" />
-                  </div>
-                </Link>
+                <StockAlertCard key={item.variantId} alert={item} onToast={setToast} />
               ))}
             </div>
           )}
@@ -394,6 +372,89 @@ export default function AdminStockPage() {
           </button>
         </div>
       </section>
+    </div>
+  );
+}
+
+// ─── Stock alert card with "Créer PO" shortcut ────────────────────
+
+function StockAlertCard({
+  alert,
+  onToast,
+}: {
+  alert: StockAlert;
+  onToast: (t: { message: string; type: "success" | "error" }) => void;
+}) {
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreatePO(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!alert.primarySupplierId) return;
+    setCreating(true);
+    try {
+      const res = await purchaseOrdersApi.create({
+        supplierId: alert.primarySupplierId,
+        note: `Réappro suite à alerte stock · ${alert.productName} (${alert.sku}) · ${alert.stockQuantity}/${alert.lowStockThreshold}`,
+      });
+      onToast({
+        message: `PO ${res.data.reference} créé pour ${alert.primarySupplierName}`,
+        type: "success",
+      });
+    } catch {
+      onToast({ message: "Échec création PO", type: "error" });
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="group border border-border bg-surface-2 p-2 hover:border-neon transition-colors">
+      <Link href={`/admin/produits/${alert.productId}`} className="block">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-xs text-text truncate">{alert.productName}</p>
+            <p className="font-mono text-[11px] text-text-dim truncate">
+              {alert.sku} · {alert.variantName}
+            </p>
+            <p
+              className={cn(
+                "font-mono text-[11px] mt-1",
+                alert.severity === "OUT_OF_STOCK" ? "text-danger" : "text-warning",
+              )}
+            >
+              {alert.stockQuantity}/{alert.lowStockThreshold} ·{" "}
+              {alert.severity === "OUT_OF_STOCK" ? "Rupture" : "Stock faible"}
+            </p>
+          </div>
+          <ArrowRight className="h-3.5 w-3.5 text-text-dim shrink-0 group-hover:text-neon mt-0.5" />
+        </div>
+      </Link>
+      {alert.primarySupplierId && alert.primarySupplierName ? (
+        <div className="mt-2 pt-2 border-t border-border flex items-center justify-between gap-2">
+          <span className="font-mono text-[10px] text-text-dim truncate flex items-center gap-1">
+            <Truck className="h-3 w-3 shrink-0" />
+            {alert.primarySupplierName}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => void handleCreatePO(e)}
+            disabled={creating}
+            className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-neon hover:text-text border border-neon/40 px-2 py-0.5 disabled:opacity-60"
+          >
+            {creating ? "…" : "Créer PO"}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 pt-2 border-t border-border">
+          <Link
+            href={`/admin/produits/${alert.productId}`}
+            className="font-mono text-[10px] text-text-dim hover:text-neon"
+          >
+            → Assigner un fournisseur
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
