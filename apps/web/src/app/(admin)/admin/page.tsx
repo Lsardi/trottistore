@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   analyticsApi,
+  auditApi,
   customersApi,
   ordersApi,
   repairsApi,
   stockApi,
   type AdminOrderSummary,
+  type AuditLogEntry,
   type CustomerListItem,
   type RepairTicket,
   type StockAlert,
@@ -19,6 +21,7 @@ import {
   CalendarDays,
   DollarSign,
   Package,
+  ShieldCheck,
   ShoppingCart,
   Users,
   Wrench,
@@ -80,6 +83,7 @@ export default function AdminDashboardPage() {
   const [pendingTickets, setPendingTickets] = useState<RepairTicket[]>([]);
   const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
   const [recentCustomers, setRecentCustomers] = useState<CustomerListItem[]>([]);
+  const [activity, setActivity] = useState<AuditLogEntry[]>([]);
 
   useEffect(() => {
     void loadDashboard();
@@ -102,6 +106,7 @@ export default function AdminDashboardPage() {
       pendingPartRes,
       stockRes,
       customersRes,
+      activityRes,
     ] = await Promise.allSettled([
       analyticsApi.cockpit(),
       analyticsApi.kpis("7d"),
@@ -114,6 +119,7 @@ export default function AdminDashboardPage() {
       repairsApi.list({ page: 1, limit: 20, status: "EN_ATTENTE_PIECE" }),
       stockApi.listAlerts({ threshold: 5 }),
       customersApi.list({ page: 1, limit: 8, sort: "newest" }),
+      auditApi.list({ limit: 10 }),
     ]);
 
     if (cockpitRes.status === "fulfilled") {
@@ -159,6 +165,12 @@ export default function AdminDashboardPage() {
       setRecentCustomers(customersRes.value.data || []);
     } else {
       setRecentCustomers([]);
+    }
+
+    if (activityRes.status === "fulfilled") {
+      setActivity(activityRes.value.data || []);
+    } else {
+      setActivity([]);
     }
 
     const failedCount = [
@@ -412,6 +424,59 @@ export default function AdminDashboardPage() {
           </div>
         </section>
       </div>
+
+      {/* Recent admin activity (audit log) */}
+      <section className="bg-surface border border-border p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-display font-bold text-text inline-flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-neon" /> Activité récente
+          </h2>
+          <Link href="/admin/audit" className="btn-outline inline-flex items-center gap-1.5 py-1.5 px-2.5">
+            Journal complet <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        {activity.length === 0 ? (
+          <p className="font-mono text-sm text-text-muted">Aucune activité.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {activity.map((entry) => {
+              const actionColor =
+                entry.action === "POST"
+                  ? "text-neon"
+                  : entry.action === "DELETE"
+                    ? "text-danger"
+                    : "text-warning";
+              return (
+                <li key={entry.id} className="py-2 flex items-start gap-3">
+                  <span className={cn("font-mono text-[10px] uppercase tracking-wider w-12 shrink-0", actionColor)}>
+                    {entry.action}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-xs text-text truncate">
+                      <span className="text-text-dim">{entry.resource}</span>
+                      {entry.resourceId ? (
+                        <>
+                          {" · "}
+                          <span className="text-text-muted">{entry.resourceId.slice(0, 8)}</span>
+                        </>
+                      ) : null}
+                    </p>
+                    <p className="font-mono text-[11px] text-text-dim truncate">
+                      {entry.userName ?? "anonyme"} ·{" "}
+                      {new Intl.DateTimeFormat("fr-FR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(entry.createdAt))}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       <div className="bg-surface border border-border p-3">
         <Link href="/admin/analytics" className="inline-flex items-center gap-2 font-mono text-xs text-text-muted hover:text-neon">

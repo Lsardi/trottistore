@@ -225,7 +225,14 @@ export default function AdminAtelierPage() {
                     <span className="text-neon font-bold">
                       SAV-{String(t.ticketNumber).padStart(4, "0")}
                     </span>
-                    <p className="text-text-dim text-[11px]">{t.priority}</p>
+                    <p className="text-text-dim text-[11px] flex items-center gap-1 mt-0.5">
+                      {t.type === "GARANTIE" ? (
+                        <span className="inline-block border border-warning/40 bg-warning/10 text-warning px-1 text-[9px] uppercase tracking-wider">
+                          RMA · Garantie
+                        </span>
+                      ) : null}
+                      <span>{t.priority}</span>
+                    </p>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-text">
                     {t.productModel}
