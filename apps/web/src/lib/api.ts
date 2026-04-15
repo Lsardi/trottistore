@@ -275,6 +275,181 @@ export const ordersApi = {
     }>('ecommerce', '/admin/orders/by-serial', { params: { sn } }),
 };
 
+// ─── SUPPLIERS + PURCHASE ORDERS ────────────────────────────────
+
+export interface Supplier {
+  id: string;
+  name: string;
+  slug: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  website: string | null;
+  country: string;
+  currency: string;
+  paymentTerms: string | null;
+  leadTimeDays: number | null;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { purchaseOrders: number };
+}
+
+export interface SupplierPayload {
+  name: string;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  website?: string | null;
+  country?: string;
+  currency?: string;
+  paymentTerms?: string | null;
+  leadTimeDays?: number | null;
+  notes?: string | null;
+  isActive?: boolean;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  reference: string;
+  supplierId: string;
+  status: "DRAFT" | "SENT" | "PARTIAL" | "RECEIVED" | "CANCELLED";
+  orderedAt: string | null;
+  expectedAt: string | null;
+  receivedAt: string | null;
+  totalHt: string;
+  currency: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  supplier?: { id: string; name: string; slug: string };
+}
+
+export interface PurchaseOrderPayload {
+  supplierId: string;
+  reference?: string;
+  status?: "DRAFT" | "SENT" | "PARTIAL" | "RECEIVED" | "CANCELLED";
+  orderedAt?: string | null;
+  expectedAt?: string | null;
+  receivedAt?: string | null;
+  totalHt?: number;
+  currency?: string;
+  note?: string | null;
+}
+
+export const suppliersApi = {
+  list: (params?: { q?: string; active?: "true" | "false" }) =>
+    apiFetch<{ success: boolean; data: Supplier[] }>('ecommerce', '/admin/suppliers', { params }),
+
+  getById: (id: string) =>
+    apiFetch<{
+      success: boolean;
+      data: Supplier & { purchaseOrders: PurchaseOrder[] };
+    }>('ecommerce', `/admin/suppliers/${id}`),
+
+  create: (body: SupplierPayload) =>
+    apiFetch<{ success: boolean; data: Supplier }>('ecommerce', '/admin/suppliers', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  update: (id: string, body: Partial<SupplierPayload>) =>
+    apiFetch<{ success: boolean; data: Supplier }>('ecommerce', `/admin/suppliers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean; archived?: boolean }>('ecommerce', `/admin/suppliers/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+export const purchaseOrdersApi = {
+  list: (params?: { supplierId?: string; status?: string }) =>
+    apiFetch<{ success: boolean; data: PurchaseOrder[] }>('ecommerce', '/admin/purchase-orders', { params }),
+
+  create: (body: PurchaseOrderPayload) =>
+    apiFetch<{ success: boolean; data: PurchaseOrder }>('ecommerce', '/admin/purchase-orders', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  update: (id: string, body: Partial<PurchaseOrderPayload>) =>
+    apiFetch<{ success: boolean; data: PurchaseOrder }>(
+      'ecommerce',
+      `/admin/purchase-orders/${id}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    ),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean; cancelled?: boolean }>(
+      'ecommerce',
+      `/admin/purchase-orders/${id}`,
+      { method: 'DELETE' },
+    ),
+};
+
+// ─── DISCOUNT CODES ──────────────────────────────────────────────
+
+export interface DiscountCode {
+  id: string;
+  code: string;
+  label: string | null;
+  kind: "PERCENT" | "FIXED";
+  value: string;
+  minCartHt: string | null;
+  maxUses: number | null;
+  usedCount: number;
+  startsAt: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiscountCodePayload {
+  code: string;
+  label?: string | null;
+  kind: "PERCENT" | "FIXED";
+  value: number;
+  minCartHt?: number | null;
+  maxUses?: number | null;
+  startsAt?: string | null;
+  expiresAt?: string | null;
+  isActive?: boolean;
+}
+
+export const discountCodesApi = {
+  list: (params?: { active?: "true" | "false" }) =>
+    apiFetch<{ success: boolean; data: DiscountCode[] }>(
+      'ecommerce',
+      '/admin/discount-codes',
+      { params },
+    ),
+
+  create: (body: DiscountCodePayload) =>
+    apiFetch<{ success: boolean; data: DiscountCode }>('ecommerce', '/admin/discount-codes', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  update: (id: string, body: Partial<DiscountCodePayload>) =>
+    apiFetch<{ success: boolean; data: DiscountCode }>(
+      'ecommerce',
+      `/admin/discount-codes/${id}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    ),
+
+  delete: (id: string) =>
+    apiFetch<{ success: boolean; archived?: boolean }>(
+      'ecommerce',
+      `/admin/discount-codes/${id}`,
+      { method: 'DELETE' },
+    ),
+};
+
 export interface AuditLogEntry {
   id: string;
   userId: string | null;
