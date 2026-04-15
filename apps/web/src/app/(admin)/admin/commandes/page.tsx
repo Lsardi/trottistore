@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ordersApi, type AdminOrderSummary, type Order } from "@/lib/api";
 import {
   ShoppingCart,
@@ -66,6 +67,9 @@ function formatPrice(value?: string | number | null): string {
 }
 
 export default function AdminCommandesPage() {
+  const searchParams = useSearchParams();
+  const orderQueryParam = searchParams?.get("order") ?? null;
+
   const [orders, setOrders] = useState<AdminOrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -134,6 +138,14 @@ export default function AdminCommandesPage() {
     }, 250);
     return () => clearTimeout(id);
   }, [statusFilter, search]);
+
+  // Auto-open drawer if ?order=<id> is in the URL (deep-link from client 360)
+  useEffect(() => {
+    if (orderQueryParam && orderQueryParam !== selectedOrderId) {
+      void loadOrderDetail(orderQueryParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderQueryParam]);
 
   const allowedTransitions = useMemo(() => {
     if (!selectedOrder) return [];
