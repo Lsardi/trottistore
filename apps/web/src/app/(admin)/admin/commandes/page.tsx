@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ordersApi, type AdminOrderSummary, type Order } from "@/lib/api";
 import {
@@ -66,7 +66,18 @@ function formatPrice(value?: string | number | null): string {
   return `${num.toFixed(2)} €`;
 }
 
+// Next.js 15 requires useSearchParams to be wrapped in a Suspense boundary
+// so static prerendering can bail out to CSR. The actual page body lives in
+// AdminCommandesContent; this wrapper just provides the boundary.
 export default function AdminCommandesPage() {
+  return (
+    <Suspense fallback={<div className="font-mono text-xs text-text-muted">Chargement…</div>}>
+      <AdminCommandesContent />
+    </Suspense>
+  );
+}
+
+function AdminCommandesContent() {
   const searchParams = useSearchParams();
   const orderQueryParam = searchParams?.get("order") ?? null;
 

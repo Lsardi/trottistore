@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
@@ -35,16 +35,21 @@ const NAV_ITEMS = [
   { label: "Paramètres", href: "/admin/parametres", icon: Wrench },
 ] as const;
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+// The search form uses `useSearchParams`, which Next.js 15 requires to be
+// wrapped in a Suspense boundary so the layout shell can still prerender.
+// Extracting it into its own component lets us do exactly that.
+function SidebarSearchForm({
+  placeholder,
+  className,
+}: {
+  placeholder: string;
+  className?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlQuery = searchParams?.get("q") ?? "";
   const [query, setQuery] = useState(urlQuery);
 
-  // Keep the sidebar input in sync with the URL so refining an existing
-  // search (or landing on /admin/recherche?q=... via a deep link) shows
-  // the current query instead of an empty field.
   useEffect(() => {
     setQuery(urlQuery);
   }, [urlQuery]);
@@ -55,6 +60,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!normalized) return;
     router.push(`/admin/recherche?q=${encodeURIComponent(normalized)}`);
   }
+
+  return (
+    <form onSubmit={handleSearch} className={className}>
+      <div className="relative">
+        <Search className="h-4 w-4 text-text-dim absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          className="input-dark w-full pl-9"
+        />
+      </div>
+    </form>
+  );
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
 
   return (
     <div className="min-h-screen bg-void">
@@ -77,17 +100,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             Boutique
           </Link>
         </div>
-        <form onSubmit={handleSearch} className="px-3 pb-2">
-          <div className="relative">
-            <Search className="h-4 w-4 text-text-dim absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Recherche globale..."
-              className="input-dark w-full pl-9"
-            />
-          </div>
-        </form>
+        <Suspense fallback={<div className="px-3 pb-2 h-9" />}>
+          <SidebarSearchForm placeholder="Recherche globale..." className="px-3 pb-2" />
+        </Suspense>
         <nav className="px-3 pb-3 overflow-x-auto">
           <div className="flex items-center gap-2 min-w-max">
             {NAV_ITEMS.map((item) => {
@@ -131,17 +146,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
         </div>
 
-        <form onSubmit={handleSearch} className="px-3 pb-3">
-          <div className="relative">
-            <Search className="h-4 w-4 text-text-dim absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Produits, commandes, clients..."
-              className="input-dark w-full pl-9"
-            />
-          </div>
-        </form>
+        <Suspense fallback={<div className="px-3 pb-3 h-9" />}>
+          <SidebarSearchForm placeholder="Produits, commandes, clients..." className="px-3 pb-3" />
+        </Suspense>
 
         {/* Nav */}
         <nav className="flex-1 px-3 space-y-1">
