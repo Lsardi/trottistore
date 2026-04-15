@@ -195,6 +195,21 @@ export const cartApi = {
 
   clear: () =>
     apiFetch<{ success: boolean; data: CartSummary }>('ecommerce', '/cart', { method: 'DELETE' }),
+
+  applyDiscount: (code: string) =>
+    apiFetch<{
+      success: boolean;
+      data: { discount: CartDiscount; subtotalHt: number; totalHt: number };
+    }>('ecommerce', '/cart/discount', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  removeDiscount: () =>
+    apiFetch<{
+      success: boolean;
+      data: { discount: null; subtotalHt: number; totalHt: number };
+    }>('ecommerce', '/cart/discount', { method: 'DELETE' }),
 };
 
 export const ordersApi = {
@@ -1142,10 +1157,20 @@ export interface CartItem {
   availableStock?: number | null;
 }
 
+export interface CartDiscount {
+  code: string;
+  label: string | null;
+  kind: "PERCENT" | "FIXED";
+  value: number;
+  amount: number;
+}
+
 export interface CartSummary {
   items: CartItem[];
   itemCount: number;
   totalHt: number;
+  subtotalHt?: number;
+  discount?: CartDiscount | null;
   updatedAt: string;
 }
 

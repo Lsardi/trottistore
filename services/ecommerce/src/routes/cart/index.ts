@@ -13,6 +13,10 @@ interface CartItem {
 interface Cart {
   items: CartItem[];
   updatedAt: string;
+  // Applied discount code, if any. The amount is computed server-side at
+  // each /cart read so stale percentages can't leak through — only the
+  // code identifier is persisted in Redis.
+  discountCode?: string;
 }
 
 // ─── Schemas ─────────────────────────────────────────────────
@@ -83,6 +87,52 @@ async function saveCart(
   cart.updatedAt = new Date().toISOString();
   // TTL 7 days
   await app.redis.set(key, JSON.stringify(cart), "EX", 60 * 60 * 24 * 7);
+}
+
+// Look up a discount code, validate its window and min cart, and return
+// either the applicable discount amount in € HT or null if the code
+// doesn't apply right now. Never throws — a stale/invalid code on the
+// cart just silently resolves to no discount.
+async function resolveCartDiscount(
+  app: FastifyInstance,
+  code: string | undefined,
+  subtotalHt: number,
+): Promise<{
+  code: string;
+  label: string | null;
+  kind: "PERCENT" | "FIXED";
+  value: number;
+  amount: number;
+} | null> {
+  if (!code) return null;
+  const record = await app.prisma.discountCode.findUnique({
+    where: { code: code.toUpperCase() },
+  });
+  if (!record) return null;
+  if (!record.isActive) return null;
+  const now = new Date();
+  if (record.startsAt && record.startsAt > now) return null;
+  if (record.expiresAt && record.expiresAt < now) return null;
+  if (record.maxUses != null && record.usedCount >= record.maxUses) return null;
+  if (record.minCartHt != null && subtotalHt < Number(record.minCartHt)) return null;
+  const value = Number(record.value);
+  let amount = 0;
+  if (record.kind === "PERCENT") {
+    amount = (subtotalHt * value) / 100;
+  } else {
+    amount = value;
+  }
+  // Clamp to the cart subtotal so a €50 code on a €30 cart still just
+  // zeros the line and never produces a negative total.
+  if (amount > subtotalHt) amount = subtotalHt;
+  amount = Math.round(amount * 100) / 100;
+  return {
+    code: record.code,
+    label: record.label,
+    kind: record.kind as "PERCENT" | "FIXED",
+    value,
+    amount,
+  };
 }
 
 async function enrichCartItems(app: FastifyInstance, cart: Cart) {
@@ -187,13 +237,26 @@ export async function cartRoutes(app: FastifyInstance) {
     const key = getCartKey(request);
     const cart = await getCart(app, key);
     const enriched = await enrichCartItems(app, cart);
+    const discount = await resolveCartDiscount(app, cart.discountCode, enriched.totalHt);
+    // If a previously-applied code no longer resolves (expired, deactivated,
+    // cart now below min), silently drop it from Redis so the client sees
+    // consistent state.
+    if (cart.discountCode && !discount) {
+      cart.discountCode = undefined;
+      await saveCart(app, key, cart);
+    }
+    const totalAfterDiscount = discount
+      ? Math.max(0, enriched.totalHt - discount.amount)
+      : enriched.totalHt;
 
     return {
       success: true,
       data: {
         items: enriched.items,
         itemCount: cart.items.reduce((sum, i) => sum + i.quantity, 0),
-        totalHt: enriched.totalHt,
+        subtotalHt: enriched.totalHt,
+        totalHt: totalAfterDiscount,
+        discount,
         updatedAt: cart.updatedAt,
       },
     };
@@ -405,6 +468,77 @@ export async function cartRoutes(app: FastifyInstance) {
     return {
       success: true,
       data: { items: [], itemCount: 0, totalHt: 0, updatedAt: new Date().toISOString() },
+    };
+  });
+
+  // ─── POST /cart/discount — apply a discount code to the current cart
+  // Validates the code against the current cart subtotal and returns the
+  // resolved discount. Stores only the code identifier in Redis; the
+  // amount is recomputed at every /cart read so stale percentages can't
+  // be exploited by clients replaying old responses.
+  const applyDiscountSchema = z.object({
+    code: z.string().trim().min(1).max(50),
+  });
+
+  app.post("/cart/discount", async (request, reply) => {
+    const parsed = applyDiscountSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Code manquant",
+          details: parsed.error.flatten().fieldErrors,
+        },
+      });
+    }
+    const key = getCartKey(request);
+    const cart = await getCart(app, key);
+    if (cart.items.length === 0) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "EMPTY_CART", message: "Ton panier est vide." },
+      });
+    }
+    const enriched = await enrichCartItems(app, cart);
+    const discount = await resolveCartDiscount(app, parsed.data.code, enriched.totalHt);
+    if (!discount) {
+      return reply.status(404).send({
+        success: false,
+        error: {
+          code: "INVALID_DISCOUNT",
+          message: "Code invalide, expiré ou non applicable à ce panier.",
+        },
+      });
+    }
+    cart.discountCode = discount.code;
+    await saveCart(app, key, cart);
+    return {
+      success: true,
+      data: {
+        discount,
+        subtotalHt: enriched.totalHt,
+        totalHt: Math.max(0, enriched.totalHt - discount.amount),
+      },
+    };
+  });
+
+  // DELETE /cart/discount — detach any applied code without touching items.
+  app.delete("/cart/discount", async (request) => {
+    const key = getCartKey(request);
+    const cart = await getCart(app, key);
+    if (cart.discountCode) {
+      cart.discountCode = undefined;
+      await saveCart(app, key, cart);
+    }
+    const enriched = await enrichCartItems(app, cart);
+    return {
+      success: true,
+      data: {
+        discount: null,
+        subtotalHt: enriched.totalHt,
+        totalHt: enriched.totalHt,
+      },
     };
   });
 }

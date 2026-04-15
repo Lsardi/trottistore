@@ -89,6 +89,8 @@ export default function AdminProductEditPage() {
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDesc, setMetaDesc] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [compatibleModels, setCompatibleModels] = useState<string[]>([]);
+  const [compatDraft, setCompatDraft] = useState("");
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [variants, setVariants] = useState<VariantEntry[]>([]);
 
@@ -143,6 +145,7 @@ export default function AdminProductEditPage() {
         setSelectedCategories(
           p.categories?.map((c: any) => c.category?.id || c.categoryId) || []
         );
+        setCompatibleModels(p.compatibleModels ?? []);
         setImages(
           (p.images || []).map((img: any) => ({
             url: img.url,
@@ -272,6 +275,7 @@ export default function AdminProductEditPage() {
         isFeatured,
         metaTitle: metaTitle || null,
         metaDesc: metaDesc || null,
+        compatibleModels,
         categories: selectedCategories,
         images: images.map((img) => ({
           url: img.url,
@@ -784,6 +788,87 @@ export default function AdminProductEditPage() {
                 ))
               )}
             </div>
+          </section>
+
+          {/* Compatible scooter models (fitment) */}
+          <section className="bg-surface rounded-xl border border-border shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-text mb-1">Compatibilité</h2>
+            <p className="text-[11px] text-text-dim font-mono mb-3">
+              Modèles de trottinettes avec lesquels cette pièce est compatible.
+            </p>
+            <div className="border border-border bg-surface-2 rounded p-2 min-h-[44px]">
+              <div className="flex flex-wrap gap-1.5">
+                {compatibleModels.length === 0 ? (
+                  <p className="font-mono text-[11px] text-text-dim p-1">
+                    Aucun modèle.
+                  </p>
+                ) : (
+                  compatibleModels.map((m) => (
+                    <span
+                      key={m}
+                      className="inline-flex items-center gap-1 bg-neon-dim border border-neon/40 text-neon font-mono text-[11px] px-2 py-0.5"
+                    >
+                      {m}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCompatibleModels(compatibleModels.filter((x) => x !== m));
+                          markDirty();
+                        }}
+                        className="hover:text-text"
+                        aria-label={`Retirer ${m}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="flex gap-1 mt-2">
+              <input
+                type="text"
+                value={compatDraft}
+                onChange={(e) => setCompatDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    const s = compatDraft.trim();
+                    if (s && !compatibleModels.includes(s)) {
+                      setCompatibleModels([...compatibleModels, s]);
+                      markDirty();
+                    }
+                    setCompatDraft("");
+                  } else if (e.key === "Backspace" && compatDraft === "" && compatibleModels.length > 0) {
+                    setCompatibleModels(compatibleModels.slice(0, -1));
+                    markDirty();
+                  }
+                }}
+                placeholder="Ex: Xiaomi M365 Pro (Entrée)"
+                className="input-dark flex-1 text-xs"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const s = compatDraft.trim();
+                  if (s && !compatibleModels.includes(s)) {
+                    setCompatibleModels([...compatibleModels, s]);
+                    markDirty();
+                  }
+                  setCompatDraft("");
+                }}
+                className="btn-outline px-2"
+                aria-label="Ajouter"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <Link
+              href="/admin/compatibilite"
+              className="block mt-2 font-mono text-[10px] text-text-dim hover:text-neon uppercase tracking-wider"
+            >
+              → Gérer toute la base compatibilité
+            </Link>
           </section>
         </div>
       </div>

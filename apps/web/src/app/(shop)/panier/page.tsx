@@ -11,7 +11,7 @@ import {
   ImageOff,
   X,
 } from "lucide-react";
-import { cartApi, type CartItem } from "@/lib/api";
+import { cartApi, type CartItem, type CartDiscount } from "@/lib/api";
 
 function formatPrice(amount: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
@@ -20,12 +20,17 @@ function formatPrice(amount: number): string {
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [discount, setDiscount] = useState<CartDiscount | null>(null);
+  const [code, setCode] = useState("");
+  const [applyingCode, setApplyingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
         const res = await cartApi.get();
         setItems(res.data.items || []);
+        setDiscount(res.data.discount ?? null);
       } catch {
         // Panier vide ou erreur
       } finally {
@@ -34,6 +39,36 @@ export default function CartPage() {
     }
     load();
   }, []);
+
+  async function applyDiscountCode() {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) return;
+    setApplyingCode(true);
+    setCodeError(null);
+    try {
+      const res = await cartApi.applyDiscount(trimmed);
+      setDiscount(res.data.discount);
+      setCode("");
+    } catch (err) {
+      const msg =
+        err && typeof err === "object" && "data" in err
+          ? ((err as { data?: { error?: { message?: string } } }).data?.error?.message ?? "Code invalide")
+          : "Code invalide";
+      setCodeError(msg);
+    } finally {
+      setApplyingCode(false);
+    }
+  }
+
+  async function removeDiscountCode() {
+    try {
+      await cartApi.removeDiscount();
+      setDiscount(null);
+      setCodeError(null);
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function updateQuantity(productId: string, quantity: number) {
     try {
@@ -182,17 +217,83 @@ export default function CartPage() {
                   <span className="text-text-muted">Sous-total TTC</span>
                   <span className="text-text">{formatPrice(subtotal)}</span>
                 </div>
+                {discount ? (
+                  <div className="flex justify-between font-mono text-sm">
+                    <span className="text-text-muted">
+                      Code{" "}
+                      <span className="text-neon font-bold">{discount.code}</span>
+                      {discount.kind === "PERCENT" ? ` (-${discount.value}%)` : ""}
+                    </span>
+                    <span className="text-neon">−{formatPrice(discount.amount * 1.2)}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between font-mono text-sm">
                   <span className="text-text-muted">Livraison</span>
                   <span className="text-text-dim text-xs">Calculee a l&apos;etape suivante</span>
                 </div>
               </div>
 
+              {/* Discount code input */}
+              <div className="mb-4">
+                {discount ? (
+                  <div className="flex items-center justify-between border border-neon/40 bg-neon-dim px-3 py-2">
+                    <p className="font-mono text-xs text-neon">
+                      Code <strong>{discount.code}</strong> appliqué
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void removeDiscountCode()}
+                      className="font-mono text-[11px] text-neon hover:text-text"
+                      aria-label="Retirer le code"
+                    >
+                      Retirer
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={code}
+                        onChange={(e) => {
+                          setCode(e.target.value.toUpperCase());
+                          if (codeError) setCodeError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void applyDiscountCode();
+                          }
+                        }}
+                        placeholder="Code promo"
+                        className="input-dark flex-1 font-mono tracking-widest text-xs uppercase"
+                        disabled={applyingCode}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void applyDiscountCode()}
+                        disabled={applyingCode || !code.trim()}
+                        className="btn-outline px-3 disabled:opacity-60"
+                      >
+                        Appliquer
+                      </button>
+                    </div>
+                    {codeError ? (
+                      <p className="font-mono text-[11px] text-danger mt-1" role="alert">
+                        {codeError}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+
               <div className="divider mb-4" />
 
               <div className="flex justify-between items-center mb-6">
                 <span className="font-mono text-sm text-text-muted">Total estime</span>
-                <span className="price-main">{formatPrice(subtotal)}</span>
+                <span className="price-main">
+                  {formatPrice(discount ? Math.max(0, subtotal - discount.amount * 1.2) : subtotal)}
+                </span>
               </div>
 
               <div className="space-y-3">
