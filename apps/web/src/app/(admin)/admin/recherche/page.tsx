@@ -14,7 +14,22 @@ import {
   type Product,
   type RepairTicket,
 } from "@/lib/api";
-import { Search, Package, ShoppingCart, Users, Wrench, ArrowRight } from "lucide-react";
+import { Search, Package, ShoppingCart, Users, Wrench, ArrowRight, Hash } from "lucide-react";
+
+// Serial-number lookup hit — mirrors the backend's GET /admin/orders/by-serial
+// response shape but kept inline here (one consumer, not worth a new type).
+type SerialHit = {
+  id: string;
+  serialNumbers: string[];
+  order: {
+    id: string;
+    orderNumber: number;
+    status: string;
+    createdAt: string;
+    customer?: { id: string; email: string; firstName: string; lastName: string } | null;
+  };
+  product: { id: string; name: string; sku: string };
+};
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
@@ -53,6 +68,7 @@ function SearchContent() {
   const [orders, setOrders] = useState<AdminOrderSummary[]>([]);
   const [customers, setCustomers] = useState<CustomerListItem[]>([]);
   const [tickets, setTickets] = useState<RepairTicket[]>([]);
+  const [serialHits, setSerialHits] = useState<SerialHit[]>([]);
 
   useEffect(() => {
     if (!query) {
@@ -60,21 +76,24 @@ function SearchContent() {
       setOrders([]);
       setCustomers([]);
       setTickets([]);
+      setSerialHits([]);
       return;
     }
 
     async function searchAll() {
       setLoading(true);
-      const [productsRes, ordersRes, customersRes, ticketsRes] = await Promise.allSettled([
+      const [productsRes, ordersRes, customersRes, ticketsRes, serialRes] = await Promise.allSettled([
         adminProductsApi.list({ page: 1, limit: 20, search: query }),
         ordersApi.adminList({ page: 1, limit: 30, search: query }),
         customersApi.list({ page: 1, limit: 30, search: query }),
         repairsApi.list({ page: 1, limit: 100 }),
+        ordersApi.adminFindBySerial(query),
       ]);
 
       setProducts(productsRes.status === "fulfilled" ? productsRes.value.data || [] : []);
       setOrders(ordersRes.status === "fulfilled" ? ordersRes.value.data || [] : []);
       setCustomers(customersRes.status === "fulfilled" ? customersRes.value.data || [] : []);
+      setSerialHits(serialRes.status === "fulfilled" ? serialRes.value.data || [] : []);
 
       if (ticketsRes.status === "fulfilled") {
         const q = normalize(query);
@@ -101,8 +120,8 @@ function SearchContent() {
   }, [query]);
 
   const totalResults = useMemo(
-    () => products.length + orders.length + customers.length + tickets.length,
-    [products.length, orders.length, customers.length, tickets.length],
+    () => products.length + orders.length + customers.length + tickets.length + serialHits.length,
+    [products.length, orders.length, customers.length, tickets.length, serialHits.length],
   );
 
   return (
@@ -132,6 +151,44 @@ function SearchContent() {
         <div className="bg-surface border border-border p-3 font-mono text-xs text-text-muted">
           {loading ? "Recherche en cours..." : `${totalResults} résultat(s)`}
         </div>
+      ) : null}
+
+      {serialHits.length > 0 ? (
+        <section className="bg-surface border border-neon/40 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display font-bold text-neon inline-flex items-center gap-2">
+              <Hash className="h-4 w-4" /> Numéros de série
+            </h2>
+            <span className="font-mono text-[11px] text-text-dim">
+              {serialHits.length} match{serialHits.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {serialHits.map((hit) => (
+              <Link
+                key={hit.id}
+                href={`/admin/commandes?order=${hit.order.id}`}
+                className="block border border-border bg-surface-2 px-3 py-2 hover:border-neon"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="font-mono text-xs text-text">
+                    SN {query} · commande{" "}
+                    <span className="text-neon">#{hit.order.orderNumber}</span>
+                  </p>
+                  <p className="font-mono text-[11px] text-text-dim">
+                    {hit.order.status}
+                  </p>
+                </div>
+                <p className="font-mono text-[11px] text-text-dim truncate">
+                  {hit.product.name}
+                  {hit.order.customer
+                    ? ` · ${hit.order.customer.firstName} ${hit.order.customer.lastName} (${hit.order.customer.email})`
+                    : ""}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <section className="bg-surface border border-border p-4">
