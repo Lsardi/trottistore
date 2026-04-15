@@ -363,8 +363,25 @@ export interface AdminProductPayload {
   isFeatured?: boolean;
   metaTitle?: string | null;
   metaDesc?: string | null;
+  compatibleModels?: string[];
   categories?: string[];
   images?: { url: string; alt?: string; isPrimary?: boolean }[];
+}
+
+export interface FitmentModel {
+  model: string;
+  productCount: number;
+}
+
+export interface FitmentProduct {
+  id: string;
+  name: string;
+  slug: string;
+  sku: string;
+  status: string;
+  priceHt: string | number;
+  compatibleModels: string[];
+  brand?: { name: string } | null;
 }
 
 export const adminProductsApi = {
@@ -407,6 +424,13 @@ export const adminProductsApi = {
       { method: 'DELETE' }
     ),
 
+  updateCompatibility: (id: string, compatibleModels: string[]) =>
+    apiFetch<{ success: boolean; data: { id: string; name: string; sku: string; compatibleModels: string[] } }>(
+      'ecommerce',
+      `/admin/products/${id}/compatibility`,
+      { method: 'PUT', body: JSON.stringify({ compatibleModels }) },
+    ),
+
   updateStock: (id: string, body: { variantId?: string; quantity: number }) =>
     apiFetch<{ success: boolean; data: ProductVariant }>(
       'ecommerce',
@@ -432,6 +456,19 @@ export const adminProductsApi = {
     apiFetch<{ success: boolean; data: Product }>('ecommerce', `/admin/products/${id}/duplicate`, {
       method: 'POST',
     }),
+};
+
+// ─── FITMENTS (compatibility database) ──────────────────────────
+export const fitmentsApi = {
+  listModels: () =>
+    apiFetch<{ success: boolean; data: FitmentModel[] }>('ecommerce', '/admin/fitments/models'),
+
+  productsForModel: (model: string) =>
+    apiFetch<{ success: boolean; data: FitmentProduct[] }>(
+      'ecommerce',
+      '/admin/fitments/products',
+      { params: { model } },
+    ),
 };
 
 export interface AdminCategoryPayload {
@@ -812,6 +849,7 @@ export interface Product {
   weightGrams?: number;
   status: string;
   isFeatured: boolean;
+  compatibleModels?: string[];
   images: ProductImage[];
   variants: ProductVariant[];
   categories: { category: Category }[];

@@ -233,6 +233,7 @@ model Product {
   isFeatured       Boolean @default(false) @map("is_featured")
   metaTitle        String? @map("meta_title") @db.VarChar(200)
   metaDesc         String? @map("meta_description") @db.VarChar(500)
+  compatibleModels String[] @default([]) @map("compatible_models") // Scooter models this part fits (e.g. "Xiaomi M365 Pro", "Dualtron Storm")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 

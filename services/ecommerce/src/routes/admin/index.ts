@@ -18,6 +18,16 @@ function slugify(text: string): string {
 
 // ─── Validation Schemas ──────────────────────────────────────
 
+// Compatible scooter model names (free text, normalized to trim).
+// Kept as a simple string[] on Product so we can ship fast without a
+// join table; a dedicated ScooterModel entity can come later if the
+// data grows noisy.
+const compatibleModelsSchema = z
+  .array(z.string().trim().min(1).max(100))
+  .max(50)
+  .transform((arr) => Array.from(new Set(arr.filter(Boolean))))
+  .optional();
+
 const createProductSchema = z.object({
   name: z.string().min(1).max(500),
   sku: z.string().min(1).max(100),
@@ -31,6 +41,7 @@ const createProductSchema = z.object({
   isFeatured: z.boolean().default(false),
   metaTitle: z.string().max(200).optional().nullable(),
   metaDesc: z.string().max(500).optional().nullable(),
+  compatibleModels: compatibleModelsSchema,
   categories: z.array(z.string().uuid()).optional(),
   images: z
     .array(
@@ -56,6 +67,7 @@ const updateProductSchema = z.object({
   isFeatured: z.boolean().optional(),
   metaTitle: z.string().max(200).optional().nullable(),
   metaDesc: z.string().max(500).optional().nullable(),
+  compatibleModels: compatibleModelsSchema,
   categories: z.array(z.string().uuid()).optional(),
   images: z
     .array(
@@ -501,6 +513,102 @@ export async function adminRoutes(app: FastifyInstance) {
 
     return { success: true, data: product };
   });
+
+  // ─── GET /admin/fitments/models — Distinct compatible scooter models
+  // Used by the compatibility page to autocomplete existing model names
+  // and suggest consistent naming.
+  app.get("/admin/fitments/models", adminOnly, async () => {
+    const rows = await app.prisma.$queryRaw<Array<{ model: string; count: bigint }>>`
+      SELECT model, COUNT(*)::bigint AS count
+      FROM (
+        SELECT UNNEST(compatible_models) AS model
+        FROM ecommerce.products
+        WHERE status <> 'ARCHIVED'
+      ) sub
+      WHERE model IS NOT NULL AND model <> ''
+      GROUP BY model
+      ORDER BY count DESC, model ASC
+    `;
+    return {
+      success: true,
+      data: rows.map((r) => ({ model: r.model, productCount: Number(r.count) })),
+    };
+  });
+
+  // ─── GET /admin/fitments/products?model=<name> — Products for a model
+  // Reverse lookup: "which parts are compatible with this scooter?"
+  app.get("/admin/fitments/products", adminOnly, async (request, reply) => {
+    const model = typeof (request.query as Record<string, string>).model === "string"
+      ? ((request.query as Record<string, string>).model as string).trim()
+      : "";
+    if (!model) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "model query param is required" },
+      });
+    }
+    const products = await app.prisma.product.findMany({
+      where: {
+        compatibleModels: { has: model },
+        status: { not: "ARCHIVED" },
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        sku: true,
+        status: true,
+        priceHt: true,
+        compatibleModels: true,
+        brand: { select: { name: true } },
+      },
+      orderBy: { name: "asc" },
+      take: 200,
+    });
+    return { success: true, data: products };
+  });
+
+  // ─── PUT /admin/products/:id/compatibility — Replace compatible models
+  // Dedicated endpoint so the compatibility page doesn't have to send the
+  // whole product payload back (the full update endpoint can also do it,
+  // but this is cheaper and clearer).
+  app.put(
+    "/admin/products/:id/compatibility",
+    adminOnly,
+    async (request, reply) => {
+      const id = parseIdParam(request.params);
+      const parsed = z
+        .object({ compatibleModels: z.array(z.string().trim().min(1).max(100)).max(50) })
+        .safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid compatible models payload",
+            details: parsed.error.flatten().fieldErrors,
+          },
+        });
+      }
+      const deduped = Array.from(new Set(parsed.data.compatibleModels.filter(Boolean)));
+      const existing = await app.prisma.product.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      if (!existing) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Product not found" },
+        });
+      }
+      const updated = await app.prisma.product.update({
+        where: { id },
+        data: { compatibleModels: deduped },
+        select: { id: true, name: true, sku: true, compatibleModels: true },
+      });
+      return { success: true, data: updated };
+    },
+  );
 
   // ─── POST /admin/products/:id/duplicate — Duplicate product ─
   app.post(

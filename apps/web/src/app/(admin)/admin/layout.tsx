@@ -18,6 +18,14 @@ import {
   UserCog,
   Mail,
   Settings,
+  Hammer,
+  Link2,
+  Percent,
+  Rss,
+  FileText,
+  FileSpreadsheet,
+  Truck,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,6 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
       { label: "Commandes", href: "/admin/commandes", icon: ShoppingCart },
+      { label: "Atelier", href: "/admin/atelier", icon: Hammer },
       { label: "SAV", href: "/admin/sav", icon: Wrench },
       { label: "Stock", href: "/admin/stock", icon: Boxes },
     ],
@@ -44,6 +53,9 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Produits", href: "/admin/produits", icon: Package },
       { label: "Catégories", href: "/admin/categories", icon: Tags },
+      { label: "Compatibilité", href: "/admin/compatibilite", icon: Link2 },
+      { label: "Promos", href: "/admin/promos", icon: Percent },
+      { label: "Feeds", href: "/admin/feeds", icon: Rss },
     ],
   },
   {
@@ -51,6 +63,13 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Clients", href: "/admin/clients", icon: Users },
       { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { label: "Factures", href: "/admin/factures", icon: FileText },
+      { label: "Export compta", href: "/admin/export-compta", icon: FileSpreadsheet },
     ],
   },
   {
@@ -63,7 +82,9 @@ const NAV_SECTIONS: NavSection[] = [
     label: "Système",
     items: [
       { label: "Équipe", href: "/admin/equipe", icon: UserCog },
+      { label: "Fournisseurs", href: "/admin/fournisseurs", icon: Truck },
       { label: "Paramètres", href: "/admin/parametres", icon: Settings },
+      { label: "Audit", href: "/admin/audit", icon: ShieldCheck },
     ],
   },
 ];
