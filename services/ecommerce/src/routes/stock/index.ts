@@ -258,6 +258,8 @@ export async function stockRoutes(app: FastifyInstance) {
         name: string;
         stock_quantity: number;
         low_stock_threshold: number;
+        product_id: string;
+        product_slug: string;
         product_name: string;
       }>
     >`
@@ -267,6 +269,8 @@ export async function stockRoutes(app: FastifyInstance) {
         pv.name,
         pv.stock_quantity,
         pv.low_stock_threshold,
+        p.id as product_id,
+        p.slug as product_slug,
         p.name as product_name
       FROM ecommerce.product_variants pv
       JOIN ecommerce.products p ON p.id = pv.product_id
@@ -281,6 +285,8 @@ export async function stockRoutes(app: FastifyInstance) {
         variantId: a.id,
         sku: a.sku,
         variantName: a.name,
+        productId: a.product_id,
+        productSlug: a.product_slug,
         productName: a.product_name,
         stockQuantity: a.stock_quantity,
         lowStockThreshold: a.low_stock_threshold,

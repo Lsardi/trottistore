@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   stockApi,
@@ -8,7 +9,7 @@ import {
   type StockMovementSummary,
   type StockMovementType,
 } from "@/lib/api";
-import { AlertTriangle, Loader2, Package, Plus, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, Package, Plus, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MOVEMENT_TYPES: Array<{ value: StockMovementType; label: string; direction: "IN" | "OUT" }> = [
@@ -292,15 +293,30 @@ export default function AdminStockPage() {
           ) : (
             <div className="space-y-2 max-h-96 overflow-auto">
               {alerts.slice(0, 20).map((item) => (
-                <div key={item.variantId} className="border border-border bg-surface-2 p-2">
-                  <p className="font-mono text-xs text-text">{item.productName}</p>
-                  <p className="font-mono text-[11px] text-text-dim">
-                    {item.sku} · {item.variantName}
-                  </p>
-                  <p className={cn("font-mono text-[11px] mt-1", item.severity === "OUT_OF_STOCK" ? "text-danger" : "text-warning")}>
-                    {item.stockQuantity}/{item.lowStockThreshold} · {item.severity === "OUT_OF_STOCK" ? "Rupture" : "Stock faible"}
-                  </p>
-                </div>
+                <Link
+                  key={item.variantId}
+                  href={`/admin/produits/${item.productId}`}
+                  className="group block border border-border bg-surface-2 p-2 hover:border-neon transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-xs text-text truncate">{item.productName}</p>
+                      <p className="font-mono text-[11px] text-text-dim truncate">
+                        {item.sku} · {item.variantName}
+                      </p>
+                      <p
+                        className={cn(
+                          "font-mono text-[11px] mt-1",
+                          item.severity === "OUT_OF_STOCK" ? "text-danger" : "text-warning",
+                        )}
+                      >
+                        {item.stockQuantity}/{item.lowStockThreshold} ·{" "}
+                        {item.severity === "OUT_OF_STOCK" ? "Rupture" : "Stock faible"}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-3.5 w-3.5 text-text-dim shrink-0 group-hover:text-neon mt-0.5" />
+                  </div>
+                </Link>
               ))}
             </div>
           )}

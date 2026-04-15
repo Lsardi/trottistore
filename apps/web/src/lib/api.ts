@@ -1196,6 +1196,8 @@ export interface StockAlert {
   variantId: string;
   sku: string;
   variantName: string;
+  productId: string;
+  productSlug: string;
   productName: string;
   stockQuantity: number;
   lowStockThreshold: number;
