@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ordersApi, type AdminOrderSummary, type Order } from "@/lib/api";
+import { CsvExportButton } from "@/components/admin/CsvExportButton";
 import {
   ShoppingCart,
   Clock,
@@ -212,6 +213,11 @@ function AdminCommandesContent() {
             {orders.length} commande{orders.length !== 1 ? "s" : ""} affichée{orders.length !== 1 ? "s" : ""}
           </p>
         </div>
+        <CsvExportButton
+          path="/api/v1/admin/exports/orders.csv"
+          filename="commandes.csv"
+          label="Exporter CSV"
+        />
       </div>
 
       <div className="flex flex-col lg:flex-row gap-2 mb-6">

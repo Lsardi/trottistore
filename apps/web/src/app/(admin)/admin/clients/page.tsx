@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Users, Star, Mail, ShoppingBag, ArrowRight, Search } from "lucide-react";
 import { customersApi, type CustomerListItem } from "@/lib/api";
+import { CsvExportButton } from "@/components/admin/CsvExportButton";
 import { cn } from "@/lib/utils";
 
 const TIER_CONFIG: Record<string, { label: string; badgeClass: string; showStar: boolean }> = {
@@ -55,6 +56,11 @@ export default function AdminClientsPage() {
             {total} client{total !== 1 ? "s" : ""} enregistre{total !== 1 ? "s" : ""}
           </p>
         </div>
+        <CsvExportButton
+          path="/api/v1/admin/exports/customers.csv"
+          filename="clients.csv"
+          label="Exporter CSV"
+        />
       </div>
 
       <div className="bg-surface border border-border p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">

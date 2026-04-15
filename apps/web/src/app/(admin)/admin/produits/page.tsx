@@ -27,6 +27,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn, formatPrice, formatPriceTTC } from "@/lib/utils";
+import { CsvExportButton } from "@/components/admin/CsvExportButton";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -333,7 +334,7 @@ export default function AdminProduitsPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <h1 className="heading-lg">PRODUITS</h1>
           <p className="font-mono text-sm text-text-muted mt-0.5">
@@ -344,13 +345,20 @@ export default function AdminProduitsPage() {
             )}
           </p>
         </div>
-        <Link
-          href="/admin/produits/nouveau"
-          className="btn-neon"
-        >
-          <Plus className="h-4 w-4" />
-          AJOUTER UN PRODUIT
-        </Link>
+        <div className="flex items-center gap-2">
+          <CsvExportButton
+            path="/api/v1/admin/exports/products.csv"
+            filename="produits.csv"
+            label="Exporter CSV"
+          />
+          <Link
+            href="/admin/produits/nouveau"
+            className="btn-neon"
+          >
+            <Plus className="h-4 w-4" />
+            AJOUTER UN PRODUIT
+          </Link>
+        </div>
       </div>
 
       {/* Search + Filters bar */}
