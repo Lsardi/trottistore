@@ -1520,6 +1520,113 @@ export async function orderRoutes(app: FastifyInstance) {
     return { success: true, data: order };
   });
 
+  // ── PUT /admin/orders/:orderId/items/:itemId/serial-numbers ─────
+  // Record serial numbers for a line item (warranty + SAV traceability).
+  app.put(
+    "/admin/orders/:orderId/items/:itemId/serial-numbers",
+    async (request, reply) => {
+      if (!requireAuth(request, reply)) return;
+      if (!isBackofficeRole(request.user.role)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Backoffice access required" },
+        });
+      }
+      const params = z
+        .object({
+          orderId: z.string().uuid(),
+          itemId: z.string().uuid(),
+        })
+        .safeParse(request.params);
+      if (!params.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "VALIDATION_ERROR", message: "Invalid params" },
+        });
+      }
+      const body = z
+        .object({
+          serialNumbers: z
+            .array(z.string().trim().min(1).max(100))
+            .max(200)
+            .transform((arr) => Array.from(new Set(arr.filter(Boolean)))),
+        })
+        .safeParse(request.body);
+      if (!body.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid serial numbers payload",
+            details: body.error.flatten().fieldErrors,
+          },
+        });
+      }
+      // Confirm the item belongs to the order so a crafted itemId can't
+      // bleed into a different order.
+      const item = await app.prisma.orderItem.findFirst({
+        where: { id: params.data.itemId, orderId: params.data.orderId },
+        select: { id: true, quantity: true },
+      });
+      if (!item) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Order item not found" },
+        });
+      }
+      const updated = await app.prisma.orderItem.update({
+        where: { id: item.id },
+        data: { serialNumbers: body.data.serialNumbers },
+        select: { id: true, quantity: true, serialNumbers: true },
+      });
+      return { success: true, data: updated };
+    },
+  );
+
+  // ── GET /admin/orders/by-serial?sn=X — find the order carrying this SN
+  // Used by the admin search to answer "this trott came in SAV, where does
+  // it come from?".
+  app.get("/admin/orders/by-serial", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    if (!isBackofficeRole(request.user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Backoffice access required" },
+      });
+    }
+    const sn = typeof (request.query as Record<string, string>).sn === "string"
+      ? ((request.query as Record<string, string>).sn as string).trim()
+      : "";
+    if (!sn) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "sn query param is required" },
+      });
+    }
+    const items = await app.prisma.orderItem.findMany({
+      where: { serialNumbers: { has: sn } },
+      select: {
+        id: true,
+        serialNumbers: true,
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            createdAt: true,
+            customer: {
+              select: { id: true, email: true, firstName: true, lastName: true },
+            },
+          },
+        },
+        product: { select: { id: true, name: true, sku: true } },
+      },
+      orderBy: { id: "asc" },
+      take: 20,
+    });
+    return { success: true, data: items };
+  });
+
   // Legacy route PUT /orders/:id/status was removed in P1-1.
   // All backoffice status updates go through PUT /admin/orders/:id/status
   // below. The front (apps/web/src/lib/api.ts:164) already uses the

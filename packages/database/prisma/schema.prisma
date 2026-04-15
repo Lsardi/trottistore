@@ -448,6 +448,7 @@ model OrderItem {
   unitPriceHt     Decimal @map("unit_price_ht") @db.Decimal(10, 2)
   tvaRate         Decimal @map("tva_rate") @db.Decimal(4, 2)
   totalHt         Decimal @map("total_ht") @db.Decimal(10, 2)
+  serialNumbers   String[] @default([]) @map("serial_numbers") // Tracked units for warranty / SAV — length should match quantity when all units are serialized
 
   order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product        @relation(fields: [productId], references: [id])

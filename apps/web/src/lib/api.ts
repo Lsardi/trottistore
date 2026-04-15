@@ -237,6 +237,69 @@ export const ordersApi = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+
+  adminUpdateItemSerialNumbers: (
+    orderId: string,
+    itemId: string,
+    serialNumbers: string[],
+  ) =>
+    apiFetch<{
+      success: boolean;
+      data: { id: string; quantity: number; serialNumbers: string[] };
+    }>(
+      'ecommerce',
+      `/admin/orders/${orderId}/items/${itemId}/serial-numbers`,
+      { method: 'PUT', body: JSON.stringify({ serialNumbers }) },
+    ),
+
+  adminFindBySerial: (sn: string) =>
+    apiFetch<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        serialNumbers: string[];
+        order: {
+          id: string;
+          orderNumber: number;
+          status: string;
+          createdAt: string;
+          customer?: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+          } | null;
+        };
+        product: { id: string; name: string; sku: string };
+      }>;
+    }>('ecommerce', '/admin/orders/by-serial', { params: { sn } }),
+};
+
+export interface AuditLogEntry {
+  id: string;
+  userId: string | null;
+  userName: string | null;
+  action: string;
+  resource: string;
+  resourceId: string | null;
+  details: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+export const auditApi = {
+  list: (params?: {
+    page?: number;
+    limit?: number;
+    resource?: string;
+    action?: string;
+    userId?: string;
+  }) =>
+    apiFetch<{
+      success: boolean;
+      data: AuditLogEntry[];
+      pagination: Pagination;
+    }>('ecommerce', '/admin/audit-log', { params }),
 };
 
 export const addressesApi = {
@@ -973,6 +1036,7 @@ export interface OrderItem {
   quantity: number;
   unitPriceHt: string;
   totalHt?: string;
+  serialNumbers?: string[];
   product: Product;
   variant?: {
     id: string;

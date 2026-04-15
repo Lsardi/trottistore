@@ -10,6 +10,7 @@ import rateLimit from "@fastify/rate-limit";
 import { prismaPlugin } from "./plugins/prisma.js";
 import { redisPlugin } from "./plugins/redis.js";
 import { authPlugin } from "./plugins/auth.js";
+import { auditPlugin } from "./plugins/audit.js";
 import { healthRoutes } from "./routes/health.js";
 import { productRoutes } from "./routes/products/index.js";
 import { cartRoutes } from "./routes/cart/index.js";
@@ -103,6 +104,7 @@ async function start() {
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
   await app.register(authPlugin);
+  await app.register(auditPlugin);
   await app.register(metricsPlugin);
 
   // Global error handler
