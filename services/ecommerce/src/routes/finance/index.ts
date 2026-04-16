@@ -38,8 +38,11 @@ export async function financeRoutes(app: FastifyInstance) {
 
   app.post("/admin/finance/reconciliation/run", {
     preHandler: [app.authenticate, requireRole("SUPERADMIN", "ADMIN", "MANAGER")],
-  }, async () => {
+  }, async (request) => {
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
+    app.log.info({ userId }, "Financial reconciliation started");
     const report = await runFinancialReconciliation(app);
+    app.log.info({ userId, discrepancies: report.discrepanciesCount, orphanPayments: report.orphanPaymentsCount }, "Financial reconciliation completed");
     return { success: true, data: report };
   });
 }

@@ -99,6 +99,8 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
         slug,
       },
     });
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
+    app.log.info({ supplierId: created.id, supplierName: parsed.data.name, userId }, "Supplier created");
     return { success: true, data: created };
   });
 
@@ -146,6 +148,8 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
       where: { id },
       data: parsed.data,
     });
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
+    app.log.info({ supplierId: id, userId }, "Supplier updated");
     return { success: true, data: updated };
   });
 
@@ -161,6 +165,7 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: "Supplier not found" },
       });
     }
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
     if (existing._count.purchaseOrders > 0) {
       // Never hard-delete a supplier with POs — they're accounting
       // records. Archive instead.
@@ -168,9 +173,11 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
         where: { id },
         data: { isActive: false },
       });
+      app.log.info({ supplierId: id, userId, archived: true }, "Supplier archived");
       return { success: true, data: archived, archived: true };
     }
     await app.prisma.supplier.delete({ where: { id } });
+    app.log.info({ supplierId: id, userId }, "Supplier deleted");
     return { success: true };
   });
 
@@ -230,6 +237,8 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
       },
       include: { supplier: { select: { id: true, name: true, slug: true } } },
     });
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
+    app.log.info({ purchaseOrderId: created.id, reference, supplierId: parsed.data.supplierId, userId }, "Purchase order created");
     return { success: true, data: created };
   });
 
@@ -272,6 +281,8 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
       },
       include: { supplier: { select: { id: true, name: true, slug: true } } },
     });
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
+    app.log.info({ purchaseOrderId: id, reference: existing.reference, userId }, "Purchase order updated");
     return { success: true, data: updated };
   });
 
@@ -284,6 +295,7 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: "PO not found" },
       });
     }
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
     // Only DRAFT POs can be hard-deleted; past that they become
     // accounting history.
     if (existing.status !== "DRAFT") {
@@ -291,9 +303,11 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
         where: { id },
         data: { status: "CANCELLED" },
       });
+      app.log.info({ purchaseOrderId: id, reference: existing.reference, userId, cancelled: true }, "Purchase order cancelled");
       return { success: true, data: cancelled, cancelled: true };
     }
     await app.prisma.purchaseOrder.delete({ where: { id } });
+    app.log.info({ purchaseOrderId: id, reference: existing.reference, userId }, "Purchase order deleted");
     return { success: true };
   });
 }

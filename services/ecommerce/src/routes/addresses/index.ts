@@ -83,6 +83,8 @@ export async function addressRoutes(app: FastifyInstance) {
       },
     });
 
+    app.log.info({ addressId: address.id, userId, type: data.type }, "Address created");
+
     return reply.status(201).send({ success: true, data: address });
   });
 
@@ -156,6 +158,8 @@ export async function addressRoutes(app: FastifyInstance) {
       },
     });
 
+    app.log.info({ addressId: id, userId }, "Address updated");
+
     return { success: true, data: updated };
   });
 
@@ -175,6 +179,7 @@ export async function addressRoutes(app: FastifyInstance) {
     }
 
     await app.prisma.address.delete({ where: { id } });
+    app.log.info({ addressId: id, userId }, "Address deleted");
     return { success: true, message: "Adresse supprimee" };
   });
 }

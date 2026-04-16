@@ -351,6 +351,9 @@ export async function cartRoutes(app: FastifyInstance) {
     await saveCart(app, key, cart);
     const enriched = await enrichCartItems(app, cart);
 
+    const user = getRequestUser(request);
+    app.log.info({ productId, variantId: variantId ?? null, quantity, userId: user?.userId ?? null }, "Cart item added");
+
     return {
       success: true,
       data: {
@@ -423,6 +426,9 @@ export async function cartRoutes(app: FastifyInstance) {
     await saveCart(app, key, cart);
     const enriched = await enrichCartItems(app, cart);
 
+    const user = getRequestUser(request);
+    app.log.info({ productId, quantity, userId: user?.userId ?? null }, "Cart item updated");
+
     return {
       success: true,
       data: {
@@ -453,6 +459,9 @@ export async function cartRoutes(app: FastifyInstance) {
     await saveCart(app, key, cart);
     const enriched = await enrichCartItems(app, cart);
 
+    const user = getRequestUser(request);
+    app.log.info({ productId, userId: user?.userId ?? null }, "Cart item removed");
+
     return {
       success: true,
       data: {
@@ -468,6 +477,9 @@ export async function cartRoutes(app: FastifyInstance) {
   app.delete("/cart", async (request, _reply) => {
     const key = getCartKey(request);
     await app.redis.del(key);
+
+    const user = getRequestUser(request);
+    app.log.info({ userId: user?.userId ?? null }, "Cart cleared");
 
     return {
       success: true,
@@ -517,6 +529,8 @@ export async function cartRoutes(app: FastifyInstance) {
     }
     cart.discountCode = discount.code;
     await saveCart(app, key, cart);
+    const user = getRequestUser(request);
+    app.log.info({ discountCode: discount.code, userId: user?.userId ?? null }, "Discount code applied to cart");
     return {
       success: true,
       data: {
@@ -532,6 +546,8 @@ export async function cartRoutes(app: FastifyInstance) {
     const key = getCartKey(request);
     const cart = await getCart(app, key);
     if (cart.discountCode) {
+      const user = getRequestUser(request);
+      app.log.info({ discountCode: cart.discountCode, userId: user?.userId ?? null }, "Discount code removed from cart");
       cart.discountCode = undefined;
       await saveCart(app, key, cart);
     }

@@ -274,6 +274,8 @@ export async function invoiceRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const result = await buildInvoicePdf(app, id, reply);
     if (!result.ok) return reply.status(result.status).send({ success: false, error: result.error });
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
+    app.log.info({ orderId: id, orderNumber: result.orderNumber, userId }, "Invoice PDF generated");
     return reply.send(result.pdf);
   });
 

@@ -89,6 +89,8 @@ export async function adminPromoRoutes(app: FastifyInstance) {
         isActive: parsed.data.isActive ?? true,
       },
     });
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
+    app.log.info({ discountCodeId: created.id, code: parsed.data.code, userId }, "Discount code created");
     return { success: true, data: created };
   });
 
@@ -129,6 +131,8 @@ export async function adminPromoRoutes(app: FastifyInstance) {
         ...(parsed.data.isActive !== undefined && { isActive: parsed.data.isActive }),
       },
     });
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
+    app.log.info({ discountCodeId: id, code: existing.code, userId }, "Discount code updated");
     return { success: true, data: updated };
   });
 
@@ -141,15 +145,18 @@ export async function adminPromoRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: "Discount code not found" },
       });
     }
+    const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
     if (existing.usedCount > 0) {
       // Used codes become accounting data — archive instead of delete.
       const archived = await app.prisma.discountCode.update({
         where: { id },
         data: { isActive: false },
       });
+      app.log.info({ discountCodeId: id, code: existing.code, userId, archived: true }, "Discount code archived");
       return { success: true, data: archived, archived: true };
     }
     await app.prisma.discountCode.delete({ where: { id } });
+    app.log.info({ discountCodeId: id, code: existing.code, userId }, "Discount code deleted");
     return { success: true };
   });
 }

@@ -93,6 +93,9 @@ export async function settingsRoutes(app: FastifyInstance) {
         },
       });
 
+      const sections = Object.keys(parsed.data).filter((k) => parsed.data[k as keyof typeof parsed.data] !== undefined);
+      app.log.info({ userId, sections }, "Site settings updated");
+
       return { success: true, data: row.settings };
     },
   );
