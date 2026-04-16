@@ -355,7 +355,7 @@ body {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 2rem;
-  background-color: var(--color-neon);
+  background: linear-gradient(135deg, var(--color-neon) 0%, var(--color-neon-muted) 100%);
   color: var(--color-void);
   font-family: var(--font-display);
   font-weight: 700;
@@ -364,18 +364,20 @@ body {
   letter-spacing: 0.08em;
   border: none;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-md);
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 0 20px rgba(0, 255, 209, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .btn-neon:hover {
-  background-color: var(--color-neon-muted);
-  box-shadow: 0 0 30px rgba(0, 255, 209, 0.3);
+  background: linear-gradient(135deg, var(--color-neon-muted) 0%, var(--color-neon) 100%);
+  box-shadow: 0 0 40px rgba(0, 255, 209, 0.35), 0 4px 16px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
 }
 .btn-neon:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 0 15px rgba(0, 255, 209, 0.2);
 }
 
 .btn-outline {
@@ -391,14 +393,16 @@ body {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
   border-radius: var(--radius-md);
 }
 .btn-outline:hover {
   border-color: var(--color-neon);
   color: var(--color-neon);
+  box-shadow: 0 0 20px rgba(0, 255, 209, 0.1);
+  transform: translateY(-1px);
 }
 
 /* ─── PRODUCT CARD (fiche technique) ──────────────────────── */
@@ -407,13 +411,15 @@ body {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   overflow: hidden;
-  transition: border-color 200ms ease;
+  transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   border-radius: var(--radius-md);
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 .product-card:hover {
   border-color: var(--color-neon);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 255, 209, 0.08);
 }
 .product-card:hover .product-card-neon-line {
   opacity: 1;
@@ -425,16 +431,16 @@ body {
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--color-neon);
+  background: linear-gradient(90deg, transparent, var(--color-neon), transparent);
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 300ms ease;
   z-index: 2;
 }
 
 .product-card-image {
   position: relative;
   aspect-ratio: 1;
-  background: #0F0F0F; /* slightly darker than surface for image bg */
+  background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
   overflow: hidden;
 }
 .product-card-image img {
@@ -442,10 +448,10 @@ body {
   height: 100%;
   object-fit: contain;
   padding: 16px;
-  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .product-card:hover .product-card-image img {
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
 .product-card-body {
@@ -617,6 +623,33 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
+/* Animated hero glow — subtle moving light behind the hero */
+@keyframes hero-glow {
+  0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.2); }
+}
+.hero-glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 255, 209, 0.12) 0%, transparent 70%);
+  animation: hero-glow 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle shimmer on divider-neon */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.divider-neon {
+  background: linear-gradient(90deg, transparent, var(--color-neon), transparent) !important;
+  background-size: 200% 100%;
+  animation: shimmer 4s ease-in-out infinite;
+}
+
 /* ─── FOOTER RESPONSIVE ──────────────────────────────────── */
 
 .footer-link:hover {
@@ -645,14 +678,42 @@ body {
   color: var(--color-neon) !important;
 }
 
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--color-neon);
+  transition: width 200ms ease;
+}
 .nav-link:hover {
   color: var(--color-neon) !important;
+}
+.nav-link:hover::after {
+  width: 100%;
 }
 
 /* ─── HOMEPAGE RESPONSIVE ────────────────────────────────── */
 
 .category-card:hover {
   border-color: var(--color-neon) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Customer path cards + rubrique cards — lift on hover */
+.rubrique-card {
+  transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.rubrique-card:hover {
+  border-color: var(--color-neon) !important;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3), 0 0 24px rgba(0, 255, 209, 0.06);
 }
 
 @media (max-width: 1024px) {

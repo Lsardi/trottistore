@@ -104,6 +104,10 @@ export default async function HomePage() {
           overflow: "hidden",
         }}
       >
+        {/* Animated ambient glow */}
+        <div className="hero-glow" style={{ top: "30%", left: "20%" }} />
+        <div className="hero-glow" style={{ top: "60%", left: "75%", animationDelay: "4s", background: "radial-gradient(circle, rgba(0, 153, 255, 0.08) 0%, transparent 70%)" }} />
+
         <div
           style={{
             flex: 1,
