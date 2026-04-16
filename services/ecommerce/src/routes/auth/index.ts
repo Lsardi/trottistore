@@ -541,12 +541,19 @@ export async function authRoutes(app: FastifyInstance) {
     },
   );
 
-  // ── GET /auth/me ───────────────────────────────────────
+  // ── GET /auth/me (cached 30s in Redis per user) ────────
   app.get(
     "/auth/me",
     { preHandler: [app.authenticate] },
     async (request, reply) => {
       const { userId } = request.user;
+
+      // Check Redis cache first (avoids DB query on every SPA navigation)
+      const cacheKey = `session:me:${userId}`;
+      try {
+        const cached = await app.redis.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+      } catch { /* cache miss */ }
 
       const user = await app.prisma.user.findUnique({
         where: { id: userId },
@@ -600,10 +607,14 @@ export async function authRoutes(app: FastifyInstance) {
         });
       }
 
-      return {
-        success: true,
-        data: { user },
-      };
+      const response = { success: true, data: { user } };
+
+      // Cache for 30s — invalidated on profile update, address change, or order
+      try {
+        await app.redis.set(cacheKey, JSON.stringify(response), "EX", 30);
+      } catch { /* non-fatal */ }
+
+      return response;
     },
   );
 

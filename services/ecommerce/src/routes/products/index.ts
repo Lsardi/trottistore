@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseSlugParam } from "@trottistore/shared";
+import { getCache, setCache } from "../../plugins/redis-cache.js";
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -194,8 +195,11 @@ export async function productRoutes(app: FastifyInstance) {
     };
   });
 
-  // ─── GET /products/featured — Featured products ────────────
+  // ─── GET /products/featured — Featured products (cached 2 min) ──
   app.get("/products/featured", async (_request, _reply) => {
+    const cached = await getCache<{ success: boolean; data: unknown }>(app.redis, "products:featured");
+    if (cached) return cached;
+
     const products = await app.prisma.product.findMany({
       where: {
         isFeatured: true,
@@ -233,7 +237,9 @@ export async function productRoutes(app: FastifyInstance) {
       take: 12,
     });
 
-    return { success: true, data: products };
+    const response = { success: true, data: products };
+    await setCache(app.redis, "products:featured", response, 120); // 2 min cache
+    return response;
   });
 
   // ─── GET /products/:slug — Product detail ──────────────────

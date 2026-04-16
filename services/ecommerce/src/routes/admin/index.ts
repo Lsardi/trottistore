@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseIdParam } from "@trottistore/shared";
 import { requireRole } from "../../plugins/auth";
+import { invalidateCache } from "../../plugins/redis-cache.js";
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -312,6 +313,10 @@ export async function adminRoutes(app: FastifyInstance) {
         });
       });
 
+      // Invalidate product caches
+      await invalidateCache(app.redis, "products:*");
+      await invalidateCache(app.redis, "categories:*");
+
       return { success: true, data: product };
     } catch (err: unknown) {
       app.log.error(err);
@@ -514,6 +519,9 @@ export async function adminRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: "Product not found" },
       });
     }
+
+    // Invalidate product caches after update
+    await invalidateCache(app.redis, "products:*");
 
     return { success: true, data: product };
   });

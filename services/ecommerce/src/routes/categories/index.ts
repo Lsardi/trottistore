@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseSlugParam } from "@trottistore/shared";
+import { getCache, setCache } from "../../plugins/redis-cache.js";
 
 const categoryProductsSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -11,8 +12,11 @@ const categoryProductsSchema = z.object({
 });
 
 export async function categoryRoutes(app: FastifyInstance) {
-  // GET /categories — Category tree with product counts
+  // GET /categories — Category tree with product counts (cached 5 min)
   app.get("/categories", async (_request, _reply) => {
+    const cached = await getCache<{ success: boolean; data: unknown }>(app.redis, "categories:tree");
+    if (cached) return cached;
+
     const categories = await app.prisma.category.findMany({
       where: { isActive: true },
       include: {
@@ -55,7 +59,9 @@ export async function categoryRoutes(app: FastifyInstance) {
         })),
       }));
 
-    return { success: true, data: roots };
+    const response = { success: true, data: roots };
+    await setCache(app.redis, "categories:tree", response, 300); // 5 min cache
+    return response;
   });
 
   // GET /categories/:slug — Category detail with paginated products
