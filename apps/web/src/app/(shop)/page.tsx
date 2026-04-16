@@ -41,7 +41,7 @@ const CUSTOMER_PATHS = [
     description: "15 marques en stock, de 300€ à 7000€. Retrait 1h en boutique ou livraison 48-72h.",
     cta: "VOIR LES TROTTINETTES",
     href: "/produits?categorySlug=trottinettes-electriques",
-    accent: true,
+    accent: false,
   },
   {
     icon: Wrench,
