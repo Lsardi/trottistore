@@ -186,8 +186,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Verify token is valid and user has a backoffice role
     const BACKOFFICE_ROLES = ["SUPERADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "STAFF"];
     fetch("/api/v1/auth/me", { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.ok ? res.json() : Promise.reject(new Error("unauthorized")))
+      .then((res) => {
+        if (res.ok) return res.json();
+        // 429 = rate-limited, not an auth error — let the user through
+        if (res.status === 429) return null;
+        throw new Error("unauthorized");
+      })
       .then((data) => {
+        if (data === null) {
+          // Rate-limited — trust the existing token, don't block the admin
+          setAuthChecked(true);
+          return;
+        }
         if (data?.data?.role && BACKOFFICE_ROLES.includes(data.data.role)) {
           setAuthChecked(true);
         } else {
