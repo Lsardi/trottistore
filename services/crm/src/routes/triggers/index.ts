@@ -385,18 +385,28 @@ async function sendTriggerNotification(
     }
   }
 
-  // Log notification
-  await app.prisma.notificationLog.create({
-    data: {
-      triggerId: trigger.id,
-      ticketId: ticket.id,
-      channel: emailSent && smsSent ? "BOTH" : emailSent ? "EMAIL" : smsSent ? "SMS" : "NONE",
-      recipient: ticket.customerEmail || ticket.customerPhone || "unknown",
-      subject,
-      content: textContent.substring(0, 500),
-      status: (emailSent || smsSent) ? "SENT" : "FAILED",
-    },
-  });
+  // Log notification — A3-04: catch unique constraint violation (P2002)
+  // to handle concurrent trigger runs gracefully
+  try {
+    await app.prisma.notificationLog.create({
+      data: {
+        triggerId: trigger.id,
+        ticketId: ticket.id,
+        channel: emailSent && smsSent ? "BOTH" : emailSent ? "EMAIL" : smsSent ? "SMS" : "NONE",
+        recipient: ticket.customerEmail || ticket.customerPhone || "unknown",
+        subject,
+        content: textContent.substring(0, 500),
+        status: (emailSent || smsSent) ? "SENT" : "FAILED",
+      },
+    });
+  } catch (err: unknown) {
+    const prismaErr = err as { code?: string };
+    if (prismaErr.code === "P2002") {
+      app.log.info({ triggerId: trigger.id, ticketId: ticket.id }, "duplicate notification skipped");
+      return emailSent || smsSent;
+    }
+    throw err;
+  }
 
   return emailSent || smsSent;
 }

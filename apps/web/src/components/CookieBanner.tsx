@@ -71,6 +71,7 @@ export default function CookieBanner() {
     <aside
       className="fixed bottom-3 left-3 right-3 md:left-6 md:right-6 z-[110]"
       role="dialog"
+      aria-modal="true"
       aria-live="polite"
       aria-label="Préférences cookies"
     >

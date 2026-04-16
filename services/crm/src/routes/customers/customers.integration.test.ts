@@ -142,6 +142,7 @@ describe("CRM Customers integration tests", () => {
       firstName: "John",
       lastName: "Doe",
       phone: null,
+      role: "CLIENT",
       lastLoginAt: null,
       createdAt: new Date().toISOString(),
       customerProfile: null,

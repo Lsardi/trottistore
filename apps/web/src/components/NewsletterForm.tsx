@@ -53,7 +53,9 @@ export default function NewsletterForm({ source = "home" }: NewsletterFormProps)
       }}
     >
       <div style={{ display: "flex", gap: 0, minWidth: 0, maxWidth: "100%" }}>
+        <label htmlFor="newsletter-email" className="sr-only">Adresse email</label>
         <input
+          id="newsletter-email"
           type="email"
           required
           placeholder="Votre adresse email"

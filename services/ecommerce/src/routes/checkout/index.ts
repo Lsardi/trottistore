@@ -4,6 +4,8 @@ import { Decimal } from "@prisma/client/runtime/library";
 import Stripe from "stripe";
 import { z } from "zod";
 import { getRequestCorrelation, mergeRequestCorrelation, type RequestCorrelation } from "@trottistore/shared";
+import { sendEmail } from "@trottistore/shared/notifications";
+import { invoiceEmail } from "../../emails/templates.js";
 import { checkoutMetrics } from "../../plugins/metrics.js";
 
 /** Transaction client type — PrismaClient minus connection/transaction methods. */
@@ -78,6 +80,17 @@ function getRetryBackoffMs(attempt: number): number {
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) return null;
+
+  // CL-01: Warn loudly if test key is used in production.
+  // Currently NOT blocking because the prod env doubles as dev.
+  // Switch to `return null` here when going live with real customers.
+  if (process.env.NODE_ENV === "production" && key.startsWith("sk_test_")) {
+    console.warn(
+      "[CL-01] STRIPE_SECRET_KEY is a test key (sk_test_...) in production. " +
+      "Checkout works but cannot charge real cards. Rotate to sk_live_... before go-live.",
+    );
+  }
+
   return new Stripe(key);
 }
 
@@ -726,6 +739,52 @@ async function handlePaymentSuccess(
   });
 
   app.log.info({ ...correlation, amount: pi.amount / 100 }, "Payment confirmed, order updated");
+
+  // CL-08: Auto-send invoice email after payment confirmation (CGI art. 289-VII)
+  try {
+    const orderForInvoice = await app.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        orderNumber: true,
+        totalTtc: true,
+        customer: { select: { email: true, firstName: true } },
+      },
+    });
+
+    if (orderForInvoice?.customer?.email) {
+      // Create invoice record (idempotent upsert — same as buildInvoicePdf)
+      const invoice = await app.prisma.invoice.upsert({
+        where: { orderId },
+        create: {
+          orderId,
+          orderNumber: orderForInvoice.orderNumber,
+          totalTtc: orderForInvoice.totalTtc,
+        },
+        update: {},
+      });
+
+      const year = new Date(invoice.issuedAt).getFullYear();
+      const invoiceRef = `FAC-${year}-${String(invoice.invoiceNumber).padStart(6, "0")}`;
+      const baseUrl = process.env.BASE_URL || "https://trottistore.fr";
+
+      const { subject, html } = invoiceEmail({
+        orderNumber: orderForInvoice.orderNumber,
+        invoiceRef,
+        customerName: orderForInvoice.customer.firstName || "Client",
+        totalTtc: Number(orderForInvoice.totalTtc).toFixed(2),
+        invoiceUrl: `${baseUrl}/mon-compte`,
+      });
+
+      sendEmail(orderForInvoice.customer.email, subject, html).catch((err: unknown) =>
+        app.log.error({ err, orderId }, "Failed to send invoice email"),
+      );
+
+      app.log.info({ orderId, invoiceRef }, "Invoice email queued");
+    }
+  } catch (err) {
+    // Invoice email is important but must not break the payment flow
+    app.log.error({ err, orderId }, "Invoice email generation failed");
+  }
 }
 
 /**

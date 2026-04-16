@@ -311,6 +311,8 @@ export default function Header() {
                 cursor: "pointer",
               }}
               aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav-panel"
             >
               {menuOpen ? (
                 <X style={{ width: 18, height: 18 }} />
@@ -365,6 +367,7 @@ export default function Header() {
       {menuOpen && (
         <div
           ref={mobileMenuRef}
+          id="mobile-nav-panel"
           role="dialog"
           aria-modal="true"
           aria-label="Menu de navigation"

@@ -13,9 +13,7 @@ export const metadata: Metadata = {
   },
   description: brand.seo.description,
   keywords: brand.seo.keywords,
-  alternates: {
-    canonical: "./",
-  },
+  alternates: {},
   openGraph: {
     type: "website",
     locale: brand.seo.locale,

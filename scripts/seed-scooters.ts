@@ -1,5 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 
+// A5-05: Refuse to run in production
+const env = process.env.NODE_ENV || "development";
+if (env === "production") {
+  console.error("seed-scooters.ts: refusing to run in production (NODE_ENV=production)");
+  process.exit(1);
+}
+
 const prisma = new PrismaClient();
 
 function slugify(text: string): string {

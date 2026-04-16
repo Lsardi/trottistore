@@ -618,11 +618,17 @@ export async function orderRoutes(app: FastifyInstance) {
         if (!item.variantId) continue;
 
         if (isInstallment) {
-          // For installment payments, reserve stock instead of decrementing
-          await tx.productVariant.update({
-            where: { id: item.variantId },
+          // A2-04: Atomic reserve with WHERE guard to prevent over-reservation
+          const reserved = await tx.productVariant.updateMany({
+            where: {
+              id: item.variantId,
+              stockQuantity: { gte: item.quantity },
+            },
             data: { stockReserved: { increment: item.quantity } },
           });
+          if (reserved.count === 0) {
+            throw new InsufficientStockError(item.variantId);
+          }
         } else {
           // Atomic stock guard prevents concurrent oversell.
           await decrementStockOrThrow(tx, item.variantId, item.quantity);
@@ -995,10 +1001,17 @@ export async function orderRoutes(app: FastifyInstance) {
         for (const item of cart.items) {
           if (!item.variantId) continue;
           if (isInstallment) {
-            await tx.productVariant.update({
-              where: { id: item.variantId },
+            // A2-04: Atomic reserve with WHERE guard (guest checkout path)
+            const reserved = await tx.productVariant.updateMany({
+              where: {
+                id: item.variantId,
+                stockQuantity: { gte: item.quantity },
+              },
               data: { stockReserved: { increment: item.quantity } },
             });
+            if (reserved.count === 0) {
+              throw new InsufficientStockError(item.variantId);
+            }
           } else {
             await decrementStockOrThrow(tx, item.variantId, item.quantity);
           }

@@ -87,31 +87,46 @@ Ce runbook couvre:
 
 ## 7. Database Backup & Restore
 
-### Backup (quotidien)
+### Railway Production
 
 ```bash
-# Via le script existant
-bash infra/backup-db.sh
+# 1. Get the DATABASE_URL from Railway (or from GitHub Secrets env:production)
+#    RAILWAY_DATABASE_URL=postgresql://user:pass@host:port/railway
 
-# Ou manuellement
+# 2. Backup
+pg_dump "$RAILWAY_DATABASE_URL" \
+  --format=custom --compress=9 \
+  -f backup_prod_$(date +%Y%m%d_%H%M%S).dump
+
+# 3. Restore (CAUTION: destructive — wipes current data)
+#    First, redeploy all services to Railway to stop active connections (or scale to 0)
+pg_restore "$RAILWAY_DATABASE_URL" \
+  --clean --if-exists backup_prod_YYYYMMDD_HHMMSS.dump
+
+# 4. Apply migrations (in case restore is from an older backup)
+DATABASE_URL="$RAILWAY_DATABASE_URL" pnpm --filter @trottistore/database db:deploy
+
+# 5. Verify via web rewrites (backends are on private network)
+curl https://trottistoreweb-production.up.railway.app/api/v1/products?limit=1
+```
+
+> **Note:** `RAILWAY_DATABASE_URL` is stored in GitHub Secrets (env: production).
+> Always use `gh secret set --env production` to update it.
+
+### Local Dev
+
+```bash
+# Backup
 pg_dump -h localhost -U trottistore -d trottistore_dev \
   --format=custom --compress=9 \
   -f backup_$(date +%Y%m%d_%H%M%S).dump
-```
 
-### Restore
-
-```bash
-# Stopper les services
+# Restore
 docker compose -f docker-compose.dev.yml stop
-
-# Restaurer
 pg_restore -h localhost -U trottistore -d trottistore_dev \
   --clean --if-exists backup_YYYYMMDD_HHMMSS.dump
-
-# Relancer et vérifier
 docker compose -f docker-compose.dev.yml start
-pnpm db:deploy  # appliquer les migrations (JAMAIS db:push en prod)
+pnpm db:deploy
 curl http://localhost:3001/ready
 curl http://localhost:3002/ready
 curl http://localhost:3003/ready
@@ -120,7 +135,7 @@ curl http://localhost:3004/ready
 
 ### Validation post-restore
 
-- [ ] /ready retourne 200 sur les 4 services
+- [ ] /ready retourne 200 sur les 4 services (prod: via web rewrites)
 - [ ] Données métier cohérentes (compter tickets, commandes, clients)
 - [ ] Pas de migration en attente
 

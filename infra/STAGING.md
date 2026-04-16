@@ -11,10 +11,10 @@
 | Service | Source | Port | Start command |
 |---------|--------|------|---------------|
 | web | apps/web | 3000 | `pnpm --filter @trottistore/web start` |
-| ecommerce | services/ecommerce | 3001 | `node dist/index.js` |
-| crm | services/crm | 3002 | `node dist/index.js` |
-| sav | services/sav | 3004 | `node dist/index.js` |
-| analytics | services/analytics | 3003 | `node dist/index.js` |
+| ecommerce | services/ecommerce | 3001 | `node --import tsx src/index.ts` |
+| crm | services/crm | 3002 | `node --import tsx src/index.ts` |
+| sav | services/sav | 3004 | `node --import tsx src/index.ts` |
+| analytics | services/analytics | 3003 | `node --import tsx src/index.ts` |
 | postgres | Railway plugin | 5432 | (managed) |
 | redis | Railway plugin | 6379 | (managed) |
 

@@ -206,7 +206,7 @@ export default function AddressSection({ addresses, onUpdate }: AddressSectionPr
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {addresses.map((address) => (
             <div key={address.id} className="border border-border p-4 relative group">
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-2 right-2 flex gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => startEdit(address)}
                   className="p-1 text-text-muted hover:text-neon"

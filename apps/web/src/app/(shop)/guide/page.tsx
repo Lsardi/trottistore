@@ -23,7 +23,7 @@ const GUIDES = [
       "Budget, autonomie, puissance, poids : les critères qui comptent vraiment pour trouver le modèle adapté.",
   },
   {
-    slug: "panne-trottinette",
+    slug: "panne-trottinette-que-faire",
     title: "Panne de trottinette : que faire ? Guide de premiers secours",
     description:
       "Les gestes immédiats quand votre trottinette refuse de démarrer, freine mal ou affiche une erreur.",

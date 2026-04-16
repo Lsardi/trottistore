@@ -478,6 +478,26 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
+    // A1-05: Verify ownership if ticketId is provided
+    if (body.ticketId) {
+      const user = getRequestUser(request);
+      const ticket = await app.prisma.repairTicket.findUnique({ where: { id: body.ticketId } });
+      if (!ticket) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Ticket introuvable" },
+        });
+      }
+      const isStaff = !!user && user.role !== "CLIENT";
+      const isOwner = !!user && user.role === "CLIENT" && ticket.customerId === user.userId;
+      if (!isStaff && !isOwner) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Vous ne pouvez pas réserver pour ce ticket" },
+        });
+      }
+    }
+
     // T-32: Atomic check-then-insert inside a transaction to prevent race condition
     const expressSurcharge = body.isExpress ? 0.2 : 0;
     const created = await app.prisma.$transaction(async (tx) => {
@@ -963,6 +983,14 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
+    // CL-05: Reject if quote was already accepted (prevents token re-use)
+    if (ticket.quoteAcceptedAt) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "ALREADY_ACCEPTED", message: "Ce devis a déjà été accepté" },
+      });
+    }
+
     if (!validateTransition(ticket.status, "DEVIS_ACCEPTE")) {
       return reply.status(400).send({
         success: false,
@@ -979,6 +1007,8 @@ export async function repairRoutes(app: FastifyInstance) {
         data: {
           status: "DEVIS_ACCEPTE",
           quoteAcceptedAt: new Date(),
+          // CL-05: Rotate tracking token to invalidate the old one after acceptance
+          trackingToken: (await import("node:crypto")).randomUUID(),
         },
       });
 

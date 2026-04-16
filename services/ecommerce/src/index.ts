@@ -268,6 +268,8 @@ async function start() {
     }
     if (!process.env.STRIPE_SECRET_KEY) {
       app.log.warn("STRIPE_SECRET_KEY not set — checkout disabled.");
+    } else if (process.env.NODE_ENV === "production" && process.env.STRIPE_SECRET_KEY.startsWith("sk_test_")) {
+      app.log.warn("CL-01: STRIPE_SECRET_KEY is a TEST key in production. Rotate to sk_live_... before go-live.");
     }
 
     // Financial reconciliation scheduler (default every 60 minutes).

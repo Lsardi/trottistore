@@ -689,9 +689,13 @@ export async function customerRoutes(app: FastifyInstance) {
       });
     }
 
+    // CL-09: Use dedicated DPO email, separate from general contact
+    const dpoEmail = process.env.DPO_EMAIL || "dpo@trottistore.fr";
+
     const exportDoc = {
       generatedAt: new Date().toISOString(),
       exportKind: "RGPD_ART_15_ACCESS",
+      dpoContact: dpoEmail,
       customer: {
         id: customer.id,
         email: customer.email,

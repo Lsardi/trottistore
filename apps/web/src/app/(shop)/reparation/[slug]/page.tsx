@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 
@@ -138,6 +139,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ReparationBrandPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+
+  if (!BRAND_DATA[slug] && !ISSUE_DATA[slug]) {
+    notFound();
+  }
+
   const issue = ISSUE_DATA[slug];
 
   if (issue) {

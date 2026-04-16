@@ -84,8 +84,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.9,
       }));
     }
-  } catch {
-    // Sitemap generation should not fail if API is down
+  } catch (err) {
+    console.error("[sitemap] Failed to fetch products from API — sitemap will miss product URLs:", err);
   }
 
   return [...staticEntries, ...productEntries, ...guideEntries, ...repairEntries];

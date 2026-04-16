@@ -329,41 +329,44 @@ async function main() {
           },
         });
 
-        // Sync images — delete existing then re-create to avoid stale data
-        await prisma.productImage.deleteMany({
-          where: { productId: product.id },
-        });
-
-        if (wc.images.length > 0) {
-          const imageData = wc.images.map((img, idx) => ({
-            productId: product.id,
-            url: img.src,
-            alt: img.alt || wc.name,
-            position: idx,
-            isPrimary: idx === 0,
-          }));
-
-          await prisma.productImage.createMany({ data: imageData });
-          imageCount += imageData.length;
-        }
-
-        // Sync category associations — delete existing then re-create
-        await prisma.productCategory.deleteMany({
-          where: { productId: product.id },
-        });
-
-        const categoryLinks = wc.categories
-          .map((cat) => categoryMap.get(cat.slug))
-          .filter((id): id is string => id !== undefined);
-
-        if (categoryLinks.length > 0) {
-          await prisma.productCategory.createMany({
-            data: categoryLinks.map((catId) => ({
-              productId: product.id,
-              categoryId: catId,
-            })),
+        // A5-03: Wrap image/category sync in a transaction to prevent partial state on crash
+        await prisma.$transaction(async (tx) => {
+          // Sync images — delete existing then re-create to avoid stale data
+          await tx.productImage.deleteMany({
+            where: { productId: product.id },
           });
-        }
+
+          if (wc.images.length > 0) {
+            const imageData = wc.images.map((img, idx) => ({
+              productId: product.id,
+              url: img.src,
+              alt: img.alt || wc.name,
+              position: idx,
+              isPrimary: idx === 0,
+            }));
+
+            await tx.productImage.createMany({ data: imageData });
+            imageCount += imageData.length;
+          }
+
+          // Sync category associations — delete existing then re-create
+          await tx.productCategory.deleteMany({
+            where: { productId: product.id },
+          });
+
+          const categoryLinks = wc.categories
+            .map((cat) => categoryMap.get(cat.slug))
+            .filter((id): id is string => id !== undefined);
+
+          if (categoryLinks.length > 0) {
+            await tx.productCategory.createMany({
+              data: categoryLinks.map((catId) => ({
+                productId: product.id,
+                categoryId: catId,
+              })),
+            });
+          }
+        });
 
         syncedCount++;
 

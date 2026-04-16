@@ -214,6 +214,39 @@ export function orderShippedEmail(data: OrderShippedData): { subject: string; ht
   };
 }
 
+// CL-08: Invoice email sent automatically after payment confirmation (CGI art. 289-VII)
+interface InvoiceEmailData {
+  orderNumber: number;
+  invoiceRef: string;
+  customerName: string;
+  totalTtc: string;
+  invoiceUrl: string;
+}
+
+export function invoiceEmail(data: InvoiceEmailData): { subject: string; html: string } {
+  const html = layout(`
+    <h2 style="color: #111; font-size: 18px;">Votre facture ${esc(data.invoiceRef)}</h2>
+    <p style="color: #555;">Bonjour ${esc(data.customerName)},</p>
+    <p style="color: #555;">
+      Le paiement de votre commande n°${esc(String(data.orderNumber))} a été confirmé.
+      Votre facture d'un montant de <strong>${esc(data.totalTtc)} € TTC</strong> est disponible.
+    </p>
+    <p>
+      <a href="${esc(data.invoiceUrl)}" style="display: inline-block; background: #00CCa8; color: #111; padding: 12px 24px; text-decoration: none; font-weight: bold;">
+        TÉLÉCHARGER LA FACTURE
+      </a>
+    </p>
+    <p style="color: #888; font-size: 12px;">
+      Cette facture est également accessible depuis votre espace client, rubrique "Mes commandes".
+    </p>
+  `);
+
+  return {
+    subject: `${BRAND} — Facture ${data.invoiceRef} (commande n°${data.orderNumber})`,
+    html,
+  };
+}
+
 export function welcomeEmail(name: string): { subject: string; html: string } {
   const html = layout(`
     <h2 style="color: #111; font-size: 18px;">Bienvenue chez ${BRAND} !</h2>

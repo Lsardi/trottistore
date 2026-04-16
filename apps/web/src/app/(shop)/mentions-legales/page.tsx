@@ -26,7 +26,7 @@ async function getLegalSettings() {
   return {};
 }
 
-function val(dbValue: string | undefined, envValue: string, fallback = "Non renseigné"): string {
+function val(dbValue: string | undefined, envValue: string, fallback = "En cours d'immatriculation"): string {
   return dbValue || envValue || fallback;
 }
 

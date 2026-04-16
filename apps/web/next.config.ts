@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
   reactStrictMode: true,
+  async redirects() {
+    return [
+      { source: "/connexion", destination: "/mon-compte", permanent: true },
+      { source: "/inscription", destination: "/mon-compte", permanent: true },
+      { source: "/contact", destination: "/atelier", permanent: false },
+      { source: "/sos", destination: "/urgence", permanent: true },
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: process.env.NEXT_PUBLIC_BRAND_DOMAIN || "trottistore.fr" },

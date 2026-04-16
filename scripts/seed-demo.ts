@@ -2,6 +2,13 @@ import { PrismaClient } from "@prisma/client";
 import bcryptjs from "bcryptjs";
 const { hashSync } = bcryptjs;
 
+// A5-02: Refuse to run in production — demo data only
+const env = process.env.NODE_ENV || "development";
+if (env === "production") {
+  console.error("seed-demo.ts: refusing to run in production (NODE_ENV=production)");
+  process.exit(1);
+}
+
 const prisma = new PrismaClient({ log: ["warn", "error"] });
 
 // ── Helpers ──────────────────────────────────────────────
