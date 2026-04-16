@@ -837,11 +837,21 @@ export const authApi = {
   logout: () =>
     apiFetch<{ success: boolean }>('ecommerce', '/auth/logout', { method: 'POST' }),
 
-  me: () =>
-    apiFetch<{ success: boolean; data: { user: User } }>('ecommerce', '/auth/me').then((res) => ({
-      success: res.success,
-      data: res.data.user,
-    })),
+  me: (() => {
+    // Cache /auth/me for 10s to avoid hammering the API on SPA navigation
+    let cached: { data: { success: boolean; data: User }; ts: number } | null = null;
+    return () => {
+      const now = Date.now();
+      if (cached && now - cached.ts < 10_000) {
+        return Promise.resolve(cached.data);
+      }
+      return apiFetch<{ success: boolean; data: { user: User } }>('ecommerce', '/auth/me').then((res) => {
+        const result = { success: res.success, data: res.data.user };
+        cached = { data: result, ts: Date.now() };
+        return result;
+      });
+    };
+  })(),
 
   updateProfile: (body: { firstName?: string; lastName?: string; phone?: string | null }) =>
     apiFetch<{ success: boolean; data: { user: User } }>('ecommerce', '/auth/profile', {

@@ -94,6 +94,12 @@ async function start() {
   await app.register(rateLimit, {
     max: 100,
     timeWindow: "1 minute",
+    allowList: (request) => {
+      // High-frequency session endpoints exempt from global rate-limit
+      // (they have their own per-route limits where needed)
+      const url = request.url;
+      return url === "/api/v1/auth/me" || url === "/api/v1/cart" || url.startsWith("/api/v1/auth/refresh");
+    },
     addHeaders: {
       "x-ratelimit-limit": true,
       "x-ratelimit-remaining": true,
