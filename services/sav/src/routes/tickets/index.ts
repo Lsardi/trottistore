@@ -271,6 +271,8 @@ export async function repairRoutes(app: FastifyInstance) {
       toStatus: "RECU",
     }).catch((err) => app.log.error({ err }, "Reception notification failed"));
 
+    app.log.info({ ticketId: ticket.id, ticketNumber: ticket.ticketNumber, type: body.type, priority: body.priority, userId: user?.userId ?? null }, "Repair ticket created");
+
     return reply.status(201).send({
       success: true,
       data: {
@@ -707,6 +709,8 @@ export async function repairRoutes(app: FastifyInstance) {
       return updatedTicket;
     });
 
+    app.log.info({ ticketId: id, fromStatus: ticket.status, toStatus: body.status, userId: user?.userId ?? null }, "Repair ticket status changed");
+
     // Fire-and-forget notification (don't block the response)
     notifyStatusChange({
       ticketId: id,
@@ -812,6 +816,8 @@ export async function repairRoutes(app: FastifyInstance) {
       return updatedTicket;
     });
 
+    app.log.info({ ticketId: id, userId: user?.userId ?? null }, "Repair diagnosis added");
+
     return { success: true, data: updated };
   });
 
@@ -877,6 +883,8 @@ export async function repairRoutes(app: FastifyInstance) {
 
       return { estimatedCost, parts: body.parts, laborCost };
     });
+
+    app.log.info({ ticketId: id, estimatedCost, userId: user?.userId ?? null }, "Repair quote sent");
 
     return { success: true, data: updated };
   });
@@ -951,6 +959,8 @@ export async function repairRoutes(app: FastifyInstance) {
       return updatedTicket;
     });
 
+    app.log.info({ ticketId: id, userId: user?.userId ?? null }, "Repair quote accepted (backoffice)");
+
     return { success: true, data: updated };
   });
 
@@ -1024,6 +1034,8 @@ export async function repairRoutes(app: FastifyInstance) {
 
       return updatedTicket;
     });
+
+    app.log.info({ ticketId: id, userId: user?.userId ?? null }, "Repair quote accepted (client self-service)");
 
     return { success: true, data: updated };
   });
@@ -1113,6 +1125,9 @@ export async function repairRoutes(app: FastifyInstance) {
     });
 
     if (reply.sent) return;
+
+    app.log.info({ ticketId: id, partName: body.partName, quantity: body.quantity, userId: user?.userId ?? null }, "Repair part added");
+
     return reply.status(201).send({ success: true, data: part });
   });
 
@@ -1150,6 +1165,8 @@ export async function repairRoutes(app: FastifyInstance) {
         });
       }
     });
+
+    app.log.info({ ticketId, partId, partName: part.partName, userId: user?.userId ?? null }, "Repair part removed");
 
     return { success: true, data: { message: "Pièce retirée, stock restauré" } };
   });
@@ -1225,6 +1242,8 @@ export async function repairRoutes(app: FastifyInstance) {
 
       return updatedTicket;
     });
+
+    app.log.info({ ticketId: id, actualCost, userId: user?.userId ?? null }, "Repair marked complete");
 
     // Notify customer that repair is complete
     notifyStatusChange({

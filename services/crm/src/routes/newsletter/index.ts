@@ -88,6 +88,8 @@ export async function newsletterRoutes(app: FastifyInstance) {
         },
       });
 
+      app.log.info({ source: source ?? "direct" }, "Newsletter subscription requested");
+
       return reply.status(200).send({ success: true, data: { status: "ok" } });
     },
   );
@@ -119,6 +121,9 @@ export async function newsletterRoutes(app: FastifyInstance) {
         where: { id: sub.id },
         data: { status: "CONFIRMED", confirmedAt: new Date(), confirmToken: null },
       });
+
+      app.log.info({ subscriberId: sub.id }, "Newsletter subscription confirmed");
+
       return reply.status(200).send({ success: true, data: { status: "confirmed" } });
     },
   );
@@ -150,6 +155,9 @@ export async function newsletterRoutes(app: FastifyInstance) {
         where: { id: sub.id },
         data: { status: "UNSUBSCRIBED", unsubscribedAt: new Date() },
       });
+
+      app.log.info({ subscriberId: sub.id }, "Newsletter unsubscribed");
+
       return reply.status(200).send({ success: true, data: { status: "unsubscribed" } });
     },
   );

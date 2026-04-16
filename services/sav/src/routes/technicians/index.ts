@@ -159,6 +159,8 @@ export async function technicianRoutes(app: FastifyInstance) {
       },
     });
 
+    app.log.info({ technicianId: id, isAvailable: body.isAvailable, userId: (user as { userId?: string })?.userId }, "Technician availability updated");
+
     return { success: true, data: updated };
   });
 }

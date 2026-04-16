@@ -119,6 +119,8 @@ export async function campaignRoutes(app: FastifyInstance) {
       },
     });
 
+    app.log.info({ campaignId: campaign.id, name: body.name, userId: (request.user as { userId?: string })?.userId }, "Campaign created");
+
     return reply.status(201).send({ success: true, data: campaign });
   });
 
@@ -176,6 +178,9 @@ export async function campaignRoutes(app: FastifyInstance) {
     }
 
     await app.prisma.emailCampaign.delete({ where: { id } });
+
+    app.log.info({ campaignId: id, userId: (request.user as { userId?: string })?.userId }, "Campaign deleted");
+
     return { success: true, data: { message: "Campagne supprimée" } };
   });
 
@@ -389,6 +394,8 @@ export async function campaignRoutes(app: FastifyInstance) {
         stats: { sent, delivered: sent, bounced: failed, opened: 0, clicked: 0, unsubscribed: 0 },
       },
     });
+
+    app.log.info({ campaignId: id, recipients: eligibleProfiles.length, sent, failed, userId: (u as { userId?: string })?.userId }, "Campaign sent");
 
     return {
       success: true,

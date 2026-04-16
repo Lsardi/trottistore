@@ -333,6 +333,8 @@ export async function customerRoutes(app: FastifyInstance) {
       }),
     ]);
 
+    app.log.info({ customerId: id, userId: (request.user as { userId?: string })?.userId }, "Customer profile updated");
+
     return {
       success: true,
       data: {
@@ -446,6 +448,8 @@ export async function customerRoutes(app: FastifyInstance) {
       }),
     ]);
 
+    app.log.info({ customerId: id, points: body.points, newTier, userId: (request.user as { userId?: string })?.userId }, "Loyalty points added");
+
     return {
       success: true,
       data: {
@@ -485,6 +489,8 @@ export async function customerRoutes(app: FastifyInstance) {
         referenceId: body.referenceId ?? null,
       },
     });
+
+    app.log.info({ customerId: id, interactionType: body.type, userId: (request.user as { userId?: string })?.userId }, "Customer interaction created");
 
     return { success: true, data: interaction };
   });
@@ -646,6 +652,8 @@ export async function customerRoutes(app: FastifyInstance) {
         content: body.reason ?? null,
       },
     });
+
+    app.log.info({ customerId: id, status: body.status, userId: (reqUserStatus as { userId?: string })?.userId }, "Customer status changed");
 
     return { success: true, data: user };
   });
@@ -835,6 +843,8 @@ export async function customerRoutes(app: FastifyInstance) {
       });
     });
 
+    app.log.info({ customerId: id, userId: (reqUser as { userId?: string })?.userId }, "Customer anonymized (RGPD art. 17)");
+
     return { success: true };
   });
 
@@ -976,6 +986,8 @@ export async function customerRoutes(app: FastifyInstance) {
         },
       });
     });
+
+    app.log.info({ keepId: body.keepId, mergeId: body.mergeId, userId: (reqUser as { userId?: string })?.userId }, "Customer accounts merged");
 
     return {
       success: true,

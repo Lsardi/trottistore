@@ -94,6 +94,8 @@ export async function segmentRoutes(app: FastifyInstance) {
       },
     });
 
+    app.log.info({ segmentId: segment.id, name: body.name, count, userId: (u as { userId?: string })?.userId }, "Segment created");
+
     return { success: true, data: segment };
   });
 
@@ -137,6 +139,8 @@ export async function segmentRoutes(app: FastifyInstance) {
       where: { id },
       data: { count },
     });
+
+    app.log.info({ segmentId: id, count, userId: (u as { userId?: string })?.userId }, "Segment evaluated");
 
     return { success: true, data: { count } };
   });
