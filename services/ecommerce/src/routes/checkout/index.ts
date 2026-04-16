@@ -162,6 +162,15 @@ export async function checkoutRoutes(app: FastifyInstance) {
         });
       }
 
+      // F2: Block payment intent creation for non-payable orders
+      const PAYABLE_STATUSES = new Set(["PENDING"]);
+      if (!PAYABLE_STATUSES.has(order.status)) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "ORDER_NOT_PAYABLE", message: `Commande en statut ${order.status}, paiement impossible` },
+        });
+      }
+
       if (user) {
         if (order.customerId !== user.userId) {
           return reply.status(403).send({

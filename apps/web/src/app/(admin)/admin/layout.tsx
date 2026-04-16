@@ -183,7 +183,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       router.replace("/mon-compte");
       return;
     }
-    setAuthChecked(true);
+    // Verify token is valid and user has a backoffice role
+    const BACKOFFICE_ROLES = ["SUPERADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "STAFF"];
+    fetch("/api/v1/auth/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error("unauthorized")))
+      .then((data) => {
+        if (data?.data?.role && BACKOFFICE_ROLES.includes(data.data.role)) {
+          setAuthChecked(true);
+        } else {
+          router.replace("/mon-compte");
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem("accessToken");
+        router.replace("/mon-compte");
+      });
   }, [router]);
 
   // Persisted UI state — collapsible sections + favorites.

@@ -359,7 +359,7 @@ export async function orderRoutes(app: FastifyInstance) {
       ? request.headers["idempotency-key"]
       : undefined;
     const orderIdempotencyKey = idempotencyHeader
-      ? `order:idempotency:header:${idempotencyHeader}`
+      ? `order:idempotency:header:${userId}:${idempotencyHeader}`
       : getOrderIdempotencyKey(checkoutToken);
 
     // 2. Validate addresses belong to user
@@ -784,7 +784,7 @@ export async function orderRoutes(app: FastifyInstance) {
       ? request.headers["idempotency-key"]
       : undefined;
     const orderIdempotencyKey = guestIdempotencyHeader
-      ? `order:idempotency:header:${guestIdempotencyHeader}`
+      ? `order:idempotency:header:guest:${cartKey}:${guestIdempotencyHeader}`
       : getOrderIdempotencyKey(checkoutToken);
 
     const orderInclude = {
@@ -1910,9 +1910,27 @@ export async function orderRoutes(app: FastifyInstance) {
     // Item 3 — Use Decimal for precision (no Number() conversion on monetary values)
     const orderTotalTtc = new Decimal(order.totalTtc);
     const requestedAmount = body.amount ? new Decimal(body.amount) : orderTotalTtc;
-    // T-16: Clamp refund to order total — never refund more than charged
-    const refundDecimal = requestedAmount.gt(orderTotalTtc) ? orderTotalTtc : requestedAmount;
-    const isFullRefund = !body.amount || refundDecimal.gte(orderTotalTtc);
+
+    // F3: Check cumulative refunds — prevent total refunded > order total
+    const existingRefunds = await app.prisma.payment.findMany({
+      where: { orderId: id, status: "CONFIRMED", method: "REFUND" },
+      select: { amount: true },
+    });
+    const alreadyRefunded = existingRefunds.reduce(
+      (sum, r) => sum.add(new Decimal(r.amount)), new Decimal(0),
+    );
+    const maxRefundable = orderTotalTtc.sub(alreadyRefunded);
+    if (maxRefundable.lte(0)) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "FULLY_REFUNDED", message: "Cette commande a déjà été intégralement remboursée" },
+      });
+    }
+
+    // T-16: Clamp refund to remaining refundable amount
+    const clampedAmount = requestedAmount.gt(maxRefundable) ? maxRefundable : requestedAmount;
+    const refundDecimal = clampedAmount.gt(orderTotalTtc) ? orderTotalTtc : clampedAmount;
+    const isFullRefund = !body.amount || refundDecimal.gte(maxRefundable);
     const refundCents = refundDecimal.mul(100).round().toNumber(); // Safe: Decimal → integer cents
     const refundOperationKey = body.idempotencyKey
       ?? (isFullRefund ? "full" : `partial:${refundDecimal.toFixed(2)}`);

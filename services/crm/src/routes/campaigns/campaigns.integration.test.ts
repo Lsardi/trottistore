@@ -46,6 +46,7 @@ function buildApp(role = "ADMIN"): FastifyInstance {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue(CAMPAIGN_DRAFT),
       update: vi.fn().mockResolvedValue(CAMPAIGN_DRAFT),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       delete: vi.fn().mockResolvedValue(CAMPAIGN_DRAFT),
     },
     customerSegment: {
@@ -202,7 +203,9 @@ describe("Campaign routes", () => {
       // Should have created 2 send records
       expect(app.prisma.campaignSend.create).toHaveBeenCalledTimes(2);
       // Should have transitioned to SENT
-      expect(app.prisma.emailCampaign.update).toHaveBeenCalledTimes(2); // SENDING + SENT
+      // SENDING is now atomic via updateMany, only SENT uses update
+      expect(app.prisma.emailCampaign.updateMany).toHaveBeenCalledTimes(1); // DRAFT → SENDING
+      expect(app.prisma.emailCampaign.update).toHaveBeenCalledTimes(1); // → SENT
     });
 
     it("rejects send on non-DRAFT campaign", async () => {

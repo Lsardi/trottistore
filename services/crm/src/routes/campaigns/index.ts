@@ -285,6 +285,20 @@ export async function campaignRoutes(app: FastifyInstance) {
       });
     }
 
+    // Prevent concurrent sends: atomically transition DRAFT → SENDING
+    if (campaign.status === "DRAFT") {
+      const locked = await app.prisma.emailCampaign.updateMany({
+        where: { id, status: "DRAFT" },
+        data: { status: "SENDING" },
+      });
+      if (locked.count === 0) {
+        return reply.status(409).send({
+          success: false,
+          error: { code: "ALREADY_SENDING", message: "Cette campagne est déjà en cours d'envoi" },
+        });
+      }
+    }
+
     if (!campaign.content) {
       return reply.status(400).send({
         success: false,
@@ -329,11 +343,7 @@ export async function campaignRoutes(app: FastifyInstance) {
       });
     }
 
-    // Transition to SENDING
-    await app.prisma.emailCampaign.update({
-      where: { id },
-      data: { status: "SENDING" },
-    });
+    // Status already transitioned to SENDING atomically above (or was already SENDING for recovery)
 
     // Send emails (non-blocking batch)
     let sent = 0;

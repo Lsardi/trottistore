@@ -1116,6 +1116,44 @@ export async function repairRoutes(app: FastifyInstance) {
     return reply.status(201).send({ success: true, data: part });
   });
 
+  // DELETE /repairs/:id/parts/:partId — Remove a part and restore stock
+  app.delete("/repairs/:id/parts/:partId", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (user?.role === "CLIENT") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Clients cannot remove parts" },
+      });
+    }
+
+    const ticketId = parseIdParam(request.params);
+    const { partId } = request.params as { partId: string };
+
+    const part = await app.prisma.repairPartUsed.findFirst({
+      where: { id: partId, ticketId },
+    });
+    if (!part) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Pièce introuvable sur ce ticket" },
+      });
+    }
+
+    await app.prisma.$transaction(async (tx) => {
+      await tx.repairPartUsed.delete({ where: { id: partId } });
+
+      // Restore stock if variant was tracked
+      if (part.variantId) {
+        await tx.productVariant.update({
+          where: { id: part.variantId },
+          data: { stockQuantity: { increment: part.quantity } },
+        });
+      }
+    });
+
+    return { success: true, data: { message: "Pièce retirée, stock restauré" } };
+  });
+
   // POST /repairs/:id/complete — Mark ticket as complete
   app.post("/repairs/:id/complete", async (request, reply) => {
     const user = getRequestUser(request);

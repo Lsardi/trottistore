@@ -152,8 +152,11 @@ export async function authRoutes(app: FastifyInstance) {
     // Hash password
     const passwordHash = await bcrypt.hash(body.password, BCRYPT_ROUNDS);
 
-    // Create user + CRM profile in a transaction
-    const user = await app.prisma.$transaction(async (tx) => {
+    // HIGH-1: Create user + CRM profile in a transaction. Catch P2002 (unique constraint)
+    // for race condition on duplicate email instead of relying on the pre-check alone.
+    let user;
+    try {
+    user = await app.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
           email: body.email,
@@ -188,6 +191,16 @@ export async function authRoutes(app: FastifyInstance) {
 
       return newUser;
     });
+    } catch (err: unknown) {
+      const prismaErr = err as { code?: string };
+      if (prismaErr.code === "P2002") {
+        return reply.status(409).send({
+          success: false,
+          error: { code: "EMAIL_TAKEN", message: "Cet email est déjà utilisé" },
+        });
+      }
+      throw err;
+    }
 
     // Send welcome email (non-blocking)
     const { subject, html } = welcomeEmail(user.firstName);
@@ -294,7 +307,9 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // ── POST /auth/refresh ─────────────────────────────────
-  app.post("/auth/refresh", async (request, reply) => {
+  app.post("/auth/refresh", {
+    config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+  }, async (request, reply) => {
     const rawToken = request.cookies.refresh_token;
 
     if (!rawToken) {

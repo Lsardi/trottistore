@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Lock, ShieldCheck, Truck, RotateCcw } from "lucide-react";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
@@ -259,8 +259,14 @@ export default function CheckoutPage() {
     }
   }
 
+  // Double-submit guard (useRef for immediate blocking before React re-render)
+  const submittingRef = useRef(false);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
     if (!acceptedCgv) {
       setError("Veuillez accepter les conditions générales de vente.");
       return;
@@ -375,6 +381,7 @@ export default function CheckoutPage() {
     } finally {
       setSubmitting(false);
     }
+    } finally { submittingRef.current = false; }
   }
 
   if (loading) {

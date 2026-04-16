@@ -37,10 +37,12 @@ function formatPrice(amount: string | number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(value);
 }
   function isBackofficeRole(role?: string): boolean {
-    return role === "SUPERADMIN" || role === "MANAGER" || role === "TECHNICIAN";
+    return role === "SUPERADMIN" || role === "ADMIN" || role === "MANAGER" || role === "TECHNICIAN" || role === "STAFF";
   }
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/mon-compte";
+  // Sanitize redirect to prevent open redirect attacks
+  const rawNext = searchParams.get("next") || "/mon-compte";
+  const nextPath = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/mon-compte";
 
   const [mode, setMode] = useState<"login" | "register">("login");
   const [booting, setBooting] = useState(true);
@@ -153,7 +155,8 @@ function formatPrice(amount: string | number): string {
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try { await authApi.logout(); } catch { /* best effort */ }
     localStorage.removeItem("accessToken");
     window.location.href = "/mon-compte";
   }

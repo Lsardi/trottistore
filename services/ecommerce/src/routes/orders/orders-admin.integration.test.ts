@@ -83,6 +83,7 @@ function buildApp(): FastifyInstance {
     },
     payment: {
       findFirst: vi.fn().mockResolvedValue(null), // No existing refund
+      findMany: vi.fn().mockResolvedValue([]), // No previous refund payments (F3 cumulative check)
       create: vi.fn().mockResolvedValue(null),
     },
     paymentInstallment: {

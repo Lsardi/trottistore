@@ -13,6 +13,13 @@ export async function trackFunnelEvent(
   properties?: Record<string, string | number | boolean | null>,
 ) {
   if (typeof window === "undefined") return;
+  // GDPR: Only track if user consented to analytics cookies
+  try {
+    const consent = JSON.parse(localStorage.getItem("cookie-consent") || "{}");
+    if (!consent.analytics) return;
+  } catch {
+    return; // No consent or invalid consent — don't track
+  }
   try {
     await analyticsApi.trackFunnel(type, properties);
   } catch {

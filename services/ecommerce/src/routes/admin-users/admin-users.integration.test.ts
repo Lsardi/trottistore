@@ -210,7 +210,7 @@ describe("Admin user routes", () => {
       payload: { status: "SUSPENDED" },
     });
     expect(res.statusCode).toBe(400);
-    expect(res.json().error.code).toBe("SELF_SUSPEND");
+    expect(res.json().error.code).toBe("SELF_MODIFY");
   });
 
   // Detail with activity

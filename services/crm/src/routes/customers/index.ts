@@ -795,6 +795,34 @@ export async function customerRoutes(app: FastifyInstance) {
       // account is gone.
       await tx.address.deleteMany({ where: { userId: id } });
 
+      // RGPD-CRIT: Scrub denormalized PII on repair tickets and appointments
+      await tx.repairTicket.updateMany({
+        where: { customerId: id },
+        data: {
+          customerName: "Client Anonymisé",
+          customerEmail: sentinelEmail,
+          customerPhone: null,
+        },
+      });
+      await tx.repairAppointment.updateMany({
+        where: { customerId: id },
+        data: {
+          customerName: "Client Anonymisé",
+          customerEmail: sentinelEmail,
+          customerPhone: "00 00 00 00 00",
+        },
+      });
+
+      // Scrub interaction content that may contain PII
+      await tx.customerInteraction.updateMany({
+        where: { customerId: id },
+        data: { content: "[contenu effacé — RGPD art. 17]", subject: "Interaction anonymisée" },
+      });
+
+      // Revoke all sessions
+      await tx.refreshToken.deleteMany({ where: { userId: id } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: id } });
+
       // Log the interaction for audit trail.
       await tx.customerInteraction.create({
         data: {
@@ -919,6 +947,14 @@ export async function customerRoutes(app: FastifyInstance) {
           });
         }
       }
+
+      // Transfer appointments and invalidate sessions on merged account
+      await tx.repairAppointment.updateMany({
+        where: { customerId: body.mergeId },
+        data: { customerId: body.keepId },
+      });
+      await tx.refreshToken.deleteMany({ where: { userId: body.mergeId } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: body.mergeId } });
 
       // 3. Deactivate the merged user account.
       await tx.user.update({

@@ -39,6 +39,15 @@ function buildApp(): FastifyInstance {
     review: {
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
+    repairAppointment: {
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    refreshToken: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    passwordResetToken: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
     customerSegment: {
       findMany: vi.fn().mockResolvedValue([]),
     },

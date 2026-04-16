@@ -248,13 +248,23 @@ export async function adminUserRoutes(app: FastifyInstance) {
       });
     }
 
-    // Prevent self-demotion or self-deactivation
-    const requestUser = request.user as { userId?: string; id?: string };
+    // CRIT-1: Prevent non-SUPERADMIN from modifying SUPERADMIN accounts
+    const requestUser = request.user as { userId?: string; id?: string; role?: string };
     const requestUserId = requestUser.userId ?? requestUser.id;
-    if (id === requestUserId && parsed.data.status === "SUSPENDED") {
+    const requestUserRole = requestUser.role;
+
+    if (existing.role === "SUPERADMIN" && requestUserRole !== "SUPERADMIN") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Seul un SUPERADMIN peut modifier un compte SUPERADMIN" },
+      });
+    }
+
+    // CRIT-2: Prevent self-role-change and self-suspension
+    if (id === requestUserId && (parsed.data.role || parsed.data.status === "SUSPENDED")) {
       return reply.status(400).send({
         success: false,
-        error: { code: "SELF_SUSPEND", message: "Vous ne pouvez pas vous désactiver vous-même" },
+        error: { code: "SELF_MODIFY", message: "Vous ne pouvez pas modifier votre propre rôle ou statut" },
       });
     }
 
@@ -288,13 +298,22 @@ export async function adminUserRoutes(app: FastifyInstance) {
 
     const user = await app.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, firstName: true, status: true },
+      select: { id: true, email: true, firstName: true, status: true, role: true },
     });
 
     if (!user) {
       return reply.status(404).send({
         success: false,
         error: { code: "NOT_FOUND", message: "Utilisateur introuvable" },
+      });
+    }
+
+    // HIGH-4: Only SUPERADMIN can reset another SUPERADMIN's password
+    const reqUser = request.user as { role?: string };
+    if (user.role === "SUPERADMIN" && reqUser.role !== "SUPERADMIN") {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Seul un SUPERADMIN peut réinitialiser le mot de passe d'un SUPERADMIN" },
       });
     }
 
