@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Lightbulb, Disc, Cable, Monitor, Zap, Wrench, Search, Boxes, ArrowRight } from "lucide-react";
+import { ShoppingBag, Wrench, Boxes, ArrowRight, MapPin, Clock, Shield } from "lucide-react";
 import { formatPriceTTC, formatPrice } from "@/lib/utils";
 import { brand } from "@/lib/brand";
 import GarageBanner from "@/components/GarageBanner";
@@ -29,21 +29,44 @@ interface FeaturedProduct {
   images: ProductImage[];
 }
 
-// ─── STATIC DATA ──────────────────────────────────────────
+// ─── DATA ─────────────────────────────────────────────────
 
 const BRANDS_MARQUEE = brand.brandsMarquee;
 
-const STATS = [
-  { value: "2045", label: "PRODUITS" },
-  { value: "15", label: "MARQUES" },
-  { value: brand.since, label: "DEPUIS" },
+const CUSTOMER_PATHS = [
+  {
+    icon: ShoppingBag,
+    title: "ACHETER UNE TROTTINETTE",
+    subtitle: "Trouvez le modèle idéal",
+    description: "15 marques en stock, de 300€ à 7000€. Retrait 1h en boutique ou livraison 48-72h.",
+    cta: "VOIR LES TROTTINETTES",
+    href: "/produits?categorySlug=trottinettes-electriques",
+    accent: true,
+  },
+  {
+    icon: Wrench,
+    title: "RÉPARER MA TROTTINETTE",
+    subtitle: "Toutes marques, toutes pannes",
+    description: "Diagnostic gratuit, devis transparent, réparation en 1 à 3 jours. Atelier à L'Île-Saint-Denis.",
+    cta: "PRENDRE RENDEZ-VOUS",
+    href: "/reparation",
+    accent: false,
+  },
+  {
+    icon: Boxes,
+    title: "TROUVER UNE PIÈCE",
+    subtitle: "700+ références compatibles",
+    description: "Batteries, contrôleurs, freins, pneus, displays. Vérifiez la compatibilité avec votre modèle.",
+    cta: "CHERCHER UNE PIÈCE",
+    href: "/compatibilite",
+    accent: false,
+  },
 ];
 
-const CATEGORIES_SMALL = [
-  { name: "ÉCLAIRAGES", icon: Lightbulb, count: 93, slug: "eclairages" },
-  { name: "CÂBLES", icon: Cable, count: 83, slug: "cables-connectiques" },
-  { name: "DISPLAYS", icon: Monitor, count: 74, slug: "displays" },
-  { name: "CONTRÔLEURS", icon: Disc, count: 114, slug: "controleur-et-carte-mere" },
+const REASSURANCE = [
+  { icon: MapPin, text: "Boutique & atelier à L'Île-Saint-Denis" },
+  { icon: Clock, text: "Retrait en 1h · Livraison 48-72h" },
+  { icon: Shield, text: "Garantie 2 ans · Retour 14 jours" },
 ];
 
 // ─── HOMEPAGE ─────────────────────────────────────────────
@@ -68,7 +91,7 @@ export default async function HomePage() {
   return (
     <>
       {/* ================================================================
-          SECTION 1 — HERO
+          HERO — Clear value proposition
           ================================================================ */}
       <section
         className="grain"
@@ -116,7 +139,7 @@ export default async function HomePage() {
                   textTransform: "uppercase",
                 }}
               >
-                MOBILITÉ ÉLECTRIQUE ——
+                {brand.tagline.toUpperCase()}
               </p>
 
               <h1
@@ -140,23 +163,24 @@ export default async function HomePage() {
                   color: "var(--color-text-muted)",
                   fontSize: "0.95rem",
                   lineHeight: 1.6,
-                  maxWidth: 400,
+                  maxWidth: 440,
                   marginTop: 24,
                   marginBottom: 32,
                 }}
               >
-                {brand.heroSubtitle}
+                Vente, réparation et pièces détachées pour trottinettes électriques.
+                Boutique et atelier à {brand.address.city}.
               </p>
 
               <div
                 className="animate-slide-up stagger-4"
                 style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
               >
-                <Link href="/produits" className="btn-neon" style={{ padding: "0.75rem 2.5rem" }}>
-                  VOIR LES TROTTINETTES
+                <Link href="/produits" className="btn-neon" style={{ padding: "0.75rem 2rem" }}>
+                  VOIR LE CATALOGUE
                 </Link>
                 <Link href="/reparation" className="btn-outline">
-                  RÉPARATION SAV
+                  RÉPARER MA TROTT
                 </Link>
               </div>
             </div>
@@ -236,7 +260,7 @@ export default async function HomePage() {
       </section>
 
       {/* ================================================================
-          SECTION 2 — STATS BAR
+          REASSURANCE BAR — Simple trust signals
           ================================================================ */}
       <section
         style={{
@@ -254,30 +278,27 @@ export default async function HomePage() {
             gridTemplateColumns: "repeat(3, 1fr)",
           }}
         >
-          {STATS.map((stat, i) => (
-            <div
-              key={stat.label}
-              style={{
-                padding: "24px 20px",
-                textAlign: "center",
-                borderRight: i < STATS.length - 1 ? "1px solid var(--color-border)" : "none",
-              }}
-            >
+          {REASSURANCE.map((item, i) => {
+            const Icon = item.icon;
+            return (
               <div
-                className="font-display"
+                key={item.text}
                 style={{
-                  fontWeight: 800,
-                  fontSize: "clamp(1.5rem, 3vw, 2.2rem)",
-                  color: "var(--color-text)",
-                  lineHeight: 1,
-                  marginBottom: 6,
+                  padding: "18px 20px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  borderRight: i < REASSURANCE.length - 1 ? "1px solid var(--color-border)" : "none",
                 }}
               >
-                {stat.value}
+                <Icon style={{ width: 16, height: 16, color: "var(--color-neon)", flexShrink: 0 }} />
+                <span className="font-mono" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                  {item.text}
+                </span>
               </div>
-              <div className="spec-label">{stat.label}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -287,23 +308,115 @@ export default async function HomePage() {
       <GarageBanner />
 
       {/* ================================================================
-          SECTION 3 — FEATURED PRODUCTS
+          3 CUSTOMER PATHS — The core navigation for every visitor
+          ================================================================ */}
+      <section style={{ backgroundColor: "var(--color-void)", padding: "72px 0" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
+          <div style={{ marginBottom: 40, textAlign: "center" }}>
+            <h2 className="heading-lg">QUE CHERCHEZ-VOUS ?</h2>
+            <p className="font-mono text-sm text-text-muted mt-2">
+              Choisissez votre besoin, on s&apos;occupe du reste.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 16,
+            }}
+            className="paths-grid"
+          >
+            {CUSTOMER_PATHS.map((path) => {
+              const Icon = path.icon;
+              return (
+                <Link
+                  key={path.title}
+                  href={path.href}
+                  className="rubrique-card"
+                  style={{
+                    backgroundColor: path.accent ? "var(--color-neon-dim)" : "var(--color-surface)",
+                    border: `1px solid ${path.accent ? "var(--color-neon)" : "var(--color-border)"}`,
+                    padding: 32,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 16,
+                    transition: "border-color 200ms, transform 200ms",
+                    textDecoration: "none",
+                    color: "inherit",
+                    minHeight: 260,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 52,
+                      height: 52,
+                      backgroundColor: "var(--color-void)",
+                      border: "1px solid var(--color-border)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Icon style={{ width: 24, height: 24, color: "var(--color-neon)" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h3
+                      className="font-display"
+                      style={{
+                        fontWeight: 800,
+                        fontSize: "1.1rem",
+                        color: "var(--color-text)",
+                        marginBottom: 4,
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {path.title}
+                    </h3>
+                    <p className="font-mono" style={{ fontSize: "0.72rem", color: "var(--color-neon)", marginBottom: 10 }}>
+                      {path.subtitle}
+                    </p>
+                    <p
+                      className="font-mono"
+                      style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.6 }}
+                    >
+                      {path.description}
+                    </p>
+                  </div>
+                  <div
+                    className="font-mono"
+                    style={{
+                      fontSize: "0.7rem",
+                      color: "var(--color-neon)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {path.cta}
+                    <ArrowRight style={{ width: 12, height: 12 }} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================
+          FEATURED PRODUCTS
           ================================================================ */}
       <section style={{ backgroundColor: "var(--color-void)", padding: "64px 0" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-          {/* Title */}
-          <div style={{ marginBottom: 8 }}>
-            <h2 className="heading-lg">NOS {brand.nav.mainCategory}</h2>
-            <span
-              className="font-mono"
-              style={{ fontSize: "0.75rem", color: "var(--color-text-dim)" }}
-            >
-              Sélection
-            </span>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+            <h2 className="heading-lg">À LA UNE</h2>
+            <Link href="/produits" className="font-mono text-xs text-neon hover:underline" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              Tout voir <ArrowRight style={{ width: 12, height: 12 }} />
+            </Link>
           </div>
           <div className="divider-neon" style={{ marginBottom: 32 }} />
 
-          {/* Product grid */}
           {featuredProducts.length > 0 ? (
             <div
               className="products-grid"
@@ -399,212 +512,12 @@ export default async function HomePage() {
       </section>
 
       {/* ================================================================
-          SECTION 4 — CATEGORIES
+          ATELIER — Clear repair service block
           ================================================================ */}
       <section
         className="grain"
-        style={{ backgroundColor: "var(--color-surface)", padding: "64px 0" }}
+        style={{ backgroundColor: "var(--color-surface)", padding: "80px 0" }}
       >
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-          <div
-            className="categories-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "2fr 1fr 1fr",
-              gridTemplateRows: "1fr 1fr",
-              gap: 16,
-              minHeight: 360,
-            }}
-          >
-            {/* Large card */}
-            <div
-              style={{
-                gridRow: "1 / 3",
-                position: "relative",
-                overflow: "hidden",
-                border: "1px solid var(--color-border)",
-                display: "flex",
-                alignItems: "flex-end",
-              }}
-            >
-              <Image
-                src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS-300x300.jpg"
-                alt={`${brand.nav.mainCategory}`}
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                style={{
-                  objectFit: "cover",
-                  opacity: 0.3,
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 100%)",
-                }}
-              />
-              <div style={{ position: "relative", padding: 28, zIndex: 2 }}>
-                <div className="spec-label" style={{ marginBottom: 8, color: "var(--color-neon)" }}>
-                  CATÉGORIE PRINCIPALE
-                </div>
-                <h3 className="heading-lg" style={{ color: "var(--color-text)", marginBottom: 12 }}>
-                  {brand.nav.mainCategory} ÉLECTRIQUES
-                </h3>
-                <Link href="/produits?categorySlug=trottinettes-electriques" className="btn-neon" style={{ padding: "0.5rem 1.5rem", fontSize: "0.7rem" }}>
-                  EXPLORER
-                </Link>
-              </div>
-            </div>
-
-            {/* Small category cards */}
-            {CATEGORIES_SMALL.map((cat) => {
-              const Icon = cat.icon;
-              return (
-                <Link
-                  key={cat.name}
-                  href={`/produits?categorySlug=${cat.slug}`}
-                  className="category-card"
-                  style={{
-                    backgroundColor: "var(--color-surface-2)",
-                    border: "1px solid var(--color-border)",
-                    padding: 20,
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    transition: "border-color 200ms",
-                    cursor: "pointer",
-                    textDecoration: "none",
-                    color: "inherit",
-                  }}
-                >
-                  <div>
-                    <Icon style={{ width: 22, height: 22, color: "var(--color-text-dim)", marginBottom: 12 }} />
-                    <h4
-                      className="font-display"
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "0.85rem",
-                        color: "var(--color-text)",
-                        textTransform: "uppercase",
-                        letterSpacing: "-0.01em",
-                      }}
-                    >
-                      {cat.name}
-                    </h4>
-                  </div>
-                  <span className="font-mono" style={{ fontSize: "0.65rem", color: "var(--color-text-dim)" }}>
-                    {cat.count} produits
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================
-          SECTION 4.5 — RUBRIQUES (cards explicatives par service)
-          ================================================================ */}
-      <section style={{ backgroundColor: "var(--color-void)", padding: "80px 0" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-          <div style={{ marginBottom: 40 }}>
-            <p className="spec-label text-neon mb-2">NOS SERVICES</p>
-            <h2 className="heading-lg">UN ÉCOSYSTÈME COMPLET POUR VOTRE TROTTINETTE</h2>
-            <p className="font-mono text-sm text-text-muted mt-3 max-w-2xl">
-              De l&apos;achat à la réparation, en passant par les pièces détachées et le diagnostic. Tout est centralisé sur une seule plateforme.
-            </p>
-          </div>
-
-          <div className="rubriques-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, width: "100%", boxSizing: "border-box" }}>
-            {[
-              {
-                icon: Zap,
-                title: "TROTTINETTES",
-                description: "Catalogue complet des meilleures marques (Dualtron, Xiaomi, Ninebot, Kaabo). Modèles entrée de gamme à premium, performance et urbain.",
-                cta: "Explorer le catalogue",
-                href: "/produits?categorySlug=trottinettes-electriques",
-              },
-              {
-                icon: Boxes,
-                title: "PIÈCES DÉTACHÉES",
-                description: "2000+ pièces en stock immédiat. Contrôleurs, batteries, freins, displays, pneus, accessoires. Compatibilité vérifiée avec votre modèle.",
-                cta: "Voir les pièces",
-                href: "/produits?categorySlug=accessoires",
-              },
-              {
-                icon: Wrench,
-                title: "ATELIER & RÉPARATION",
-                description: "Atelier physique à L&apos;Île-Saint-Denis. Diagnostic, réparation et révision toutes marques. Pièces d&apos;origine ou compatibles.",
-                cta: "Déposer un ticket SAV",
-                href: "/reparation",
-              },
-              {
-                icon: Lightbulb,
-                title: "QUIZ TROTTINETTES",
-                description: "5 questions, 30 secondes : on vous recommande les modèles parfaits pour votre profil parmi notre catalogue en stock.",
-                cta: "Lancer le quiz",
-                href: "/quiz",
-              },
-              {
-                icon: Search,
-                title: "COMPATIBILITÉ",
-                description: "Sélectionnez votre marque et modèle de trottinette pour voir uniquement les pièces compatibles. Plus de doute à l&apos;achat.",
-                cta: "Vérifier la compat",
-                href: "/compatibilite",
-              },
-              {
-                icon: Disc,
-                title: "DIAGNOSTIC EN LIGNE",
-                description: "Décrivez la panne en quelques étapes : on vous oriente vers la bonne pièce ou le bon service. Gratuit et sans engagement.",
-                cta: "Diagnostiquer",
-                href: "/diagnostic",
-              },
-            ].map((rubrique) => {
-              const Icon = rubrique.icon;
-              return (
-                <Link
-                  key={rubrique.title}
-                  href={rubrique.href}
-                  className="rubrique-card"
-                  style={{
-                    backgroundColor: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    padding: 28,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 16,
-                    transition: "border-color 200ms, transform 200ms",
-                    textDecoration: "none",
-                    color: "inherit",
-                  }}
-                >
-                  <div style={{ width: 44, height: 44, backgroundColor: "var(--color-void)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Icon style={{ width: 22, height: 22, color: "var(--color-neon)" }} />
-                  </div>
-                  <div>
-                    <h3 className="font-display" style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--color-text)", marginBottom: 8, letterSpacing: "-0.01em" }}>
-                      {rubrique.title}
-                    </h3>
-                    <p className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.6 }}>
-                      {rubrique.description}
-                    </p>
-                  </div>
-                  <div className="font-mono" style={{ fontSize: "0.7rem", color: "var(--color-neon)", display: "inline-flex", alignItems: "center", gap: 6, marginTop: "auto" }}>
-                    {rubrique.cta}
-                    <ArrowRight style={{ width: 12, height: 12 }} />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================
-          SECTION 5 — ATELIER
-          ================================================================ */}
-      <section style={{ backgroundColor: "var(--color-void)", padding: "80px 0" }}>
         <div
           className="atelier-grid px-4 md:px-6"
           style={{
@@ -616,91 +529,62 @@ export default async function HomePage() {
             alignItems: "center",
           }}
         >
-          {/* Left: Big text */}
           <div>
-            <h2
-              className="heading-xl text-outline"
-              style={{ marginBottom: 8 }}
-            >
-              ATELIER
+            <p className="spec-label text-neon mb-3">NOTRE ATELIER</p>
+            <h2 className="heading-xl" style={{ marginBottom: 16 }}>
+              VOTRE TROTTINETTE<br />
+              <span style={{ color: "var(--color-neon)" }}>ENTRE DE BONNES MAINS</span>
             </h2>
-            <h2
-              className="heading-xl"
-              style={{ color: "var(--color-neon)" }}
-            >
-              RÉPARATION
-            </h2>
+            <p className="font-mono text-sm text-text-muted" style={{ lineHeight: 1.7, maxWidth: 420, marginBottom: 32 }}>
+              Diagnostic gratuit, devis transparent, pièces d&apos;origine en stock.
+              On répare toutes les marques — du Xiaomi M365 au Dualtron Thunder.
+            </p>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Link href="/reparation" className="btn-neon">
+                DÉPOSER UN TICKET SAV
+              </Link>
+              <Link href="/diagnostic" className="btn-outline">
+                DIAGNOSTIC EN LIGNE
+              </Link>
+            </div>
           </div>
 
-          {/* Right: Spec blocks */}
-          <div>
-            <div style={{ marginBottom: 24 }}>
-              <h4
-                className="font-display"
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {[
+              { step: "01", title: "DIAGNOSTIC", desc: "Identification du problème — 15 min sur place ou en ligne" },
+              { step: "02", title: "DEVIS", desc: "Prix transparent, pas de surprise. Vous validez avant qu'on touche à quoi que ce soit" },
+              { step: "03", title: "RÉPARATION", desc: "1 à 3 jours ouvrés. Suivi en temps réel depuis votre espace client" },
+              { step: "04", title: "RETRAIT", desc: "On vous prévient par SMS. Votre trottinette est prête, testée et garantie" },
+            ].map((item) => (
+              <div
+                key={item.step}
                 style={{
-                  fontWeight: 700,
-                  fontSize: "0.9rem",
-                  color: "var(--color-text)",
-                  textTransform: "uppercase",
-                  marginBottom: 6,
+                  display: "flex",
+                  gap: 16,
+                  alignItems: "flex-start",
+                  padding: "16px 0",
+                  borderBottom: "1px solid var(--color-border)",
                 }}
               >
-                DIAGNOSTIC
-              </h4>
-              <p className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-                Identification du problème en 2 clics
-              </p>
-            </div>
-
-            <div className="divider" style={{ marginBottom: 24 }} />
-
-            <div style={{ marginBottom: 24 }}>
-              <h4
-                className="font-display"
-                style={{
-                  fontWeight: 700,
-                  fontSize: "0.9rem",
-                  color: "var(--color-text)",
-                  textTransform: "uppercase",
-                  marginBottom: 6,
-                }}
-              >
-                RÉPARATION
-              </h4>
-              <p className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-                Toutes marques, toutes pannes
-              </p>
-            </div>
-
-            <div className="divider" style={{ marginBottom: 24 }} />
-
-            <div style={{ marginBottom: 32 }}>
-              <h4
-                className="font-display"
-                style={{
-                  fontWeight: 700,
-                  fontSize: "0.9rem",
-                  color: "var(--color-text)",
-                  textTransform: "uppercase",
-                  marginBottom: 6,
-                }}
-              >
-                PIÈCES
-              </h4>
-              <p className="font-mono" style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-                700+ références en stock immédiat
-              </p>
-            </div>
-
-            <Link href="/reparation" className="btn-neon">
-              DÉPOSER UN TICKET SAV
-            </Link>
+                <span className="font-mono" style={{ fontSize: "0.7rem", color: "var(--color-neon)", fontWeight: 700, minWidth: 24 }}>
+                  {item.step}
+                </span>
+                <div>
+                  <h4 className="font-display" style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--color-text)", marginBottom: 4 }}>
+                    {item.title}
+                  </h4>
+                  <p className="font-mono" style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+                    {item.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ================================================================
-          SECTION 7 — NEWSLETTER
+          NEWSLETTER
           ================================================================ */}
       <section style={{ backgroundColor: "var(--color-void)", padding: "64px 0" }}>
         <div className="divider-neon" style={{ marginBottom: 48 }} />
@@ -722,7 +606,6 @@ export default async function HomePage() {
           <NewsletterForm />
         </div>
       </section>
-
     </>
   );
 }

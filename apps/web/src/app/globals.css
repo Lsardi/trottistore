@@ -700,6 +700,9 @@ body {
   .rubriques-grid {
     grid-template-columns: 1fr !important;
   }
+  .paths-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 480px) {
