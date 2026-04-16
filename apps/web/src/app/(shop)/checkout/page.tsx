@@ -413,8 +413,9 @@ export default function CheckoutPage() {
         <form onSubmit={handleSubmit} className="lg:col-span-2 bg-surface border border-border p-6 space-y-5">
           {isGuest && (
             <div>
-              <p className="spec-label mb-2">Votre email</p>
+              <label htmlFor="guest-email" className="spec-label mb-2 block">Votre email</label>
               <input
+                id="guest-email"
                 type="email"
                 required
                 placeholder="votre@email.fr"
@@ -429,8 +430,9 @@ export default function CheckoutPage() {
             </div>
           )}
           <div>
-            <p className="spec-label mb-2">Adresse de livraison</p>
+            <label htmlFor="shipping-address" className="spec-label mb-2 block">Adresse de livraison</label>
             <select
+              id="shipping-address"
               value={shippingAddressId}
               onChange={(e) => setShippingAddressId(e.target.value)}
               className="input-dark w-full"
@@ -463,25 +465,37 @@ export default function CheckoutPage() {
               <div className="mt-3 border border-border p-4 space-y-3">
                 <p className="spec-label">Nouvelle adresse</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="addr-firstname" className="sr-only">Prénom</label>
+                    <input
+                      id="addr-firstname"
+                      className="input-dark w-full"
+                      placeholder="Prénom*"
+                      value={inlineAddress.firstName}
+                      onChange={(e) => setInlineAddress((prev) => ({ ...prev, firstName: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="addr-lastname" className="sr-only">Nom</label>
+                    <input
+                      id="addr-lastname"
+                      className="input-dark w-full"
+                      placeholder="Nom*"
+                      value={inlineAddress.lastName}
+                      onChange={(e) => setInlineAddress((prev) => ({ ...prev, lastName: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="addr-street" className="sr-only">Adresse</label>
                   <input
+                    id="addr-street"
                     className="input-dark w-full"
-                    placeholder="Prénom*"
-                    value={inlineAddress.firstName}
-                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, firstName: e.target.value }))}
-                  />
-                  <input
-                    className="input-dark w-full"
-                    placeholder="Nom*"
-                    value={inlineAddress.lastName}
-                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="Adresse*"
+                    value={inlineAddress.street}
+                    onChange={(e) => setInlineAddress((prev) => ({ ...prev, street: e.target.value }))}
                   />
                 </div>
-                <input
-                  className="input-dark w-full"
-                  placeholder="Adresse*"
-                  value={inlineAddress.street}
-                  onChange={(e) => setInlineAddress((prev) => ({ ...prev, street: e.target.value }))}
-                />
                 <input
                   className="input-dark w-full"
                   placeholder="Complément d'adresse"

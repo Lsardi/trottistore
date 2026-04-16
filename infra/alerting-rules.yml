@@ -32,6 +32,9 @@ groups:
           description: "{{ $labels.job }} p95 latency >2s for 5 minutes."
 
       # Database connection failure (A10.1 — real gauge from /ready endpoint)
+      # Metric exposed by services/ecommerce/src/routes/health.ts on /ready
+      # Prometheus must scrape the ecommerce /metrics endpoint for this alert to fire.
+      # See RELEASE_RUNBOOK.md §8 for runbook.
       - alert: DatabaseUnhealthy
         expr: trottistore_database_healthy == 0
         for: 1m

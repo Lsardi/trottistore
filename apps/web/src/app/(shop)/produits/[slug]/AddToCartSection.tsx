@@ -94,7 +94,7 @@ export default function AddToCartSection({
       {/* Bandeau réassurance */}
       <div className="mt-4 grid grid-cols-2 gap-2">
         {[
-          { icon: Truck, text: "Livraison 48h" },
+          { icon: Truck, text: "Livraison 48-72h" },
           { icon: RotateCcw, text: "Retour 14 jours" },
           { icon: ShieldCheck, text: "Garantie 2 ans" },
           { icon: CreditCard, text: "Paiement sécurisé" },
