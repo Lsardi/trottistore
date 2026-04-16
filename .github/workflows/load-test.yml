@@ -1,0 +1,78 @@
+name: Load Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "Scenario (smoke, standard, stress)"
+        required: true
+        default: "smoke"
+        type: choice
+        options:
+          - smoke
+          - standard
+          - stress
+      script:
+        description: "Script to run"
+        required: true
+        default: "ecommerce"
+        type: choice
+        options:
+          - ecommerce
+          - admin
+      parallel_runners:
+        description: "Number of parallel runners (each has a different IP)"
+        required: true
+        default: "3"
+        type: choice
+        options:
+          - "1"
+          - "3"
+          - "5"
+
+permissions:
+  contents: read
+
+jobs:
+  load-test:
+    name: "k6 runner ${{ matrix.runner }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        runner: ${{ fromJSON(format('[{0}]', inputs.parallel_runners == '1' && '"1"' || inputs.parallel_runners == '3' && '"1","2","3"' || '"1","2","3","4","5"')) }}
+    env:
+      BASE_URL: ${{ vars.PROD_WEB_URL || 'https://trottistoreweb-production.up.railway.app' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          curl -sL https://dl.k6.io/key.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/k6-archive-keyring.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install -y k6
+
+      - name: Show runner IP
+        run: curl -s https://api.ipify.org && echo ""
+
+      - name: Run k6 (${{ inputs.script }}, ${{ inputs.scenario }})
+        run: |
+          SCRIPT="tests/load/ecommerce-load.js"
+          EXTRA_ENVS=""
+          if [ "${{ inputs.script }}" = "admin" ]; then
+            SCRIPT="tests/load/admin-operations.js"
+            EXTRA_ENVS="--env ADMIN_EMAIL=admin@trottistore.fr --env ADMIN_PASSWORD=${{ secrets.SEED_ADMIN_PASSWORD }}"
+          fi
+          k6 run "$SCRIPT" \
+            --env "BASE_URL=$BASE_URL" \
+            --env "SCENARIO=${{ inputs.scenario }}" \
+            $EXTRA_ENVS \
+            --summary-export results-${{ matrix.runner }}.json \
+            || true  # Don't fail the job on threshold breaches
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results-runner-${{ matrix.runner }}
+          path: results-*.json
