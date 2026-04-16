@@ -75,6 +75,11 @@ function ReparationPage() {
   const [success, setSuccess] = useState<{ ticketNumber: number; trackingUrl?: string } | null>(null);
   const [error, setError] = useState("");
   const [consent, setConsent] = useState(false);
+  const [wantsAppointment, setWantsAppointment] = useState(false);
+  const [appointmentDate, setAppointmentDate] = useState("");
+  const [availableSlots, setAvailableSlots] = useState<Array<{ startsAt: string; available: boolean }>>([]);
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -344,6 +349,94 @@ function ReparationPage() {
               onChange={(e) => setFormData({ ...formData, issueDescription: e.target.value })}
               className="input-dark w-full resize-none"
             />
+          </div>
+
+          {/* Optional appointment booking */}
+          <div className="border border-border p-4 space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={wantsAppointment}
+                onChange={(e) => {
+                  setWantsAppointment(e.target.checked);
+                  if (!e.target.checked) {
+                    setAppointmentDate("");
+                    setAvailableSlots([]);
+                    setSelectedSlot("");
+                  }
+                }}
+              />
+              <span className="font-mono text-sm text-text">
+                Je souhaite réserver un créneau à l&apos;atelier
+              </span>
+            </label>
+
+            {wantsAppointment && (
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label htmlFor="appt-date" className="spec-label block mb-2">Date souhaitée</label>
+                  <input
+                    id="appt-date"
+                    type="date"
+                    min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+                    value={appointmentDate}
+                    onChange={async (e) => {
+                      const date = e.target.value;
+                      setAppointmentDate(date);
+                      setSelectedSlot("");
+                      if (!date) { setAvailableSlots([]); return; }
+                      setLoadingSlots(true);
+                      try {
+                        const res = await fetch(`/api/v1/appointments/slots?date=${date}`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          setAvailableSlots(data.data || []);
+                        }
+                      } catch { /* ignore */ }
+                      setLoadingSlots(false);
+                    }}
+                    className="input-dark w-full"
+                  />
+                </div>
+
+                {loadingSlots && (
+                  <p className="font-mono text-xs text-text-dim flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Chargement des créneaux...
+                  </p>
+                )}
+
+                {availableSlots.length > 0 && (
+                  <div>
+                    <p className="spec-label mb-2">Créneaux disponibles</p>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {availableSlots.filter((s) => s.available).map((slot) => {
+                        const time = new Date(slot.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+                        const isSelected = selectedSlot === slot.startsAt;
+                        return (
+                          <button
+                            key={slot.startsAt}
+                            type="button"
+                            onClick={() => setSelectedSlot(slot.startsAt)}
+                            className={cn(
+                              "py-2 px-3 border font-mono text-xs transition-all",
+                              isSelected
+                                ? "border-neon bg-neon-dim text-neon"
+                                : "border-border text-text-muted hover:border-text-dim"
+                            )}
+                          >
+                            {time}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {appointmentDate && !loadingSlots && availableSlots.filter((s) => s.available).length === 0 && (
+                  <p className="font-mono text-xs text-text-dim">Aucun créneau disponible ce jour. Essayez une autre date.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {error && (
