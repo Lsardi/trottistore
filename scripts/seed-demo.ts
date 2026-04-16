@@ -14,7 +14,9 @@ const prisma = new PrismaClient({ log: ["warn", "error"] });
 // ── Helpers ──────────────────────────────────────────────
 const now = new Date();
 const daysAgo = (d: number) => new Date(now.getTime() - d * 86400000);
-const PASSWORD = hashSync("demo1234", 10);
+// A5-04: Use SEED_DEMO_PASSWORD env var if available, fall back to demo1234 for local dev
+const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD || "demo1234";
+const PASSWORD = hashSync(DEMO_PASSWORD, 10);
 
 function addr(street: string, postal: string, city: string, first: string, last: string) {
   return {

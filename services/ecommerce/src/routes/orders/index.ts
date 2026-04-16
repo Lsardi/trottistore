@@ -354,7 +354,13 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
     const checkoutToken = await ensureCheckoutToken(app, cartKey, cart);
-    const orderIdempotencyKey = getOrderIdempotencyKey(checkoutToken);
+    // CL-10: Accept Idempotency-Key header as alternative to checkout token
+    const idempotencyHeader = typeof request.headers["idempotency-key"] === "string"
+      ? request.headers["idempotency-key"]
+      : undefined;
+    const orderIdempotencyKey = idempotencyHeader
+      ? `order:idempotency:header:${idempotencyHeader}`
+      : getOrderIdempotencyKey(checkoutToken);
 
     // 2. Validate addresses belong to user
     const addressIds = [
@@ -773,7 +779,13 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
     const checkoutToken = await ensureCheckoutToken(app, cartKey, cart);
-    const orderIdempotencyKey = getOrderIdempotencyKey(checkoutToken);
+    // CL-10: Accept Idempotency-Key header (guest checkout path)
+    const guestIdempotencyHeader = typeof request.headers["idempotency-key"] === "string"
+      ? request.headers["idempotency-key"]
+      : undefined;
+    const orderIdempotencyKey = guestIdempotencyHeader
+      ? `order:idempotency:header:${guestIdempotencyHeader}`
+      : getOrderIdempotencyKey(checkoutToken);
 
     const orderInclude = {
       items: {

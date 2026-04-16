@@ -53,6 +53,8 @@ function formatPrice(amount: string | number): string {
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", phone: "" });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [registerForm, setRegisterForm] = useState({
     email: "",
@@ -184,6 +186,7 @@ function formatPrice(amount: string | number): string {
             </button>
             <button
               onClick={async () => {
+                setActionFeedback("");
                 try {
                   const res = await fetch("/api/v1/auth/export", {
                     headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
@@ -197,7 +200,7 @@ function formatPrice(amount: string | number): string {
                   a.click();
                   URL.revokeObjectURL(url);
                 } catch {
-                  alert("Erreur lors de l'export. Réessayez.");
+                  setActionFeedback("Erreur lors de l'export. Réessayez.");
                 }
               }}
               className="font-mono text-xs text-text-dim underline"
@@ -205,24 +208,48 @@ function formatPrice(amount: string | number): string {
               Exporter mes données
             </button>
             <button
-              onClick={async () => {
-                if (!confirm("Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.")) return;
-                if (!confirm("Dernière confirmation : toutes vos données personnelles seront effacées.")) return;
-                try {
-                  await fetch("/api/v1/auth/account", {
-                    method: "DELETE",
-                    headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
-                  });
-                  localStorage.removeItem("accessToken");
-                  window.location.href = "/";
-                } catch {
-                  alert("Erreur lors de la suppression. Contactez-nous.");
-                }
-              }}
-              className="font-mono text-xs text-danger underline"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="font-mono text-xs text-red-400 underline"
             >
               Supprimer mon compte
             </button>
+            {actionFeedback && (
+              <p className="font-mono text-xs text-red-400" role="alert">{actionFeedback}</p>
+            )}
+            {showDeleteConfirm && (
+              <div className="border border-red-400/30 bg-red-400/5 p-4 space-y-3 mt-2">
+                <p className="font-mono text-xs text-text">
+                  Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.
+                  Toutes vos données personnelles seront effacées.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await fetch("/api/v1/auth/account", {
+                          method: "DELETE",
+                          headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+                        });
+                        localStorage.removeItem("accessToken");
+                        window.location.href = "/";
+                      } catch {
+                        setActionFeedback("Erreur lors de la suppression. Contactez-nous.");
+                      }
+                      setShowDeleteConfirm(false);
+                    }}
+                    className="btn-outline text-red-400 border-red-400/30 font-mono text-xs"
+                  >
+                    CONFIRMER LA SUPPRESSION
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="btn-outline font-mono text-xs"
+                  >
+                    ANNULER
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

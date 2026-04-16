@@ -20,23 +20,38 @@ export default function PolitiqueConfidentialitePage() {
 
       <section className="space-y-2">
         <p className="spec-label">Categories de donnees</p>
-        <p className="font-mono text-sm text-text-muted">
-          Identite, coordonnees, adresses, donnees de commande, donnees SAV, donnees de connexion.
-        </p>
+        <ul className="font-mono text-sm text-text-muted list-disc list-inside space-y-1">
+          <li>Identité et coordonnées (nom, email, téléphone)</li>
+          <li>Adresses de livraison et facturation</li>
+          <li>Données de commande et paiement</li>
+          <li>Données SAV (tickets de réparation, devis, pièces)</li>
+          <li>Données de connexion (IP, horodatage)</li>
+          <li>Inscription newsletter (email, date, source, consentement)</li>
+          <li>Avis clients (note, commentaire, achat vérifié)</li>
+        </ul>
       </section>
 
       <section className="space-y-2">
         <p className="spec-label">Finalites</p>
-        <p className="font-mono text-sm text-text-muted">
-          Gestion des commandes, livraison, service apres-vente, relation client, securite et prevention de la fraude.
-        </p>
+        <ul className="font-mono text-sm text-text-muted list-disc list-inside space-y-1">
+          <li>Gestion des commandes et livraison</li>
+          <li>Service après-vente et suivi des réparations</li>
+          <li>Relation client et programme de fidélité</li>
+          <li>Envoi de la newsletter (avec consentement explicite)</li>
+          <li>Mesure d&apos;audience et amélioration du site (avec consentement)</li>
+          <li>Sécurité et prévention de la fraude</li>
+        </ul>
       </section>
 
       <section className="space-y-2">
         <p className="spec-label">Durées de conservation</p>
-        <p className="font-mono text-sm text-text-muted">
-          Les donnees sont conservees pendant la duree necessaire a la finalite et aux obligations legales applicables.
-        </p>
+        <ul className="font-mono text-sm text-text-muted list-disc list-inside space-y-1">
+          <li>Comptes clients : durée de la relation commerciale + 3 ans</li>
+          <li>Données de commande : 10 ans (obligation comptable)</li>
+          <li>Newsletter : jusqu&apos;au désabonnement</li>
+          <li>Données de connexion : 12 mois</li>
+          <li>Tickets SAV : 5 ans après clôture</li>
+        </ul>
       </section>
 
       <section className="space-y-2">
@@ -49,9 +64,13 @@ export default function PolitiqueConfidentialitePage() {
       <section className="space-y-2">
         <p className="spec-label">Contact DPO</p>
         <p className="font-mono text-sm text-text-muted">
-          Email: {brand.email}
+          Email : {brand.dpoEmail}
           <br />
-          Adresse: {brand.address.street}, {brand.address.postalCode} {brand.address.city}
+          Adresse : {brand.address.street}, {brand.address.postalCode} {brand.address.city}
+        </p>
+        <p className="font-mono text-xs text-text-dim">
+          Pour exercer vos droits (accès, rectification, effacement, portabilité), envoyez un email au DPO
+          avec une copie de votre pièce d&apos;identité. Réponse sous 30 jours.
         </p>
       </section>
     </div>

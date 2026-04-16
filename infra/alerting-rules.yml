@@ -2,6 +2,7 @@ groups:
   - name: trottistore-infra
     rules:
       # Service down — no /health response for 2 minutes
+      # Runbook: RELEASE_RUNBOOK.md §5 (Rollback Procedure)
       - alert: ServiceDown
         expr: up == 0
         for: 2m
@@ -12,6 +13,7 @@ groups:
           description: "Service {{ $labels.job }} has been unreachable for 2 minutes."
 
       # High error rate — >5% of requests return 5xx
+      # Runbook: INCIDENT_RUNBOOK.md
       - alert: HighErrorRate
         expr: rate(trottistore_http_requests_total{status_code=~"5.."}[5m]) / rate(trottistore_http_requests_total[5m]) > 0.05
         for: 5m

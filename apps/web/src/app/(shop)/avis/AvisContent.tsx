@@ -90,7 +90,7 @@ export default function AvisContent() {
             <p className="font-display font-bold text-text text-lg">
               {stats.totalReviews} avis
             </p>
-            <p className="font-mono text-xs text-text-muted">Avis vérifiés</p>
+            <p className="font-mono text-xs text-text-muted">Avis clients</p>
           </div>
         </div>
 
