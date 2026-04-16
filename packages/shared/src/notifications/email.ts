@@ -9,9 +9,8 @@
  */
 import { sendViaSmtp, sendViaBrevo } from "./transport.js";
 
-const DEFAULT_SENDER_NAME = "TrottiStore";
-// Use verified Brevo sender — switch to commandes@trottistore.fr after DNS SPF/DKIM setup
-const DEFAULT_SENDER_EMAIL = "lyes.sardi@gmail.com";
+const DEFAULT_SENDER_NAME = process.env.MAIL_SENDER_NAME || "TrottiStore";
+const DEFAULT_SENDER_EMAIL = process.env.MAIL_FROM || "lyes.sardi@gmail.com";
 
 /**
  * Send an HTML email with SMTP → Brevo fallback.
