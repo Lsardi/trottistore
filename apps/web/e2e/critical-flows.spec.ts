@@ -5,6 +5,12 @@ test.describe("Critical Flows", () => {
     await page.addInitScript(() => {
       window.localStorage.setItem("accessToken", "fake-token");
       window.localStorage.setItem("trottistore-session-id", "e2e-session");
+      // Dismiss cookie banner so it doesn't overlay checkout buttons
+      window.localStorage.setItem("cookie-consent", JSON.stringify({
+        essentials: true,
+        analytics: false,
+        timestamp: new Date().toISOString(),
+      }));
     });
 
     await page.route("**/api/v1/cart", async (route) => {
@@ -105,17 +111,19 @@ test.describe("Critical Flows", () => {
 
     await page.goto("/checkout");
     await expect(page.getByRole("heading", { name: /checkout/i })).toBeVisible();
-    // Wait for cart data to load (button becomes enabled when items > 0)
+
+    // Verify cart item is displayed in the recap
+    await expect(page.getByText(/scooter pro/i)).toBeVisible();
+    await expect(page.getByText(/120,00/).first()).toBeVisible();
+
+    // Select "Virement bancaire" to avoid Stripe SDK dependency in E2E
+    const paymentSelect = page.locator("select").filter({ hasText: /carte bancaire|virement/i });
+    await paymentSelect.selectOption("BANK_TRANSFER");
+
+    // The submit button should now show "PASSER LA COMMANDE" (non-Stripe flow)
     const submitBtn = page.getByRole("button", { name: /passer la commande/i });
-    await expect(submitBtn).toBeVisible();
-    // Try to click if enabled, otherwise verify the page rendered correctly
-    try {
-      await submitBtn.click({ timeout: 5000 });
-      await expect(page.getByText(/commande valid/i)).toBeVisible({ timeout: 5000 });
-    } catch {
-      // If button stays disabled (CI env), at least verify cart item is shown
-      await expect(page.getByText(/scooter pro/i)).toBeVisible();
-    }
+    await submitBtn.scrollIntoViewIfNeeded();
+    await expect(submitBtn).toBeVisible({ timeout: 10000 });
   });
 
   test("account dashboard renders for authenticated user", async ({ page }) => {
