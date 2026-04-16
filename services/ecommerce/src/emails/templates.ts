@@ -214,6 +214,29 @@ export function orderShippedEmail(data: OrderShippedData): { subject: string; ht
   };
 }
 
+export function verificationEmail(name: string, code: string): { subject: string; html: string } {
+  const html = layout(`
+    <h2 style="color: #111; font-size: 18px;">Vérifiez votre adresse email</h2>
+    <p style="color: #555;">Bonjour ${esc(name)},</p>
+    <p style="color: #555;">
+      Votre code de vérification est :
+    </p>
+    <div style="text-align: center; margin: 24px 0;">
+      <span style="display: inline-block; background: #00CCa8; color: #111; padding: 16px 32px; font-size: 28px; font-weight: bold; letter-spacing: 8px; font-family: monospace;">
+        ${esc(code)}
+      </span>
+    </div>
+    <p style="color: #888; font-size: 13px;">
+      Ce code expire dans 15 minutes. Si vous n'avez pas créé de compte, ignorez cet email.
+    </p>
+  `);
+
+  return {
+    subject: `${BRAND} — Code de vérification : ${code}`,
+    html,
+  };
+}
+
 // CL-08: Invoice email sent automatically after payment confirmation (CGI art. 289-VII)
 interface InvoiceEmailData {
   orderNumber: number;

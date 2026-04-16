@@ -105,7 +105,7 @@ describe("Email sending verification", () => {
   });
 
   describe("Registration → Welcome email", () => {
-    it("sends welcome email to newly registered user", async () => {
+    it("sends verification email to newly registered user", async () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/v1/auth/register",
@@ -125,9 +125,9 @@ describe("Email sending verification", () => {
       expect(mockSendEmail).toHaveBeenCalledOnce();
       const [to, subject, html] = mockSendEmail.mock.calls[0];
       expect(to).toBe("alice@example.com");
-      expect(subject).toContain("Bienvenue");
+      expect(subject).toContain("vérification");
       expect(html).toContain("Alice");
-      expect(html).toContain("CATALOGUE");
+      expect(html).toContain("expire");
     });
   });
 

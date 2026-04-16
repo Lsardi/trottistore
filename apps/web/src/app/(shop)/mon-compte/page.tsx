@@ -57,6 +57,9 @@ function formatPrice(amount: string | number): string {
   const [profileMsg, setProfileMsg] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [actionFeedback, setActionFeedback] = useState("");
+  const [pendingVerification, setPendingVerification] = useState<{ userId: string; email: string } | null>(null);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyError, setVerifyError] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [registerForm, setRegisterForm] = useState({
     email: "",
@@ -139,17 +142,11 @@ function formatPrice(amount: string | number): string {
     setLoading(true);
     setError("");
     try {
-      await authApi.register(registerForm);
-      const res = await authApi.login({
-        email: registerForm.email,
-        password: registerForm.password,
-      });
-      localStorage.setItem("accessToken", res.accessToken);
-      // First-time login: push any anonymously-built garage to the new account.
-      await syncGarageWithServer(res.accessToken).catch(() => undefined);
-      window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
+      const regResult = await authApi.register(registerForm);
+      // Show email verification step instead of auto-login
+      setPendingVerification({ userId: regResult.user.id, email: registerForm.email });
     } catch {
-      setError("Erreur lors de l'inscription. Cet email est peut-etre deja utilise.");
+      setError("Erreur lors de l'inscription. Cet email est peut-être déjà utilisé.");
     } finally {
       setLoading(false);
     }
@@ -459,6 +456,91 @@ function formatPrice(amount: string | number): string {
             setUser(meRes.data);
           }}
         />
+      </div>
+    );
+  }
+
+  // Email verification step after registration
+  if (pendingVerification) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="bg-surface border border-border p-8 space-y-6">
+            <div className="text-center">
+              <h1 className="heading-lg mb-2">VÉRIFICATION EMAIL</h1>
+              <p className="font-mono text-sm text-text-muted">
+                Un code à 6 chiffres a été envoyé à <span className="text-neon">{pendingVerification.email}</span>
+              </p>
+            </div>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setVerifyError("");
+                try {
+                  await fetch("/api/v1/auth/verify-email", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userId: pendingVerification.userId, code: verifyCode }),
+                  }).then(async (r) => {
+                    if (!r.ok) throw new Error((await r.json()).error?.message || "Code invalide");
+                  });
+                  // Verified — now login
+                  const res = await authApi.login({
+                    email: pendingVerification.email,
+                    password: registerForm.password,
+                  });
+                  localStorage.setItem("accessToken", res.accessToken);
+                  window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
+                } catch (err) {
+                  setVerifyError(err instanceof Error ? err.message : "Code invalide ou expiré");
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label htmlFor="verify-code" className="spec-label mb-2 block">Code de vérification</label>
+                <input
+                  id="verify-code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={verifyCode}
+                  onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
+                  className="input-dark w-full text-center text-2xl tracking-[0.5em] font-mono"
+                  placeholder="000000"
+                  autoFocus
+                />
+              </div>
+              {verifyError && <p className="font-mono text-xs text-danger" role="alert">{verifyError}</p>}
+              <button type="submit" disabled={verifyCode.length !== 6} className="btn-neon w-full disabled:opacity-50">
+                VÉRIFIER
+              </button>
+            </form>
+            <div className="text-center space-y-2">
+              <button
+                onClick={async () => {
+                  await fetch("/api/v1/auth/resend-verification", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userId: pendingVerification.userId }),
+                  });
+                  setVerifyError("Nouveau code envoyé !");
+                }}
+                className="font-mono text-xs text-neon underline"
+              >
+                Renvoyer le code
+              </button>
+              <br />
+              <button
+                onClick={() => setPendingVerification(null)}
+                className="font-mono text-xs text-text-dim underline"
+              >
+                Retour à l&apos;inscription
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

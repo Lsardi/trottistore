@@ -14,6 +14,14 @@ const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_DAYS = 30;
 const BCRYPT_ROUNDS = 12;
 const PASSWORD_RESET_EXPIRY_HOURS = 1;
+const EMAIL_VERIFY_CODE_LENGTH = 6;
+const EMAIL_VERIFY_TTL_SECONDS = 15 * 60; // 15 minutes
+
+function generateVerifyCode(): string {
+  const min = Math.pow(10, EMAIL_VERIFY_CODE_LENGTH - 1);
+  const max = Math.pow(10, EMAIL_VERIFY_CODE_LENGTH) - 1;
+  return String(Math.floor(min + Math.random() * (max - min + 1)));
+}
 
 // ─── Validation schemas ────────────────────────────────────
 
@@ -202,10 +210,15 @@ export async function authRoutes(app: FastifyInstance) {
       throw err;
     }
 
-    // Send welcome email (non-blocking)
-    const { subject, html } = welcomeEmail(user.firstName);
+    // Generate verification code and store in Redis
+    const verifyCode = generateVerifyCode();
+    await app.redis.set(`email-verify:${user.id}`, verifyCode, "EX", EMAIL_VERIFY_TTL_SECONDS);
+
+    // Send verification email (non-blocking)
+    const { verificationEmail } = await import("../../emails/templates.js");
+    const { subject, html } = verificationEmail(user.firstName, verifyCode);
     sendEmail(user.email, subject, html).catch((e: unknown) =>
-      app.log.error({ err: e }, "Failed to send welcome email"),
+      app.log.error({ err: e }, "Failed to send verification email"),
     );
 
     return reply.status(201).send({
@@ -217,9 +230,80 @@ export async function authRoutes(app: FastifyInstance) {
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
+          emailVerified: false,
         },
+        message: "Un code de vérification a été envoyé à votre adresse email.",
       },
     });
+  });
+
+  // ── POST /auth/verify-email ─────────────────────────────
+  app.post("/auth/verify-email", {
+    config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+  }, async (request, reply) => {
+    const schema = z.object({
+      userId: z.string().uuid(),
+      code: z.string().length(EMAIL_VERIFY_CODE_LENGTH),
+    });
+    const body = schema.parse(request.body);
+
+    const storedCode = await app.redis.get(`email-verify:${body.userId}`);
+    if (!storedCode || storedCode !== body.code) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "INVALID_CODE", message: "Code invalide ou expiré" },
+      });
+    }
+
+    // Mark email as verified
+    await app.prisma.user.update({
+      where: { id: body.userId },
+      data: { emailVerified: true },
+    });
+
+    // Clean up Redis
+    await app.redis.del(`email-verify:${body.userId}`);
+
+    // Send welcome email now that email is verified
+    const user = await app.prisma.user.findUnique({
+      where: { id: body.userId },
+      select: { firstName: true, email: true },
+    });
+    if (user) {
+      const { subject: welcomeSubject, html: welcomeHtml } = welcomeEmail(user.firstName);
+      sendEmail(user.email, welcomeSubject, welcomeHtml).catch(() => {});
+    }
+
+    return { success: true, data: { message: "Email vérifié avec succès" } };
+  });
+
+  // ── POST /auth/resend-verification ──────────────────────
+  app.post("/auth/resend-verification", {
+    config: { rateLimit: { max: 3, timeWindow: "5 minutes" } },
+  }, async (request, reply) => {
+    const schema = z.object({ userId: z.string().uuid() });
+    const body = schema.parse(request.body);
+
+    const user = await app.prisma.user.findUnique({
+      where: { id: body.userId },
+      select: { id: true, email: true, firstName: true, emailVerified: true },
+    });
+
+    if (!user || user.emailVerified) {
+      // Don't reveal if user exists or is already verified
+      return { success: true, data: { message: "Si ce compte existe, un code a été envoyé." } };
+    }
+
+    const verifyCode = generateVerifyCode();
+    await app.redis.set(`email-verify:${user.id}`, verifyCode, "EX", EMAIL_VERIFY_TTL_SECONDS);
+
+    const { verificationEmail } = await import("../../emails/templates.js");
+    const { subject, html } = verificationEmail(user.firstName, verifyCode);
+    sendEmail(user.email, subject, html).catch((e: unknown) =>
+      app.log.error({ err: e }, "Failed to resend verification email"),
+    );
+
+    return { success: true, data: { message: "Si ce compte existe, un code a été envoyé." } };
   });
 
   // ── POST /auth/login ───────────────────────────────────
