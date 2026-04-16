@@ -345,7 +345,6 @@ export default async function HomePage() {
                     display: "flex",
                     flexDirection: "column",
                     gap: 16,
-                    transition: "border-color 200ms, transform 200ms",
                     textDecoration: "none",
                     color: "inherit",
                     minHeight: 260,
