@@ -98,6 +98,8 @@ async function start() {
     }
 
     await app.authenticate(request, reply);
+    if (reply.sent) return; // authenticate already sent 401
+
     const role = request.user?.role;
     const allowed = role === "SUPERADMIN" || role === "ADMIN" || role === "MANAGER";
     if (!allowed) {
