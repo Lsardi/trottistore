@@ -172,43 +172,11 @@ function SidebarSearchForm({
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
 
-  // Auth guard — redirect to login if no access token
-  const [authChecked, setAuthChecked] = useState(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      router.replace("/mon-compte");
-      return;
-    }
-    // Verify token is valid and user has a backoffice role
-    const BACKOFFICE_ROLES = ["SUPERADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "STAFF"];
-    fetch("/api/v1/auth/me", { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => {
-        if (res.ok) return res.json();
-        // 429 = rate-limited, not an auth error — let the user through
-        if (res.status === 429) return null;
-        throw new Error("unauthorized");
-      })
-      .then((data) => {
-        if (data === null) {
-          // Rate-limited — trust the existing token, don't block the admin
-          setAuthChecked(true);
-          return;
-        }
-        if (data?.data?.role && BACKOFFICE_ROLES.includes(data.data.role)) {
-          setAuthChecked(true);
-        } else {
-          router.replace("/mon-compte");
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem("accessToken");
-        router.replace("/mon-compte");
-      });
-  }, [router]);
+  // Auth is now handled by Next.js middleware (src/middleware.ts).
+  // The middleware checks the accessToken cookie before the page even renders.
+  // No more useEffect race conditions or rate-limit issues.
+  const [authChecked] = useState(true);
 
   // Persisted UI state — collapsible sections + favorites.
   // Hydrated in a useEffect so SSR doesn't dump the wrong set and trigger
@@ -218,11 +186,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (!authChecked) return;
     setCollapsed(readSetFromStorage(STORAGE_COLLAPSED));
     setFavorites(readSetFromStorage(STORAGE_FAVORITES));
     setHydrated(true);
-  }, [authChecked]);
+  }, []);
 
   function toggleCollapsed(label: string) {
     setCollapsed((prev) => {
@@ -254,14 +221,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     favoriteItems.length > 0
       ? [{ label: "★ Favoris", items: favoriteItems }, ...NAV_SECTIONS]
       : NAV_SECTIONS;
-
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-void flex items-center justify-center">
-        <p className="font-mono text-sm text-text-dim">Vérification de l&apos;accès...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-void">

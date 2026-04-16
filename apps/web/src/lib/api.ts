@@ -6,6 +6,19 @@
 // On server: call services directly
 const isBrowser = typeof window !== "undefined";
 
+/** Store/remove access token in both localStorage and cookie (for middleware) */
+function persistToken(token: string | null) {
+  if (!isBrowser) return;
+  if (token) {
+    localStorage.setItem("accessToken", token);
+    // Set cookie readable by Next.js middleware (not httpOnly — middleware needs it)
+    document.cookie = `accessToken=${token}; path=/; max-age=${15 * 60}; SameSite=Strict`;
+  } else {
+    localStorage.removeItem("accessToken");
+    document.cookie = "accessToken=; path=/; max-age=0; SameSite=Strict";
+  }
+}
+
 const API_URLS = {
   ecommerce: isBrowser ? "" : (process.env.API_URL || 'http://localhost:3001'),
   crm: isBrowser ? "" : (process.env.API_CRM_URL || 'http://localhost:3002'),
@@ -49,7 +62,7 @@ async function tryRefreshAccessToken(): Promise<string | null> {
           | null;
         const token = body?.data?.accessToken ?? null;
         if (token) {
-          localStorage.setItem("accessToken", token);
+          persistToken(token);
         }
         return token;
       } catch {
