@@ -199,7 +199,7 @@ export default function AtelierPage() {
                   <div>
                     <p className="font-display font-bold text-text text-sm">AVIS CLIENTS</p>
                     <p className="font-mono text-sm text-text-muted mt-1">
-                      Lire les avis vérifiés
+                      Lire les avis clients
                     </p>
                     <Link href="/avis" className="font-mono text-xs text-neon hover:underline mt-2 inline-block">
                       VOIR LES AVIS &rarr;

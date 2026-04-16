@@ -61,7 +61,7 @@ export default async function GoogleReviewsBadge({ variant = "compact" }: Google
       </div>
       <div className="border-l border-border pl-3">
         <p className="font-mono text-xs text-text-muted leading-tight">
-          {data.total} avis vérifiés
+          {data.total} avis Google
         </p>
         <a
           href={data.placeUrl ?? "https://g.page/r/trottistore"}

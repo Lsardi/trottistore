@@ -58,7 +58,7 @@ export default function ProductRatingBadge({ slug, anchor = "avis-produit" }: Pr
       </div>
       <span className="text-neon font-bold">{stats.averageRating.toFixed(1)}</span>
       <span className="text-text-dim">·</span>
-      <span>{stats.totalReviews} {stats.totalReviews > 1 ? "avis vérifiés" : "avis vérifié"}</span>
+      <span>{stats.totalReviews} {stats.totalReviews > 1 ? "avis clients" : "avis client"}</span>
     </a>
   );
 }

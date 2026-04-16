@@ -72,47 +72,6 @@ const localBusinessSchema = {
   ],
 };
 
-const faqSchema = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "Combien coûte une réparation de trottinette électrique ?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Le coût dépend de la panne. Un diagnostic coûte entre 20€ et 50€. Les réparations courantes (pneu, frein, display) vont de 30€ à 150€. Les interventions lourdes (contrôleur, batterie) de 100€ à 400€. Utilisez notre outil de diagnostic en ligne pour une estimation immédiate.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Quelles marques de trottinettes réparez-vous ?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Nous réparons toutes les marques : Dualtron, Xiaomi, Ninebot, Kaabo, Vsett, Segway, Inokim, Minimotors, Teverun, Kuickwheel et plus encore. Notre atelier est équipé pour diagnostiquer et réparer tous les modèles du marché.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Quel est le délai de réparation ?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Les réparations simples (pneu, frein) sont réalisées en 1 à 2 heures. Les interventions plus complexes (contrôleur, batterie) prennent 1 à 3 jours ouvrés. Vous pouvez suivre l'avancement de votre réparation en temps réel depuis votre espace client.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Où se trouve votre boutique ?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: `Notre boutique et atelier se trouvent au ${brand.address.street}, ${brand.address.postalCode} ${brand.address.city}. Nous sommes ouverts du lundi au samedi de 10h à 19h. Vous pouvez venir sans rendez-vous ou réserver un créneau en ligne.`,
-      },
-    },
-  ],
-};
-
-export { faqSchema };
-
 export default function StructuredData() {
   return (
     <script
