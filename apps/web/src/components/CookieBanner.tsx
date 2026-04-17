@@ -69,17 +69,15 @@ export default function CookieBanner() {
 
   return (
     <aside
-      className="fixed bottom-3 left-3 right-3 md:left-6 md:right-6 z-[110]"
+      className="fixed bottom-0 left-0 right-0 md:bottom-3 md:left-6 md:right-6 z-[110]"
       role="dialog"
       aria-modal="true"
       aria-live="polite"
       aria-label="Préférences cookies"
     >
-      <div className="mx-auto max-w-5xl border border-border bg-surface p-4 md:p-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
-        <p className="spec-label mb-2">COOKIES</p>
-        <p className="font-mono text-xs md:text-sm text-text-muted leading-relaxed">
-          Nous utilisons des cookies essentiels (authentification, sécurité) et, avec ton accord, des cookies analytics.
-          Tu peux modifier ton choix à tout moment.{" "}
+      <div className="mx-auto max-w-5xl border border-border bg-surface/95 backdrop-blur-sm p-3 md:p-5 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+        <p className="font-mono text-[10px] md:text-xs text-text-muted leading-relaxed mb-2">
+          Cookies essentiels + analytics (optionnels).{" "}
           <Link href="/cookies" className="underline text-text">
             Voir la politique cookies
           </Link>
@@ -121,15 +119,15 @@ export default function CookieBanner() {
         ) : null}
 
         {!customizing ? (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <button type="button" className="btn-neon w-full" onClick={acceptAll}>
-              TOUT ACCEPTER
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className="btn-neon flex-1 min-w-[120px] py-2 text-xs" onClick={acceptAll}>
+              ACCEPTER
             </button>
-            <button type="button" className="btn-outline w-full" onClick={rejectAll}>
-              TOUT REFUSER
+            <button type="button" className="btn-outline flex-1 min-w-[120px] py-2 text-xs" onClick={rejectAll}>
+              REFUSER
             </button>
-            <button type="button" className="btn-outline w-full" onClick={() => setCustomizing(true)}>
-              PERSONNALISER
+            <button type="button" className="font-mono text-[10px] text-text-dim underline" onClick={() => setCustomizing(true)}>
+              Personnaliser
             </button>
           </div>
         ) : null}

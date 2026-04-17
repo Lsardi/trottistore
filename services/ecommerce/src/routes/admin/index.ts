@@ -850,4 +850,201 @@ export async function adminRoutes(app: FastifyInstance) {
     await app.prisma.category.delete({ where: { id } });
     return { success: true, data: { message: "Category deleted" } };
   });
+
+  // ═══════════════════════════════════════════════════════════
+  // CSV IMPORT — Supplier product import
+  // ═══════════════════════════════════════════════════════════
+
+  const csvRowSchema = z.object({
+    sku: z.string().min(1).max(100),
+    name: z.string().min(1).max(500),
+    description: z.string().optional(),
+    shortDescription: z.string().optional(),
+    price: z.number().nonnegative().optional(),
+    brand: z.string().optional(),
+    category: z.string().optional(),
+    specs: z
+      .object({
+        power: z.string().optional(),
+        voltage: z.string().optional(),
+        battery: z.string().optional(),
+        speed: z.string().optional(),
+        weight: z.string().optional(),
+        range: z.string().optional(),
+      })
+      .optional(),
+  });
+
+  const importCsvSchema = z.object({
+    rows: z.array(csvRowSchema).min(1).max(5000),
+  });
+
+  /**
+   * Build an SEO description from specs when no description is provided.
+   */
+  function generateDescription(
+    row: z.infer<typeof csvRowSchema>,
+  ): string | undefined {
+    const specs = row.specs;
+    if (!specs) return undefined;
+    const hasAny =
+      specs.power || specs.voltage || specs.battery || specs.speed || specs.range;
+    if (!hasAny) return undefined;
+
+    const parts: string[] = [];
+    parts.push(
+      `Trottinette électrique${row.brand ? ` ${row.brand}` : ""}${row.name ? ` ${row.name}` : ""}.`,
+    );
+
+    const specParts: string[] = [];
+    if (specs.power) specParts.push(`Moteur ${specs.power}W`);
+    if (specs.voltage && specs.battery)
+      specParts.push(`batterie ${specs.voltage}V ${specs.battery}Ah`);
+    else if (specs.voltage) specParts.push(`batterie ${specs.voltage}V`);
+    if (specs.range) specParts.push(`autonomie ${specs.range} km`);
+    if (specParts.length > 0) parts.push(`${specParts.join(", ")}.`);
+
+    if (specs.speed) parts.push(`Vitesse max ${specs.speed} km/h.`);
+    if (specs.weight) parts.push(`Poids ${specs.weight} kg.`);
+
+    parts.push("Disponible chez TrottiStore avec garantie 2 ans.");
+
+    return parts.join(" ");
+  }
+
+  // POST /admin/products/import-csv — Bulk import from supplier CSV
+  app.post(
+    "/admin/products/import-csv",
+    adminOnly,
+    async (request, reply) => {
+      const parsed = importCsvSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid import data",
+            details: parsed.error.flatten().fieldErrors,
+          },
+        });
+      }
+
+      const { rows } = parsed.data;
+      const summary = { matched: 0, created: 0, skipped: 0, errors: [] as Array<{ sku: string; error: string }> };
+
+      for (const row of rows) {
+        try {
+          // Try to match by SKU
+          const existing = await app.prisma.product.findUnique({
+            where: { sku: row.sku },
+          });
+
+          if (existing) {
+            // Update existing product
+            const updateData: Record<string, unknown> = {};
+
+            if (row.description) updateData.description = row.description;
+            else if (!existing.description) {
+              const generated = generateDescription(row);
+              if (generated) updateData.description = generated;
+            }
+
+            if (row.shortDescription) updateData.shortDescription = row.shortDescription;
+            if (row.price !== undefined) updateData.priceHt = row.price;
+
+            if (Object.keys(updateData).length > 0) {
+              await app.prisma.product.update({
+                where: { id: existing.id },
+                data: updateData,
+              });
+            }
+
+            summary.matched++;
+          } else {
+            // Create new product with DRAFT status
+            const slug = slugify(row.name);
+            const existingSlug = await app.prisma.product.findUnique({
+              where: { slug },
+            });
+            const finalSlug = existingSlug
+              ? `${slug}-${Date.now().toString(36)}`
+              : slug;
+
+            const description =
+              row.description || generateDescription(row) || undefined;
+
+            // Resolve brand if provided
+            let brandId: string | undefined;
+            if (row.brand) {
+              const brandSlug = slugify(row.brand);
+              const existingBrand = await app.prisma.brand.findFirst({
+                where: {
+                  OR: [
+                    { slug: brandSlug },
+                    { name: { equals: row.brand, mode: "insensitive" } },
+                  ],
+                },
+              });
+              if (existingBrand) brandId = existingBrand.id;
+            }
+
+            // Resolve category if provided
+            let categoryId: string | undefined;
+            if (row.category) {
+              const catSlug = slugify(row.category);
+              const existingCat = await app.prisma.category.findFirst({
+                where: {
+                  OR: [
+                    { slug: catSlug },
+                    { name: { equals: row.category, mode: "insensitive" } },
+                  ],
+                },
+              });
+              if (existingCat) categoryId = existingCat.id;
+            }
+
+            await app.prisma.product.create({
+              data: {
+                name: row.name,
+                sku: row.sku,
+                slug: finalSlug,
+                description,
+                shortDescription: row.shortDescription,
+                priceHt: row.price ?? 0,
+                tvaRate: 20,
+                status: "DRAFT",
+                ...(brandId ? { brandId } : {}),
+                variants: {
+                  create: {
+                    sku: `${row.sku}-DEFAULT`,
+                    name: "Default",
+                    stockQuantity: 0,
+                  },
+                },
+                ...(categoryId
+                  ? { categories: { create: { categoryId } } }
+                  : {}),
+              },
+            });
+
+            summary.created++;
+          }
+        } catch (err: unknown) {
+          const message =
+            err instanceof Error ? err.message : "Unknown error";
+          summary.errors.push({ sku: row.sku, error: message });
+          app.log.warn({ sku: row.sku, err }, "CSV import row failed");
+        }
+      }
+
+      // Invalidate product caches after bulk import
+      await invalidateCache(app.redis, "products:*");
+      await invalidateCache(app.redis, "categories:*");
+
+      return {
+        success: true,
+        data: summary,
+      };
+    },
+  );
 }
