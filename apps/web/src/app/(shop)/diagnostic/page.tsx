@@ -4,18 +4,27 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Zap, Battery, Disc, Monitor, Settings, AlertTriangle,
-  ChevronRight, RotateCcw, Wrench, ArrowRight, CheckCircle2, Phone, BarChart3
+  ChevronRight, RotateCcw, Wrench, ArrowRight, CheckCircle2, Phone, BarChart3, CalendarCheck
 } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 import { trackFunnelEvent } from "@/lib/funnel-tracking";
 import { repairsApi } from "@/lib/api";
 
+const CATEGORY_COLORS: Record<string, { border: string; bg: string; text: string; glow: string }> = {
+  electrical: { border: "border-yellow-400/50", bg: "bg-yellow-400/10", text: "text-yellow-400", glow: "hover:shadow-[0_0_30px_rgba(250,204,21,0.15)]" },
+  battery: { border: "border-green-400/50", bg: "bg-green-400/10", text: "text-green-400", glow: "hover:shadow-[0_0_30px_rgba(74,222,128,0.15)]" },
+  braking: { border: "border-red-400/50", bg: "bg-red-400/10", text: "text-red-400", glow: "hover:shadow-[0_0_30px_rgba(248,113,113,0.15)]" },
+  display: { border: "border-blue-400/50", bg: "bg-blue-400/10", text: "text-blue-400", glow: "hover:shadow-[0_0_30px_rgba(96,165,250,0.15)]" },
+  mechanical: { border: "border-orange-400/50", bg: "bg-orange-400/10", text: "text-orange-400", glow: "hover:shadow-[0_0_30px_rgba(251,146,60,0.15)]" },
+};
+
 const SYMPTOM_CATEGORIES = [
   {
     id: "electrical",
     icon: Zap,
     label: "Electrique",
+    description: "Controleur, carte mere, alimentation",
     symptoms: [
       { id: "no-start", label: "Ne demarre plus", severity: "high" },
       { id: "cuts-off", label: "S'eteint en roulant", severity: "high" },
@@ -28,6 +37,7 @@ const SYMPTOM_CATEGORIES = [
     id: "battery",
     icon: Battery,
     label: "Batterie",
+    description: "Charge, autonomie, BMS",
     symptoms: [
       { id: "no-charge", label: "Ne charge plus", severity: "high" },
       { id: "low-range", label: "Autonomie reduite", severity: "medium" },
@@ -39,6 +49,7 @@ const SYMPTOM_CATEGORIES = [
     id: "braking",
     icon: Disc,
     label: "Freinage",
+    description: "Plaquettes, etriers, leviers",
     symptoms: [
       { id: "brake-noise", label: "Bruit au freinage", severity: "medium" },
       { id: "brake-weak", label: "Freinage faible", severity: "high" },
@@ -50,6 +61,7 @@ const SYMPTOM_CATEGORIES = [
     id: "display",
     icon: Monitor,
     label: "Display / Eclairage",
+    description: "Ecran, LED, connectiques",
     symptoms: [
       { id: "display-off", label: "Ecran ne s'allume plus", severity: "medium" },
       { id: "display-flicker", label: "Ecran clignote", severity: "low" },
@@ -60,6 +72,7 @@ const SYMPTOM_CATEGORIES = [
     id: "mechanical",
     icon: Settings,
     label: "Mecanique",
+    description: "Pneus, direction, suspension",
     symptoms: [
       { id: "flat-tire", label: "Crevaison / pneu a plat", severity: "low" },
       { id: "wobble", label: "Direction qui vibre", severity: "medium" },
@@ -80,27 +93,27 @@ const SEVERITY_CONFIG: Record<Severity, { label: string; badgeClass: string; est
 };
 
 const SOLUTIONS: Record<string, { title: string; description: string; estimatedCost: string; diy: boolean }> = {
-  "no-start": { title: "Diagnostic contrôleur / carte mère", description: "Vérification du contrôleur, connectiques et carte mère. Remplacement si nécessaire.", estimatedCost: "50 - 200 EUR", diy: false },
-  "cuts-off": { title: "Vérification BMS + connectiques", description: "Le BMS (Battery Management System) peut couper l'alimentation en cas de surchauffe ou surtension.", estimatedCost: "30 - 150 EUR", diy: false },
-  "low-power": { title: "Diagnostic batterie + contrôleur", description: "Test de capacité batterie et vérification du contrôleur. Peut nécessiter un remplacement.", estimatedCost: "50 - 300 EUR", diy: false },
-  "error-code": { title: "Reset + mise à jour firmware", description: "Tentative de reset du display. Si le code persiste, diagnostic approfondi du composant concerné.", estimatedCost: "20 - 100 EUR", diy: true },
-  "throttle": { title: "Remplacement accélérateur", description: "Accélérateur hors service. Remplacement par pièce compatible.", estimatedCost: "15 - 50 EUR", diy: true },
-  "no-charge": { title: "Test chargeur + port de charge", description: "Vérification du chargeur, du port et du BMS. Remplacement du composant défaillant.", estimatedCost: "30 - 80 EUR", diy: false },
-  "low-range": { title: "Test capacité batterie", description: "Mesure des cellules. Si capacité < 70%, remplacement recommandé.", estimatedCost: "100 - 400 EUR", diy: false },
-  "slow-charge": { title: "Vérification chargeur", description: "Test de la puissance du chargeur. Remplacement si sous-performant.", estimatedCost: "25 - 60 EUR", diy: true },
-  "battery-swell": { title: "REMPLACEMENT URGENT", description: "Batterie gonflée = danger. Ne pas utiliser. Remplacement immédiat obligatoire.", estimatedCost: "200 - 500 EUR", diy: false },
-  "brake-noise": { title: "Réglage / remplacement plaquettes", description: "Plaquettes usées ou disque voilé. Réglage ou remplacement.", estimatedCost: "15 - 40 EUR", diy: true },
-  "brake-weak": { title: "Purge + remplacement plaquettes", description: "Plaquettes usées ou huile de frein à remplacer (freins hydrauliques).", estimatedCost: "20 - 60 EUR", diy: false },
-  "brake-stuck": { title: "Déblocage étrier + réglage", description: "Étrier de frein bloqué. Nettoyage, réglage ou remplacement.", estimatedCost: "25 - 50 EUR", diy: false },
-  "brake-lever": { title: "Remplacement levier de frein", description: "Levier cassé ou câble détendu. Remplacement rapide.", estimatedCost: "10 - 35 EUR", diy: true },
-  "display-off": { title: "Vérification connectiques display", description: "Rebranchement ou remplacement du display.", estimatedCost: "20 - 80 EUR", diy: true },
-  "display-flicker": { title: "Rebranchement connectique", description: "Faux contact probable. Vérification et sécurisation de la connectique.", estimatedCost: "15 - 30 EUR", diy: true },
-  "lights-off": { title: "Remplacement LED / ampoule", description: "LED HS ou connectique défaillante.", estimatedCost: "10 - 40 EUR", diy: true },
-  "flat-tire": { title: "Réparation / remplacement pneu", description: "Crevaison réparable ou pneu à remplacer. Chambre à air disponible en stock.", estimatedCost: "10 - 35 EUR", diy: true },
-  "wobble": { title: "Serrage direction + roulements", description: "Jeu dans le jeu de direction ou roulements usés.", estimatedCost: "20 - 60 EUR", diy: false },
-  "fold-loose": { title: "Resserrage / remplacement collier", description: "Mécanisme de pliage lâche. Sécurisation importante pour la sécurité.", estimatedCost: "15 - 45 EUR", diy: false },
-  "noise": { title: "Diagnostic mécanique complet", description: "Identification de la source du bruit. Peut venir du moteur, des roulements ou du deck.", estimatedCost: "30 - 100 EUR", diy: false },
-  "suspension": { title: "Remplacement amortisseur", description: "Amortisseur usé ou cassé. Remplacement par pièce compatible.", estimatedCost: "30 - 80 EUR", diy: false },
+  "no-start": { title: "Diagnostic controleur / carte mere", description: "Verification du controleur, connectiques et carte mere. Remplacement si necessaire.", estimatedCost: "50 - 200 EUR", diy: false },
+  "cuts-off": { title: "Verification BMS + connectiques", description: "Le BMS (Battery Management System) peut couper l'alimentation en cas de surchauffe ou surtension.", estimatedCost: "30 - 150 EUR", diy: false },
+  "low-power": { title: "Diagnostic batterie + controleur", description: "Test de capacite batterie et verification du controleur. Peut necessiter un remplacement.", estimatedCost: "50 - 300 EUR", diy: false },
+  "error-code": { title: "Reset + mise a jour firmware", description: "Tentative de reset du display. Si le code persiste, diagnostic approfondi du composant concerne.", estimatedCost: "20 - 100 EUR", diy: true },
+  "throttle": { title: "Remplacement accelerateur", description: "Accelerateur hors service. Remplacement par piece compatible.", estimatedCost: "15 - 50 EUR", diy: true },
+  "no-charge": { title: "Test chargeur + port de charge", description: "Verification du chargeur, du port et du BMS. Remplacement du composant defaillant.", estimatedCost: "30 - 80 EUR", diy: false },
+  "low-range": { title: "Test capacite batterie", description: "Mesure des cellules. Si capacite < 70%, remplacement recommande.", estimatedCost: "100 - 400 EUR", diy: false },
+  "slow-charge": { title: "Verification chargeur", description: "Test de la puissance du chargeur. Remplacement si sous-performant.", estimatedCost: "25 - 60 EUR", diy: true },
+  "battery-swell": { title: "REMPLACEMENT URGENT", description: "Batterie gonflee = danger. Ne pas utiliser. Remplacement immediat obligatoire.", estimatedCost: "200 - 500 EUR", diy: false },
+  "brake-noise": { title: "Reglage / remplacement plaquettes", description: "Plaquettes usees ou disque voile. Reglage ou remplacement.", estimatedCost: "15 - 40 EUR", diy: true },
+  "brake-weak": { title: "Purge + remplacement plaquettes", description: "Plaquettes usees ou huile de frein a remplacer (freins hydrauliques).", estimatedCost: "20 - 60 EUR", diy: false },
+  "brake-stuck": { title: "Deblocage etrier + reglage", description: "Etrier de frein bloque. Nettoyage, reglage ou remplacement.", estimatedCost: "25 - 50 EUR", diy: false },
+  "brake-lever": { title: "Remplacement levier de frein", description: "Levier casse ou cable detendu. Remplacement rapide.", estimatedCost: "10 - 35 EUR", diy: true },
+  "display-off": { title: "Verification connectiques display", description: "Rebranchement ou remplacement du display.", estimatedCost: "20 - 80 EUR", diy: true },
+  "display-flicker": { title: "Rebranchement connectique", description: "Faux contact probable. Verification et securisation de la connectique.", estimatedCost: "15 - 30 EUR", diy: true },
+  "lights-off": { title: "Remplacement LED / ampoule", description: "LED HS ou connectique defaillante.", estimatedCost: "10 - 40 EUR", diy: true },
+  "flat-tire": { title: "Reparation / remplacement pneu", description: "Crevaison reparable ou pneu a remplacer. Chambre a air disponible en stock.", estimatedCost: "10 - 35 EUR", diy: true },
+  "wobble": { title: "Serrage direction + roulements", description: "Jeu dans le jeu de direction ou roulements uses.", estimatedCost: "20 - 60 EUR", diy: false },
+  "fold-loose": { title: "Resserrage / remplacement collier", description: "Mecanisme de pliage lache. Securisation importante pour la securite.", estimatedCost: "15 - 45 EUR", diy: false },
+  "noise": { title: "Diagnostic mecanique complet", description: "Identification de la source du bruit. Peut venir du moteur, des roulements ou du deck.", estimatedCost: "30 - 100 EUR", diy: false },
+  "suspension": { title: "Remplacement amortisseur", description: "Amortisseur use ou casse. Remplacement par piece compatible.", estimatedCost: "30 - 80 EUR", diy: false },
 };
 
 type DiagStep = "category" | "symptom" | "result";
@@ -158,22 +171,59 @@ export default function DiagnosticPage() {
     setSelectedSymptom("");
   }
 
+  const stepIndex = step === "category" ? 0 : step === "symptom" ? 1 : 2;
+  const categoryColor = selectedCategory ? CATEGORY_COLORS[selectedCategory] : null;
+
   return (
     <div className="min-h-[80vh]">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="heading-lg mb-3">GUIDE DE DÉPANNAGE</h1>
-          <p className="font-mono text-sm text-text-muted">
-            Décrivez votre problème en 2 clics. On vous donne une estimation basée sur {totalRepairs > 0 ? `${totalRepairs} réparations réelles` : "notre expérience"}.
+        <div className="text-center mb-12">
+          <p className="spec-label text-neon mb-3">DIAGNOSTIC EN LIGNE</p>
+          <h1 className="heading-lg mb-4">GUIDE DE DEPANNAGE</h1>
+          <p className="font-mono text-sm text-text-muted max-w-xl mx-auto">
+            Decrivez votre probleme en 2 clics. On vous donne une estimation basee sur {totalRepairs > 0 ? `${totalRepairs} reparations reelles` : "notre experience"}.
           </p>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex items-center justify-center gap-3 mb-10">
+          {[
+            { label: "Categorie", idx: 0 },
+            { label: "Symptome", idx: 1 },
+            { label: "Resultat", idx: 2 },
+          ].map((s, i) => (
+            <div key={s.label} className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center text-xs font-mono font-bold transition-all border",
+                    stepIndex === s.idx
+                      ? "bg-neon text-void border-neon"
+                      : stepIndex > s.idx
+                        ? "bg-neon-dim text-neon border-neon/30"
+                        : "bg-surface border-border text-text-dim"
+                  )}
+                >
+                  {stepIndex > s.idx ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                </div>
+                <span className={cn("font-mono text-xs uppercase tracking-wider hidden sm:inline", stepIndex === s.idx ? "text-neon" : "text-text-dim")}>
+                  {s.label}
+                </span>
+              </div>
+              {i < 2 && (
+                <div className={cn("w-8 h-px", stepIndex > i ? "bg-neon/50" : "bg-border")} />
+              )}
+            </div>
+          ))}
         </div>
 
         {/* Step 1: Category */}
         {step === "category" && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {SYMPTOM_CATEGORIES.map((cat) => {
               const Icon = cat.icon;
+              const color = CATEGORY_COLORS[cat.id];
               return (
                 <button
                   key={cat.id}
@@ -182,13 +232,25 @@ export default function DiagnosticPage() {
                     setSelectedCategory(cat.id);
                     setStep("symptom");
                   }}
-                  className="bg-surface-2 p-6 text-center border border-border hover:border-neon transition-all group"
+                  className={cn(
+                    "bg-surface-2 p-8 text-center border border-border transition-all duration-200 cursor-pointer group",
+                    color.glow,
+                    "hover:border-neon hover:-translate-y-1"
+                  )}
                 >
-                  <div className="w-14 h-14 mx-auto bg-void border border-border flex items-center justify-center mb-3 group-hover:border-neon transition-colors">
-                    <Icon className="w-7 h-7 text-text-dim group-hover:text-neon transition-colors" />
+                  <div className={cn(
+                    "w-16 h-16 mx-auto flex items-center justify-center mb-4 border transition-all duration-200",
+                    color.bg,
+                    color.border,
+                    "group-hover:scale-110"
+                  )}>
+                    <Icon className={cn("w-8 h-8 transition-colors duration-200", color.text)} />
                   </div>
-                  <p className="font-display font-bold text-text">{cat.label}</p>
-                  <p className="font-mono text-xs text-text-dim mt-1">{cat.symptoms.length} symptomes</p>
+                  <p className="font-display font-bold text-text text-lg mb-1">{cat.label}</p>
+                  <p className="font-mono text-xs text-text-dim mb-3">{cat.description}</p>
+                  <span className="font-mono text-[11px] text-text-dim border border-border px-2 py-0.5">
+                    {cat.symptoms.length} symptomes
+                  </span>
                 </button>
               );
             })}
@@ -198,14 +260,22 @@ export default function DiagnosticPage() {
         {/* Step 2: Symptom */}
         {step === "symptom" && category && (
           <div>
-            <button onClick={() => setStep("category")} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1">
+            <button onClick={() => setStep("category")} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1 cursor-pointer transition-colors duration-200">
               &larr; Autre categorie
             </button>
-            <h2 className="heading-md text-text mb-2 flex items-center gap-2">
-              {(() => { const Icon = category.icon; return <Icon className="w-6 h-6 text-neon" />; })()}
-              {category.label}
-            </h2>
-            <p className="font-mono text-sm text-text-muted mb-6">Décrivez le symptôme</p>
+            <div className="flex items-center gap-3 mb-2">
+              {(() => {
+                const Icon = category.icon;
+                const color = CATEGORY_COLORS[category.id];
+                return (
+                  <div className={cn("w-10 h-10 flex items-center justify-center border", color.bg, color.border)}>
+                    <Icon className={cn("w-5 h-5", color.text)} />
+                  </div>
+                );
+              })()}
+              <h2 className="heading-md text-text">{category.label}</h2>
+            </div>
+            <p className="font-mono text-sm text-text-muted mb-8">Selectionnez le symptome qui correspond</p>
             <div className="space-y-3">
               {category.symptoms.map((sym) => {
                 const sev = SEVERITY_CONFIG[sym.severity as Severity];
@@ -222,17 +292,22 @@ export default function DiagnosticPage() {
                       setSelectedSymptom(sym.id);
                       setStep("result");
                     }}
-                    className="w-full bg-surface p-5 text-left border border-border hover:border-neon transition-all group flex items-center justify-between"
+                    className="w-full bg-surface p-6 text-left border border-border hover:border-neon transition-all duration-200 cursor-pointer group flex items-center justify-between hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(0,255,209,0.06)]"
                   >
                     <div>
-                      <p className="font-mono text-sm font-bold text-text group-hover:text-neon transition-colors">
+                      <p className="font-mono text-sm font-bold text-text group-hover:text-neon transition-colors duration-200">
                         {sym.label}
                       </p>
-                      <span className={cn("mt-1 inline-block", sev.badgeClass)}>
-                        {sev.label}
-                      </span>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className={cn("inline-block", sev.badgeClass)}>
+                          {sev.label}
+                        </span>
+                        <span className="font-mono text-[11px] text-text-dim">
+                          {sev.estimate}
+                        </span>
+                      </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-text-dim group-hover:text-neon transition-colors" />
+                    <ChevronRight className="w-5 h-5 text-text-dim group-hover:text-neon group-hover:translate-x-1 transition-all duration-200" />
                   </button>
                 );
               })}
@@ -243,48 +318,60 @@ export default function DiagnosticPage() {
         {/* Step 3: Result */}
         {step === "result" && solution && severityConfig && symptom && (
           <div>
-            <button onClick={reset} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1">
+            <button onClick={reset} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1 cursor-pointer transition-colors duration-200">
               <RotateCcw className="w-3 h-3" />
               Nouveau diagnostic
             </button>
 
             {/* Severity banner */}
             {symptom.severity === "critical" && (
-              <div className="border border-danger bg-danger/10 p-4 mb-6 flex items-start gap-3">
+              <div className="border border-danger bg-danger/10 p-5 mb-6 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-mono text-sm font-bold text-danger">Attention — Problème critique</p>
-                  <p className="font-mono text-xs text-danger/80">Cessez d&rsquo;utiliser votre trottinette et contactez-nous immédiatement.</p>
+                  <p className="font-mono text-sm font-bold text-danger">Attention — Probleme critique</p>
+                  <p className="font-mono text-xs text-danger/80">Cessez d&rsquo;utiliser votre trottinette et contactez-nous immediatement.</p>
                 </div>
               </div>
             )}
 
             {/* Diagnosis card */}
             <div className="bg-surface border border-border overflow-hidden">
-              <div className="border-t-2 border-t-neon px-6 py-4 bg-surface-2">
+              <div className="border-t-2 border-t-neon px-6 py-5 bg-surface-2">
                 <p className="spec-label">Diagnostic pour</p>
-                <p className="font-display font-bold text-text text-lg mt-1">{symptom.label}</p>
+                <p className="font-display font-bold text-text text-xl mt-1">{symptom.label}</p>
+                {categoryColor && (
+                  <div className="flex items-center gap-2 mt-2">
+                    {(() => {
+                      const Icon = category!.icon;
+                      return <Icon className={cn("w-4 h-4", categoryColor.text)} />;
+                    })()}
+                    <span className="font-mono text-xs text-text-dim">{category!.label}</span>
+                  </div>
+                )}
               </div>
 
               <div className="p-6 space-y-6">
                 {/* Solution */}
                 <div>
                   <h3 className="font-display font-bold text-text text-lg mb-2">{solution.title}</h3>
-                  <p className="font-mono text-sm text-text-muted">{solution.description}</p>
+                  <p className="font-mono text-sm text-text-muted leading-relaxed">{solution.description}</p>
+                </div>
+
+                {/* Cost highlight */}
+                <div className="bg-void border border-neon/30 p-6 text-center">
+                  <p className="spec-label mb-2">Cout estime</p>
+                  <p className="font-display font-bold text-3xl text-neon tracking-tight">{getEstimatedCost()}</p>
+                  <p className="font-mono text-xs text-text-dim mt-2">Diagnostic gratuit. Prix final apres examen en atelier.</p>
                 </div>
 
                 {/* Details grid */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="bg-surface-2 border border-border p-4 text-center">
-                    <p className="spec-label mb-1">Coût estimé</p>
-                    <p className="price-main text-base">{getEstimatedCost()}</p>
-                  </div>
-                  <div className="bg-surface-2 border border-border p-4 text-center">
-                    <p className="spec-label mb-1">Durée</p>
+                    <p className="spec-label mb-1">Duree</p>
                     <p className="font-mono text-sm font-bold text-text">{getEstimatedDuration() || severityConfig.estimate}</p>
                   </div>
                   <div className="bg-surface-2 border border-border p-4 text-center">
-                    <p className="spec-label mb-1">Faisable soi-même ?</p>
+                    <p className="spec-label mb-1">Faisable soi-meme ?</p>
                     <p className={cn("font-mono text-sm font-bold", solution.diy ? "text-neon" : "text-warning")}>
                       {solution.diy ? "Oui" : "Atelier"}
                     </p>
@@ -293,11 +380,11 @@ export default function DiagnosticPage() {
                 {categoryRealStats && categoryRealStats.count >= 3 && (
                   <p className="flex items-center gap-1 font-mono text-[11px] text-neon mt-2">
                     <BarChart3 className="w-3 h-3" />
-                    Estimation basée sur {categoryRealStats.count} réparations réelles
+                    Estimation basee sur {categoryRealStats.count} reparations reelles
                   </p>
                 )}
 
-                {/* Devis cliquable */}
+                {/* CTA section */}
                 <div className="border-t-2 border-t-neon bg-surface-2 -mx-6 -mb-6 p-6 mt-6">
                   <div className="flex items-center gap-2 mb-4">
                     <CheckCircle2 className="w-5 h-5 text-neon" />
@@ -308,11 +395,8 @@ export default function DiagnosticPage() {
                     <span className="font-mono text-sm text-text-muted">{solution.title}</span>
                     <span className="price-main text-lg">{getEstimatedCost()}</span>
                   </div>
-                  <p className="font-mono text-xs text-text-dim mb-5">
-                    Diagnostic gratuit. Prix final apres examen en atelier.
-                  </p>
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 mt-6">
                     <Link
                       href={`/reparation?issue=${encodeURIComponent(symptom.label)}&diag=${encodeURIComponent(solution.title)}&cost=${encodeURIComponent(solution.estimatedCost)}&duration=${encodeURIComponent(severityConfig.estimate)}&category=${encodeURIComponent(category?.label || "")}`}
                       onClick={() => {
@@ -324,7 +408,14 @@ export default function DiagnosticPage() {
                       className="btn-neon flex-1"
                     >
                       <Wrench className="w-5 h-5" />
-                      ACCEPTER — DEPOSER MON TICKET
+                      DEPOSER MON TICKET
+                    </Link>
+                    <Link
+                      href="/urgence"
+                      className="btn-outline flex-1 text-center"
+                    >
+                      <CalendarCheck className="w-4 h-4" />
+                      PRENDRE RDV
                     </Link>
                   </div>
 

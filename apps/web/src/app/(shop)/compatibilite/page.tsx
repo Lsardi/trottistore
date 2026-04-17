@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, ChevronRight, Check, Zap, Bike } from "lucide-react";
+import { Search, ChevronRight, Check, Zap, Bike, ShieldCheck, PackageSearch, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { productsApi, repairsApi, type Product } from "@/lib/api";
 import { addScooterToGarage, getGarageScooters, pushGarageToServer } from "@/lib/garage";
@@ -11,6 +11,11 @@ import { addScooterToGarage, getGarageScooters, pushGarageToServer } from "@/lib
 import { SCOOTER_BRANDS, mergeScooterBrands, type ScooterBrand } from "./scooter-brands";
 
 type Step = "brand" | "model" | "results";
+
+/** Brand visual config: we assign a unique icon letter for each brand since we don't have real logos. */
+function brandInitials(name: string): string {
+  return name.slice(0, 2).toUpperCase();
+}
 
 export default function CompatibilitePage() {
   const [step, setStep] = useState<Step>("brand");
@@ -35,7 +40,7 @@ export default function CompatibilitePage() {
         setBrands(mergeScooterBrands(dynamic));
       })
       .catch(() => {
-        // API failure → static baseline already applied via initial state
+        // API failure -> static baseline already applied via initial state
       });
     return () => {
       cancelled = true;
@@ -76,12 +81,15 @@ export default function CompatibilitePage() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="heading-lg mb-3">COMPATIBILITÉ PIÈCES</h1>
+          <div className="w-12 h-12 mx-auto flex items-center justify-center bg-neon-dim border border-neon/30 mb-4">
+            <ShieldCheck className="w-6 h-6 text-neon" />
+          </div>
+          <h1 className="heading-lg mb-3">COMPATIBILITE PIECES</h1>
           <p className="font-mono text-sm text-text-muted max-w-xl mx-auto">
-            Sélectionnez votre trottinette et on vous montre les pièces compatibles depuis notre catalogue.
+            Selectionnez votre trottinette et on vous montre les pieces compatibles depuis notre catalogue.
           </p>
           <p className="font-mono text-[11px] text-text-dim mt-2">
-            Votre modèle n&apos;est pas listé ? Contactez-nous — on répare toutes les marques.
+            Votre modele n&apos;est pas liste ? Contactez-nous — on repare toutes les marques.
           </p>
         </div>
 
@@ -89,8 +97,8 @@ export default function CompatibilitePage() {
         <div className="flex items-center justify-center gap-3 mb-10">
           {[
             { id: "brand", label: "Marque" },
-            { id: "model", label: "Modèle" },
-            { id: "results", label: "Pièces" },
+            { id: "model", label: "Modele" },
+            { id: "results", label: "Pieces" },
           ].map((s, i) => (
             <div key={s.id} className="flex items-center gap-3">
               <div
@@ -110,7 +118,12 @@ export default function CompatibilitePage() {
               <span className={cn("font-mono text-xs uppercase tracking-wider", step === s.id ? "text-neon" : "text-text-dim")}>
                 {s.label}
               </span>
-              {i < 2 && <span className="font-mono text-text-dim">&mdash;</span>}
+              {i < 2 && (
+                <div className={cn(
+                  "w-6 h-px",
+                  (step === "model" && i === 0) || (step === "results") ? "bg-neon/50" : "bg-border"
+                )} />
+              )}
             </div>
           ))}
         </div>
@@ -128,45 +141,65 @@ export default function CompatibilitePage() {
                 className="input-dark w-full pl-11"
               />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {filteredBrands.map((brand) => (
                 <button
                   key={brand.name}
                   onClick={() => { setSelectedBrand(brand.name); setStep("model"); }}
-                  className="bg-surface-2 p-6 text-center border border-border hover:border-neon transition-all group"
+                  className="bg-surface-2 p-6 text-center border border-border hover:border-neon transition-all duration-200 cursor-pointer group hover:-translate-y-1 hover:shadow-[0_0_24px_rgba(0,255,209,0.08)]"
                 >
-                  <div className="w-14 h-14 mx-auto bg-void border border-border flex items-center justify-center mb-3 group-hover:border-neon transition-colors">
-                    <Zap className="w-7 h-7 text-text-dim group-hover:text-neon transition-colors" />
+                  <div className="w-16 h-16 mx-auto bg-void border border-border flex items-center justify-center mb-3 group-hover:border-neon transition-all duration-200 group-hover:bg-neon-dim">
+                    <span className="font-display font-bold text-xl text-text-dim group-hover:text-neon transition-colors duration-200">
+                      {brandInitials(brand.name)}
+                    </span>
                   </div>
-                  <p className="font-display font-bold text-text">{brand.name}</p>
+                  <p className="font-display font-bold text-text group-hover:text-neon transition-colors duration-200">{brand.name}</p>
                   <p className="font-mono text-xs text-text-dim mt-1">{brand.models.length} modeles</p>
                 </button>
               ))}
             </div>
+            {filteredBrands.length === 0 && (
+              <div className="text-center py-12">
+                <Search className="w-8 h-8 text-text-dim mx-auto mb-3" />
+                <p className="font-mono text-sm text-text-muted">Aucune marque trouvee pour &quot;{searchBrand}&quot;</p>
+                <button onClick={() => setSearchBrand("")} className="font-mono text-xs text-neon hover:underline mt-2 cursor-pointer transition-colors duration-200">
+                  Effacer la recherche
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Step: Model */}
         {step === "model" && currentBrand && (
           <div>
-            <button onClick={() => setStep("brand")} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1">
-              &larr; Changer de marque
+            <button onClick={() => setStep("brand")} className="font-mono text-sm text-neon hover:underline mb-6 flex items-center gap-1 cursor-pointer transition-colors duration-200">
+              <ArrowLeft className="w-3 h-3" />
+              Changer de marque
             </button>
-            <h2 className="heading-md text-text mb-2">
-              {selectedBrand}
-            </h2>
-            <p className="font-mono text-sm text-text-muted mb-6">Sélectionnez votre modèle</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-neon-dim border border-neon/30 flex items-center justify-center">
+                <span className="font-display font-bold text-lg text-neon">{brandInitials(selectedBrand)}</span>
+              </div>
+              <div>
+                <h2 className="heading-md text-text">{selectedBrand}</h2>
+                <p className="font-mono text-sm text-text-muted">Selectionnez votre modele</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {currentBrand.models.map((model) => (
                 <button
                   key={model}
                   onClick={() => handleSelectModel(model)}
-                  className="bg-surface-2 p-4 text-left border border-border hover:border-neon transition-all group"
+                  className="bg-surface-2 p-5 text-left border border-border hover:border-neon transition-all duration-200 cursor-pointer group hover:-translate-y-0.5"
                 >
-                  <p className="font-mono text-sm font-bold text-text group-hover:text-neon transition-colors">
-                    {model}
-                  </p>
-                  <p className="font-mono text-xs text-text-dim mt-1">{selectedBrand} {model}</p>
+                  <div className="flex items-center gap-3 mb-2">
+                    <Zap className="w-4 h-4 text-text-dim group-hover:text-neon transition-colors duration-200" />
+                    <p className="font-mono text-sm font-bold text-text group-hover:text-neon transition-colors duration-200">
+                      {model}
+                    </p>
+                  </div>
+                  <p className="font-mono text-xs text-text-dim">{selectedBrand} {model}</p>
                 </button>
               ))}
             </div>
@@ -178,8 +211,9 @@ export default function CompatibilitePage() {
           <div>
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
-                <button onClick={reset} className="font-mono text-sm text-neon hover:underline mb-2 flex items-center gap-1">
-                  &larr; Nouvelle recherche
+                <button onClick={reset} className="font-mono text-sm text-neon hover:underline mb-2 flex items-center gap-1 cursor-pointer transition-colors duration-200">
+                  <ArrowLeft className="w-3 h-3" />
+                  Nouvelle recherche
                 </button>
                 <h2 className="heading-md text-text">
                   Pieces pour {selectedBrand} {selectedModel}
@@ -198,7 +232,7 @@ export default function CompatibilitePage() {
                     const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
                     if (token) pushGarageToServer(token).catch(() => undefined);
                   }}
-                  className="btn-outline text-xs flex items-center gap-2"
+                  className="btn-outline text-xs flex items-center gap-2 cursor-pointer"
                 >
                   <Bike className="w-4 h-4" />
                   SAUVEGARDER DANS MON GARAGE
@@ -214,17 +248,20 @@ export default function CompatibilitePage() {
             {loading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="bg-surface border border-border aspect-[3/4]" />
+                  <div key={i} className="bg-surface border border-border aspect-[3/4] animate-pulse" />
                 ))}
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-16 bg-surface border border-border">
-                <Search className="w-12 h-12 text-text-dim mx-auto mb-4" />
+                <PackageSearch className="w-14 h-14 text-text-dim mx-auto mb-4" />
                 <p className="heading-md text-text-muted mb-2">
                   Pas de resultats specifiques
                 </p>
+                <p className="font-mono text-xs text-text-dim mb-2 max-w-sm mx-auto">
+                  Nous n&apos;avons pas de pieces referencees specifiquement pour le {selectedBrand} {selectedModel}.
+                </p>
                 <p className="font-mono text-xs text-text-dim mb-6">
-                  Parcourez notre catalogue complet pour trouver vos pieces
+                  Parcourez notre catalogue complet pour trouver vos pieces.
                 </p>
                 <Link
                   href="/produits"
@@ -252,7 +289,11 @@ export default function CompatibilitePage() {
                         )}
                       </div>
                       <div className="product-card-body">
-                        <p className="font-mono text-xs text-neon mb-1">Compatible {selectedBrand} {selectedModel}</p>
+                        {/* Compatibility badge */}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <ShieldCheck className="w-3.5 h-3.5 text-neon flex-shrink-0" />
+                          <span className="font-mono text-[11px] text-neon font-bold">Compatible {selectedBrand} {selectedModel}</span>
+                        </div>
                         <p className="text-sm font-medium text-text line-clamp-2 mb-2">{product.name}</p>
                         <p className="font-mono font-bold text-neon">{priceTTC.toFixed(2)} &euro;</p>
                       </div>

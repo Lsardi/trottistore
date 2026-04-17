@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, SlidersHorizontal, X, Package } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import { ApiError, productsApi, type Category, type Product } from "@/lib/api";
 
 const SORT_OPTIONS = [
-  { value: "newest", label: "Plus récents" },
+  { value: "newest", label: "Plus recents" },
   { value: "price_asc", label: "Prix croissant" },
-  { value: "price_desc", label: "Prix décroissant" },
+  { value: "price_desc", label: "Prix decroissant" },
   { value: "name", label: "Nom A-Z" },
 ] as const;
 
@@ -85,6 +85,7 @@ export default function CatalogueFilters({
   const [search, setSearch] = useState(initialSearch);
   const [searchInput, setSearchInput] = useState(initialSearch);
   const [categorySlug, setCategorySlug] = useState(initialCategorySlug);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Debounce search: wait 400ms after typing stops
   useEffect(() => {
@@ -112,11 +113,11 @@ export default function CatalogueFilters({
       setTotal(0);
       setTotalPages(1);
       if (fetchError instanceof ApiError) {
-        setError("Le service catalogue est temporairement indisponible. Réessayez dans quelques instants.");
+        setError("Le service catalogue est temporairement indisponible. Reessayez dans quelques instants.");
         return;
       }
       if (fetchError instanceof TypeError) {
-        setError("Le catalogue est momentanément indisponible. Veuillez réessayer dans quelques instants.");
+        setError("Le catalogue est momentanement indisponible. Veuillez reessayer dans quelques instants.");
         return;
       }
       setError("Impossible de charger le catalogue pour le moment.");
@@ -160,21 +161,98 @@ export default function CatalogueFilters({
     return pages;
   }
 
+  const activeCategoryName = categories.find((c) => c.slug === categorySlug)?.name;
+
+  const hasActiveFilters = !!categorySlug || !!search;
+
+  function clearAllFilters() {
+    setCategorySlug("");
+    setSearchInput("");
+    setSearch("");
+    setPage(1);
+  }
+
   return (
     <div className="min-h-screen bg-void">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-10">
-        <div className="mb-1">
-          <h1 className="heading-lg">CATALOGUE</h1>
+        {/* Header */}
+        <div className="flex items-end justify-between gap-4 mb-2">
+          <div>
+            <h1 className="heading-lg">CATALOGUE</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4" style={{ color: "var(--color-neon)" }} />
+            <span
+              className="font-display font-bold text-lg tabular-nums"
+              style={{ color: "var(--color-neon)" }}
+            >
+              {total}
+            </span>
+            <span className="font-mono text-xs uppercase tracking-widest text-text-dim">
+              produits
+            </span>
+          </div>
         </div>
-        <p className="font-mono text-xs uppercase tracking-widest mb-6 text-text-dim">{total} PRODUITS</p>
+
         <div className="divider-neon mb-8" />
 
-        <div className="flex flex-col md:flex-row mb-8 border border-border">
+        {/* Category chips */}
+        {categories.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button
+              onClick={() => {
+                setCategorySlug("");
+                setPage(1);
+              }}
+              className="cursor-pointer font-mono text-xs uppercase tracking-wider px-4 py-2 transition-all duration-200"
+              style={{
+                backgroundColor: !categorySlug ? "var(--color-neon)" : "var(--color-surface)",
+                color: !categorySlug ? "var(--color-void)" : "var(--color-text-muted)",
+                border: !categorySlug ? "1px solid var(--color-neon)" : "1px solid var(--color-border)",
+              }}
+            >
+              Tout
+            </button>
+            {categories.map((cat) => {
+              const isActive = categorySlug === cat.slug;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setCategorySlug(isActive ? "" : cat.slug);
+                    setPage(1);
+                  }}
+                  className="cursor-pointer font-mono text-xs uppercase tracking-wider px-4 py-2 transition-all duration-200 inline-flex items-center gap-2"
+                  style={{
+                    backgroundColor: isActive ? "var(--color-neon)" : "var(--color-surface)",
+                    color: isActive ? "var(--color-void)" : "var(--color-text-muted)",
+                    border: isActive ? "1px solid var(--color-neon)" : "1px solid var(--color-border)",
+                  }}
+                >
+                  {cat.name}
+                  {cat._count?.products != null && (
+                    <span
+                      className="font-mono text-[0.6rem] tabular-nums"
+                      style={{
+                        opacity: 0.7,
+                      }}
+                    >
+                      {cat._count.products}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Search + sort bar */}
+        <div className="flex flex-col md:flex-row mb-4 border border-border">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
             <input
               type="text"
-              placeholder="Rechercher..."
+              placeholder="Rechercher un produit, une marque..."
               value={searchInput}
               onChange={(e) => {
                 setSearchInput(e.target.value);
@@ -184,7 +262,7 @@ export default function CatalogueFilters({
             />
           </div>
 
-          <div className="relative">
+          <div className="relative hidden md:block">
             <select
               value={categorySlug}
               onChange={(e) => {
@@ -193,7 +271,7 @@ export default function CatalogueFilters({
               }}
               className="appearance-none w-full md:w-52 px-4 py-3 font-mono text-sm cursor-pointer outline-none bg-surface text-text border-none border-r border-border"
             >
-              <option value="">Toutes catégories</option>
+              <option value="">Toutes categories</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.slug}>
                   {cat.name}
@@ -202,7 +280,7 @@ export default function CatalogueFilters({
             </select>
           </div>
 
-          <div className="relative">
+          <div className="relative hidden md:block">
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
@@ -215,7 +293,102 @@ export default function CatalogueFilters({
               ))}
             </select>
           </div>
+
+          {/* Mobile filter toggle */}
+          <button
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            className="md:hidden flex items-center justify-center gap-2 px-4 py-3 bg-surface text-text-muted font-mono text-sm cursor-pointer border-t border-border"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filtrer & Trier
+          </button>
         </div>
+
+        {/* Mobile filter panel */}
+        {mobileFiltersOpen && (
+          <div className="md:hidden mb-4 border border-border bg-surface p-4 space-y-3">
+            <div>
+              <label className="spec-label mb-2 block">Categorie</label>
+              <select
+                value={categorySlug}
+                onChange={(e) => {
+                  setCategorySlug(e.target.value);
+                  setPage(1);
+                }}
+                className="appearance-none w-full px-4 py-3 font-mono text-sm cursor-pointer outline-none bg-surface-2 text-text border border-border"
+              >
+                <option value="">Toutes categories</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.slug}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="spec-label mb-2 block">Trier par</label>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                className="appearance-none w-full px-4 py-3 font-mono text-sm cursor-pointer outline-none bg-surface-2 text-text border border-border"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Active filter tags */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <span className="spec-label">Filtres actifs :</span>
+            {activeCategoryName && (
+              <button
+                onClick={() => {
+                  setCategorySlug("");
+                  setPage(1);
+                }}
+                className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 font-mono text-xs transition-all duration-200"
+                style={{
+                  backgroundColor: "var(--color-neon-dim)",
+                  color: "var(--color-neon)",
+                  border: "1px solid rgba(0, 255, 209, 0.3)",
+                }}
+              >
+                {activeCategoryName}
+                <X className="w-3 h-3" />
+              </button>
+            )}
+            {search && (
+              <button
+                onClick={() => {
+                  setSearchInput("");
+                  setSearch("");
+                  setPage(1);
+                }}
+                className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 font-mono text-xs transition-all duration-200"
+                style={{
+                  backgroundColor: "var(--color-neon-dim)",
+                  color: "var(--color-neon)",
+                  border: "1px solid rgba(0, 255, 209, 0.3)",
+                }}
+              >
+                &quot;{search}&quot;
+                <X className="w-3 h-3" />
+              </button>
+            )}
+            <button
+              onClick={clearAllFilters}
+              className="cursor-pointer font-mono text-xs text-text-dim hover:text-neon transition-colors duration-200 underline underline-offset-2"
+            >
+              Tout effacer
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 border border-border bg-surface px-4 py-3 font-mono text-xs text-red-300" role="alert">
@@ -240,8 +413,22 @@ export default function CatalogueFilters({
           </div>
         ) : products.length === 0 ? (
           <div className="text-center py-32">
-            <h2 className="heading-lg mb-3 text-text">AUCUN RÉSULTAT</h2>
-            <p className="font-mono text-sm text-text-dim">Modifiez vos filtres ou effectuez une nouvelle recherche.</p>
+            <div
+              className="w-16 h-16 mx-auto mb-6 flex items-center justify-center"
+              style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              <Search className="w-7 h-7 text-text-dim" />
+            </div>
+            <h2 className="heading-lg mb-3 text-text">AUCUN RESULTAT</h2>
+            <p className="font-mono text-sm text-text-dim mb-6">Modifiez vos filtres ou effectuez une nouvelle recherche.</p>
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                className="cursor-pointer btn-outline"
+              >
+                Effacer les filtres
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -256,9 +443,9 @@ export default function CatalogueFilters({
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="px-3 py-2 transition-colors disabled:opacity-30 text-text-muted"
+              className="cursor-pointer px-3 py-2 transition-colors duration-200 disabled:opacity-30 text-text-muted hover:text-neon"
             >
-              &larr; PRÉCÉDENT
+              &larr; PRECEDENT
             </button>
 
             <div className="flex items-center gap-1 mx-4">
@@ -271,10 +458,11 @@ export default function CatalogueFilters({
                   <button
                     key={p}
                     onClick={() => setPage(p)}
-                    className="w-8 h-8 flex items-center justify-center transition-colors"
+                    className="cursor-pointer w-8 h-8 flex items-center justify-center transition-all duration-200"
                     style={{
                       color: p === page ? "var(--color-neon)" : "var(--color-text-muted)",
                       borderBottom: p === page ? "1px solid var(--color-neon)" : "1px solid transparent",
+                      backgroundColor: p === page ? "var(--color-neon-dim)" : "transparent",
                     }}
                   >
                     {p}
@@ -286,7 +474,7 @@ export default function CatalogueFilters({
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="px-3 py-2 transition-colors disabled:opacity-30 text-text-muted"
+              className="cursor-pointer px-3 py-2 transition-colors duration-200 disabled:opacity-30 text-text-muted hover:text-neon"
             >
               SUIVANT &rarr;
             </button>
