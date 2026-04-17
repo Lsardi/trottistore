@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingBag, Wrench, Boxes, ArrowRight, MapPin, Clock, Shield } from "lucide-react";
+import { ShoppingBag, Wrench, Boxes, ArrowRight, MapPin, Clock, Shield, Zap, Battery, Gauge } from "lucide-react";
 import { formatPriceTTC, formatPrice } from "@/lib/utils";
 import { brand } from "@/lib/brand";
 import GarageBanner from "@/components/GarageBanner";
@@ -91,173 +91,144 @@ export default async function HomePage() {
   return (
     <>
       {/* ================================================================
-          HERO — Clear value proposition
+          HERO — Premium dark with bento grid
           ================================================================ */}
-      <section
-        className="grain"
-        style={{
-          minHeight: "100dvh",
-          backgroundColor: "var(--color-void)",
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* Animated ambient glow */}
-        <div className="hero-glow" style={{ top: "30%", left: "20%" }} />
-        <div className="hero-glow" style={{ top: "60%", left: "75%", animationDelay: "4s", background: "radial-gradient(circle, rgba(0, 153, 255, 0.08) 0%, transparent 70%)" }} />
+      <section className="grain" style={{ minHeight: "100dvh", backgroundColor: "var(--color-void)", position: "relative", overflow: "hidden" }}>
+        {/* Animated grid background */}
+        <div className="hero-grid-bg" />
+        {/* Ambient glow orbs */}
+        <div className="hero-glow" style={{ top: "20%", left: "15%" }} />
+        <div className="hero-glow" style={{ top: "50%", left: "80%", animationDelay: "4s", background: "radial-gradient(circle, rgba(0, 153, 255, 0.1) 0%, transparent 70%)" }} />
 
-        <div
-          style={{
-            flex: 1,
-            maxWidth: 1280,
-            margin: "0 auto",
-            padding: "0 24px",
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-          }}
-        >
-          <div
-            className="hero-inner"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 48,
-              alignItems: "center",
-              width: "100%",
-              paddingTop: 40,
-              paddingBottom: 80,
-            }}
-          >
-            {/* Left: Text */}
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px", width: "100%", position: "relative", zIndex: 2 }}>
+
+          {/* Top hero — title + scooter image */}
+          <div className="hero-inner" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "center", paddingTop: 60, paddingBottom: 40 }}>
             <div>
-              <p
-                className="font-mono animate-slide-up stagger-1"
-                style={{
-                  fontSize: "0.7rem",
-                  letterSpacing: "0.1em",
-                  color: "var(--color-neon)",
-                  marginBottom: 24,
-                  textTransform: "uppercase",
-                }}
-              >
-                {brand.tagline.toUpperCase()}
-              </p>
+              <div className="animate-slide-up stagger-1" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 14px", border: "1px solid var(--color-border)", marginBottom: 24 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--color-neon)", boxShadow: "0 0 8px var(--color-neon)" }} />
+                <span className="font-mono" style={{ fontSize: "0.65rem", color: "var(--color-neon)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  Boutique ouverte · {brand.address.city}
+                </span>
+              </div>
 
-              <h1
-                className="heading-xl animate-slide-up stagger-2"
-                style={{
-                  fontSize: "clamp(1.75rem, 7vw, 4.5rem)",
-                  lineHeight: 1.05,
-                  hyphens: "none",
-                }}
-              >
-                {brand.heroTitle[0]}
-                <br />
-                {brand.heroTitle[1]}
-                <br />
-                {brand.heroTitle[2]}<span style={{ color: "var(--color-neon)" }}>.</span>
+              <h1 className="heading-xl animate-slide-up stagger-2" style={{ fontSize: "clamp(2rem, 6vw, 4.2rem)", lineHeight: 1.0, marginBottom: 20 }}>
+                {brand.heroTitle[0]}<br />{brand.heroTitle[1]}<br />
+                <span style={{ color: "var(--color-neon)" }}>{brand.heroTitle[2]}</span>
               </h1>
 
-              <p
-                className="animate-slide-up stagger-3"
-                style={{
-                  color: "var(--color-text-muted)",
-                  fontSize: "0.95rem",
-                  lineHeight: 1.6,
-                  maxWidth: 440,
-                  marginTop: 24,
-                  marginBottom: 32,
-                }}
-              >
-                Vente, réparation et pièces détachées pour trottinettes électriques.
-                Boutique et atelier à {brand.address.city}.
+              <p className="font-mono animate-slide-up stagger-3" style={{ color: "var(--color-text-muted)", fontSize: "0.85rem", lineHeight: 1.7, maxWidth: 420, marginBottom: 28 }}>
+                La boutique #1 en Île-de-France. 738 produits, atelier de réparation intégré, pièces en stock immédiat.
               </p>
 
-              <div
-                className="animate-slide-up stagger-4"
-                style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
-              >
-                <Link href="/produits" className="btn-neon" style={{ padding: "0.75rem 2rem" }}>
-                  VOIR LE CATALOGUE
-                </Link>
-                <Link href="/reparation" className="btn-outline">
-                  RÉPARER MA TROTT
-                </Link>
+              <div className="animate-slide-up stagger-4" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <Link href="/produits" className="btn-neon" style={{ padding: "0.85rem 2.2rem" }}>VOIR LE CATALOGUE</Link>
+                <Link href="/reparation" className="btn-outline">RÉPARER MA TROTT</Link>
+              </div>
+
+              {/* Trust stats inline */}
+              <div className="animate-slide-up stagger-5" style={{ display: "flex", gap: 24, marginTop: 32 }}>
+                {[
+                  { icon: Zap, value: "738", label: "Produits" },
+                  { icon: Battery, value: "15", label: "Marques" },
+                  { icon: Gauge, value: "2019", label: "Depuis" },
+                ].map((stat) => (
+                  <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <stat.icon style={{ width: 14, height: 14, color: "var(--color-neon)", opacity: 0.6 }} />
+                    <div>
+                      <span className="font-display" style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--color-text)" }}>{stat.value}</span>
+                      <span className="font-mono" style={{ fontSize: "0.6rem", color: "var(--color-text-dim)", marginLeft: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{stat.label}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Right: Scooter image */}
-            <div
-              className="hero-image-container animate-slide-up stagger-5"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  width: "80%",
-                  height: 40,
-                  background:
-                    "radial-gradient(ellipse at center, var(--color-neon-dim) 0%, transparent 70%)",
-                  filter: "blur(20px)",
-                }}
-              />
+            <div className="hero-image-container animate-slide-up stagger-5" style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+              <div style={{ position: "absolute", bottom: -20, left: "50%", transform: "translateX(-50%)", width: "90%", height: 60, background: "radial-gradient(ellipse, rgba(0,255,209,0.15) 0%, transparent 70%)", filter: "blur(30px)" }} />
               <Image
                 src="https://www.trottistore.fr/wp-content/uploads/2025/07/TEVERUNTETRA-TROTTINETTE-ELECTRIQUE-TEVERUN-TETRA-4-MOTEURS.jpg"
                 alt="Trottinette électrique Teverun Tetra"
-                width={800}
-                height={800}
-                priority
+                width={800} height={800} priority
                 sizes="(max-width: 1280px) 40vw, 520px"
-                style={{
-                  width: "100%",
-                  height: "auto",
-                  maxHeight: 520,
-                  objectFit: "contain",
-                  transform: "rotate(-5deg)",
-                  position: "relative",
-                  zIndex: 2,
-                  filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.5))",
-                }}
+                style={{ width: "100%", height: "auto", maxHeight: 480, objectFit: "contain", transform: "rotate(-5deg)", position: "relative", zIndex: 2, filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.6))" }}
               />
             </div>
+          </div>
+
+          {/* BENTO GRID — 3 services */}
+          <div className="bento-grid animate-slide-up stagger-6" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, paddingBottom: 40 }}>
+            {[
+              {
+                icon: ShoppingBag,
+                title: "ACHETER",
+                subtitle: "Trottinettes électriques",
+                stat: "à partir de 799€",
+                desc: "15 marques en stock. De la citadine au monstre de puissance.",
+                href: "/produits?categorySlug=trottinettes-electriques",
+                gradient: "linear-gradient(135deg, rgba(0,255,209,0.08) 0%, transparent 60%)",
+              },
+              {
+                icon: Wrench,
+                title: "RÉPARER",
+                subtitle: "Atelier & SAV",
+                stat: "Diagnostic gratuit",
+                desc: "Toutes marques, toutes pannes. Devis transparent, réparation 1-3j.",
+                href: "/reparation",
+                gradient: "linear-gradient(135deg, rgba(0,153,255,0.08) 0%, transparent 60%)",
+              },
+              {
+                icon: Boxes,
+                title: "PIÈCES",
+                subtitle: "700+ références",
+                stat: "En stock immédiat",
+                desc: "Batteries, contrôleurs, freins, pneus. Compatibilité vérifiée.",
+                href: "/compatibilite",
+                gradient: "linear-gradient(135deg, rgba(255,153,0,0.06) 0%, transparent 60%)",
+              },
+            ].map((card) => {
+              const Icon = card.icon;
+              return (
+                <Link
+                  key={card.title}
+                  href={card.href}
+                  className="rubrique-card group"
+                  style={{
+                    background: `${card.gradient}, var(--color-surface)`,
+                    border: "1px solid var(--color-border)",
+                    padding: "24px 20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    textDecoration: "none",
+                    color: "inherit",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ width: 40, height: 40, backgroundColor: "var(--color-void)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon style={{ width: 18, height: 18, color: "var(--color-neon)" }} />
+                    </div>
+                    <ArrowRight style={{ width: 14, height: 14, color: "var(--color-text-dim)", transition: "transform 200ms, color 200ms" }} className="group-hover:translate-x-1 group-hover:text-neon" />
+                  </div>
+                  <div>
+                    <h3 className="font-display" style={{ fontWeight: 800, fontSize: "1rem", color: "var(--color-text)", letterSpacing: "-0.01em" }}>{card.title}</h3>
+                    <p className="font-mono" style={{ fontSize: "0.68rem", color: "var(--color-neon)", marginTop: 2 }}>{card.stat}</p>
+                  </div>
+                  <p className="font-mono" style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>{card.desc}</p>
+                </Link>
+              );
+            })}
           </div>
         </div>
 
         {/* Brand marquee */}
-        <div
-          style={{
-            borderTop: "1px solid var(--color-surface-2)",
-            padding: "10px 0",
-            overflow: "hidden",
-            position: "relative",
-            zIndex: 2,
-          }}
-        >
+        <div style={{ borderTop: "1px solid var(--color-surface-2)", padding: "10px 0", overflow: "hidden", position: "relative", zIndex: 2 }}>
           <div style={{ position: "relative", height: "1em", overflow: "hidden" }}>
-            <div
-              className="marquee-track font-mono"
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                fontSize: "0.65rem",
-                color: "var(--color-border-light)",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-            >
-              <span style={{ whiteSpace: "nowrap", paddingRight: 0 }}>{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}</span>
+            <div className="marquee-track font-mono" style={{ position: "absolute", left: 0, top: 0, fontSize: "0.65rem", color: "var(--color-border-light)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              <span style={{ whiteSpace: "nowrap" }}>{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}{BRANDS_MARQUEE}</span>
             </div>
           </div>
         </div>
@@ -311,101 +282,6 @@ export default async function HomePage() {
           ================================================================ */}
       <GarageBanner />
 
-      {/* ================================================================
-          3 CUSTOMER PATHS — The core navigation for every visitor
-          ================================================================ */}
-      <section style={{ backgroundColor: "var(--color-void)", padding: "72px 0" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-          <div style={{ marginBottom: 40, textAlign: "center" }}>
-            <h2 className="heading-lg">QUE CHERCHEZ-VOUS ?</h2>
-            <p className="font-mono text-sm text-text-muted mt-2">
-              Choisissez votre besoin, on s&apos;occupe du reste.
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 16,
-            }}
-            className="paths-grid"
-          >
-            {CUSTOMER_PATHS.map((path) => {
-              const Icon = path.icon;
-              return (
-                <Link
-                  key={path.title}
-                  href={path.href}
-                  className="rubrique-card"
-                  style={{
-                    backgroundColor: path.accent ? "var(--color-neon-dim)" : "var(--color-surface)",
-                    border: `1px solid ${path.accent ? "var(--color-neon)" : "var(--color-border)"}`,
-                    padding: 32,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 16,
-                    textDecoration: "none",
-                    color: "inherit",
-                    minHeight: 260,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 52,
-                      height: 52,
-                      backgroundColor: "var(--color-void)",
-                      border: "1px solid var(--color-border)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Icon style={{ width: 24, height: 24, color: "var(--color-neon)" }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <h3
-                      className="font-display"
-                      style={{
-                        fontWeight: 800,
-                        fontSize: "1.1rem",
-                        color: "var(--color-text)",
-                        marginBottom: 4,
-                        letterSpacing: "-0.01em",
-                      }}
-                    >
-                      {path.title}
-                    </h3>
-                    <p className="font-mono" style={{ fontSize: "0.72rem", color: "var(--color-neon)", marginBottom: 10 }}>
-                      {path.subtitle}
-                    </p>
-                    <p
-                      className="font-mono"
-                      style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.6 }}
-                    >
-                      {path.description}
-                    </p>
-                  </div>
-                  <div
-                    className="font-mono"
-                    style={{
-                      fontSize: "0.7rem",
-                      color: "var(--color-neon)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {path.cta}
-                    <ArrowRight style={{ width: 12, height: 12 }} />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
       {/* ================================================================
           FEATURED PRODUCTS

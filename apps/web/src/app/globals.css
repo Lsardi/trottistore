@@ -656,6 +656,29 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
+/* Hero grid background — perspective synthwave grid */
+.hero-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,255,209,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,209,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 20%, transparent 70%);
+  z-index: 0;
+}
+
+/* Bento grid responsive */
+.bento-grid {
+  transition: all 300ms ease;
+}
+@media (max-width: 768px) {
+  .bento-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* Animated hero glow — subtle moving light behind the hero */
 @keyframes hero-glow {
   0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
