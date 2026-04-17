@@ -357,26 +357,37 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               </div>
             )}
 
-            {/* Description & specs — visible before add-to-cart */}
-            {(product.shortDescription || product.description) && (
-              <div className="mb-5">
-                <div className="divider mb-4" />
-                {product.description && product.description !== product.shortDescription && (
-                  <div
-                    className="font-mono text-sm leading-relaxed product-description"
-                    style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.description) }}
-                  />
-                )}
-                {!product.description && product.shortDescription && (
-                  <p
-                    className="font-mono text-sm leading-relaxed"
-                    style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}
-                    dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.shortDescription) }}
-                  />
-                )}
-              </div>
-            )}
+            {/* Specs table — extracted from description HTML */}
+            {product.description && (() => {
+              // Parse specs from <li><strong>Label :</strong> Value</li> pattern
+              const specRegex = /<li><strong>([^<]+)\s*:<\/strong>\s*([^<]+)<\/li>/g;
+              const specs: Array<[string, string]> = [];
+              let match;
+              while ((match = specRegex.exec(product.description)) !== null) {
+                specs.push([match[1].trim(), match[2].trim()]);
+              }
+              if (specs.length === 0) return null;
+              return (
+                <div className="mb-5">
+                  <p className="spec-label mb-3">CARACTÉRISTIQUES</p>
+                  <div className="border border-border overflow-hidden">
+                    {specs.map(([label, value], i) => (
+                      <div
+                        key={label}
+                        className="flex items-center px-3 py-2 font-mono text-xs"
+                        style={{
+                          borderBottom: i < specs.length - 1 ? "1px solid var(--color-border)" : "none",
+                          backgroundColor: i % 2 === 0 ? "var(--color-surface)" : "var(--color-surface-2)",
+                        }}
+                      >
+                        <span className="text-text-dim w-28 flex-shrink-0">{label}</span>
+                        <span className="text-text">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="divider mb-5" />
 
