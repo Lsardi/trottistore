@@ -4,13 +4,19 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  FileText,
-  Search,
-  Receipt,
-  Wrench,
+  ArrowRight,
+  Box,
+  Calendar,
   CheckCircle2,
-  Send,
+  Clock,
+  FileText,
   Loader2,
+  Receipt,
+  RotateCcw,
+  Search,
+  Send,
+  ShieldCheck,
+  Wrench,
 } from "lucide-react";
 import { repairsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -18,22 +24,29 @@ import { brand } from "@/lib/brand";
 import ConsentCheckbox from "@/components/ConsentCheckbox";
 
 const TICKET_TYPES = [
-  { value: "REPARATION", label: "Réparation", desc: "Panne ou dysfonctionnement" },
-  { value: "GARANTIE", label: "Sous garantie", desc: "Produit encore garanti" },
-  { value: "RETOUR", label: "Retour produit", desc: "Retour ou échange" },
-  { value: "RECLAMATION", label: "Réclamation", desc: "Problème de commande" },
+  { value: "REPARATION", label: "Reparation", desc: "Panne ou dysfonctionnement", icon: Wrench },
+  { value: "GARANTIE", label: "Sous garantie", desc: "Produit encore garanti", icon: ShieldCheck },
+  { value: "RETOUR", label: "Retour produit", desc: "Retour ou echange", icon: RotateCcw },
+  { value: "RECLAMATION", label: "Reclamation", desc: "Probleme de commande", icon: FileText },
 ] as const;
 
-const STEPS = [
-  { icon: FileText, title: "Décrivez" },
-  { icon: Search, title: "Diagnostic" },
-  { icon: Receipt, title: "Devis" },
-  { icon: Wrench, title: "Réparation" },
+const WORKFLOW_STEPS = [
+  { icon: FileText, title: "Demande", desc: "Deposez votre demande" },
+  { icon: Search, title: "Diagnostic", desc: "Examen en atelier" },
+  { icon: Receipt, title: "Devis", desc: "Estimation gratuite" },
+  { icon: Wrench, title: "Reparation", desc: "Intervention technique" },
+  { icon: CheckCircle2, title: "Retrait", desc: "Recuperez votre trottinette" },
+];
+
+const TRUST_POINTS = [
+  { icon: Search, title: "Diagnostic gratuit", desc: "Examen complet de votre trottinette sans engagement avant acceptation du devis." },
+  { icon: ShieldCheck, title: "Toutes marques", desc: "Dualtron, Xiaomi, Ninebot, Kaabo, Vsett... Notre atelier repare toutes les marques." },
+  { icon: Box, title: "Pieces en stock", desc: "Large stock de pieces detachees pour une reparation rapide, souvent sous 48h." },
 ];
 
 const SEO_ISSUE_LINKS = [
-  { label: "Trottinette ne démarre plus", slug: "trottinette-ne-demarre-plus" },
-  { label: "Pneu crevé trottinette", slug: "pneu-creve-trottinette" },
+  { label: "Trottinette ne demarre plus", slug: "trottinette-ne-demarre-plus" },
+  { label: "Pneu creve trottinette", slug: "pneu-creve-trottinette" },
   { label: "Frein trottinette ne freine plus", slug: "frein-trottinette-ne-freine-plus" },
   { label: "Batterie ne charge plus", slug: "batterie-trottinette-ne-charge-plus" },
   { label: "Guidon qui bouge", slug: "guidon-trottinette-qui-bouge" },
@@ -84,7 +97,7 @@ function ReparationPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!consent) {
-      setError("Veuillez accepter la politique de confidentialité.");
+      setError("Veuillez accepter la politique de confidentialite.");
       return;
     }
     setSubmitting(true);
@@ -103,20 +116,56 @@ function ReparationPage() {
         issueDescription: "",
       });
     } catch {
-      setError("Erreur lors de la soumission. Veuillez réessayer ou nous contacter directement.");
+      setError("Erreur lors de la soumission. Veuillez reessayer ou nous contacter directement.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <div className="text-center mb-10">
-        <h1 className="heading-lg mb-3">RÉPARATION SAV</h1>
+        <h1 className="heading-lg mb-3">REPARATION SAV</h1>
         <p className="font-mono text-sm text-text-muted max-w-lg mx-auto">
-          Déposez votre demande de réparation en ligne. Notre atelier à {brand.address.city}{" "}
-          répare toutes les marques.
+          Deposez votre demande de reparation en ligne. Notre atelier a {brand.address.city}{" "}
+          repare toutes les marques.
         </p>
+      </div>
+
+      {/* SAV workflow stepper */}
+      <div className="bg-surface border border-border p-5 sm:p-6 mb-8 overflow-x-auto">
+        <p className="spec-label mb-4 text-center">WORKFLOW SAV</p>
+        <div className="flex items-start justify-between min-w-[500px] sm:min-w-0 gap-1">
+          {WORKFLOW_STEPS.map((step, idx) => {
+            const Icon = step.icon;
+            const isFirst = idx === 0;
+            return (
+              <div key={step.title} className="flex items-start flex-1">
+                <div className="flex flex-col items-center text-center flex-1">
+                  <div
+                    className={cn(
+                      "w-10 h-10 flex items-center justify-center border transition-all duration-200 mb-2",
+                      isFirst
+                        ? "border-neon bg-neon/10 shadow-[0_0_15px_rgba(0,255,209,0.15)]"
+                        : "border-border bg-surface-2"
+                    )}
+                  >
+                    <Icon className={cn("w-4.5 h-4.5", isFirst ? "text-neon" : "text-text-dim")} />
+                  </div>
+                  <p className={cn("font-mono text-[11px] font-bold", isFirst ? "text-neon" : "text-text-muted")}>
+                    {step.title}
+                  </p>
+                  <p className="font-mono text-[9px] text-text-dim mt-0.5 hidden sm:block">{step.desc}</p>
+                </div>
+                {idx < WORKFLOW_STEPS.length - 1 && (
+                  <div className="flex items-center pt-5 px-1">
+                    <ArrowRight className={cn("w-3 h-3", isFirst ? "text-neon/50" : "text-border")} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <section className="bg-surface border border-border p-5 mb-8">
@@ -126,34 +175,13 @@ function ReparationPage() {
             <Link
               key={item.slug}
               href={`/reparation/${item.slug}`}
-              className="font-mono text-xs px-3 py-1.5 border border-border hover:border-neon text-text-muted hover:text-neon transition-colors"
+              className="font-mono text-xs px-3 py-1.5 border border-border hover:border-neon text-text-muted hover:text-neon transition-colors duration-200 cursor-pointer"
             >
               {item.label}
             </Link>
           ))}
         </div>
       </section>
-
-      {/* Steps */}
-      <div className="flex items-center justify-center gap-0 mb-12">
-        {STEPS.map((s, i) => (
-          <div key={s.title} className="flex items-center">
-            <div className="text-center px-4">
-              <span
-                className={cn(
-                  "font-mono text-xs uppercase tracking-widest",
-                  i === 0 ? "text-neon" : "text-text-dim"
-                )}
-              >
-                {s.title}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <span className="font-mono text-text-dim">&mdash;</span>
-            )}
-          </div>
-        ))}
-      </div>
 
       {/* Diagnostic summary banner */}
       {hasDiag && !success && (
@@ -164,7 +192,7 @@ function ReparationPage() {
           </div>
           <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <p className="spec-label mb-1">Symptôme</p>
+              <p className="spec-label mb-1">Symptome</p>
               <p className="font-mono text-sm text-text">{diagInfo.issue}</p>
             </div>
             <div>
@@ -172,53 +200,126 @@ function ReparationPage() {
               <p className="font-mono text-sm text-text">{diagInfo.diagnosis}</p>
             </div>
             <div>
-              <p className="spec-label mb-1">Coût estimé</p>
+              <p className="spec-label mb-1">Cout estime</p>
               <p className="font-mono text-sm font-bold text-neon">{diagInfo.cost}</p>
             </div>
             <div>
-              <p className="spec-label mb-1">Durée estimée</p>
+              <p className="spec-label mb-1">Duree estimee</p>
               <p className="font-mono text-sm text-text">{diagInfo.duration}</p>
             </div>
           </div>
           <div className="px-5 pb-3">
             <p className="font-mono text-xs text-text-dim">
-              Prix indicatif. Le devis final sera établi après examen en atelier.
+              Prix indicatif. Le devis final sera etabli apres examen en atelier.
             </p>
           </div>
         </div>
       )}
 
       {success ? (
-        <div className="bg-surface border border-border p-10 text-center">
-          <div className="w-16 h-16 mx-auto mb-5 flex items-center justify-center">
-            <CheckCircle2 className="w-12 h-12 text-neon" />
+        <div className="bg-surface border border-border overflow-hidden">
+          {/* Success header */}
+          <div className="border-b border-neon/20 bg-neon/5 p-6 sm:p-10 text-center">
+            {/* Animated checkmark */}
+            <div className="relative w-20 h-20 mx-auto mb-5">
+              <div className="absolute inset-0 border-2 border-neon animate-[sav-ring_0.6s_ease-out_forwards] opacity-0" style={{ borderRadius: "50%" }} />
+              <div className="absolute inset-2 bg-neon/10 flex items-center justify-center animate-[sav-fill_0.4s_0.3s_ease-out_forwards] opacity-0" style={{ borderRadius: "50%" }}>
+                <CheckCircle2 className="w-8 h-8 text-neon animate-[sav-check_0.3s_0.5s_ease-out_forwards] opacity-0" />
+              </div>
+            </div>
+            <h2 className="heading-md text-neon mb-2">
+              Ticket cree avec succes
+            </h2>
+            <div className="inline-block bg-surface border border-neon/30 px-6 py-3 mt-3">
+              <p className="font-mono text-[10px] text-text-dim uppercase tracking-wider mb-1">Numero de ticket</p>
+              <p className="font-mono text-xl font-bold text-neon tracking-wider">
+                SAV-{String(success.ticketNumber).padStart(4, "0")}
+              </p>
+            </div>
           </div>
-          <h2 className="heading-md text-neon mb-2">
-            Ticket cree avec succes
-          </h2>
-          <p className="font-mono text-sm text-text-muted mb-4">
-            Votre numero de ticket :{" "}
-            <span className="font-mono font-bold text-neon bg-neon-dim px-2 py-0.5">
-              SAV-{String(success.ticketNumber).padStart(4, "0")}
-            </span>
-          </p>
-          {success.trackingUrl ? (
-            <p className="font-mono text-xs text-text mb-6">
-              Suivi en temps reel :{" "}
-              <Link href={success.trackingUrl} className="text-neon hover:underline">
-                ouvrir le suivi
+
+          {/* Success details */}
+          <div className="p-6 sm:p-8 space-y-6">
+            {success.trackingUrl && (
+              <Link
+                href={success.trackingUrl}
+                className="flex items-center justify-between gap-3 border border-neon/20 bg-neon/5 p-4 hover:bg-neon/10 transition-all duration-200 cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <Search className="w-5 h-5 text-neon" />
+                  <div>
+                    <p className="font-mono text-xs text-text font-bold">Suivre ma reparation</p>
+                    <p className="font-mono text-[10px] text-text-dim">Suivi en temps reel de votre ticket</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-neon group-hover:translate-x-1 transition-transform duration-200" />
               </Link>
-            </p>
-          ) : null}
-          <p className="font-mono text-xs text-text-dim mb-6">
-            Nous vous contacterons sous 24-48h pour le diagnostic.
-          </p>
-          <button
-            onClick={() => setSuccess(null)}
-            className="font-mono text-sm text-neon hover:underline transition-colors"
-          >
-            Deposer une autre demande
-          </button>
+            )}
+
+            {/* Expected timeline */}
+            <div>
+              <p className="spec-label mb-3">PROCHAINES ETAPES</p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-neon/10 border border-neon/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="font-mono text-[10px] text-neon font-bold">1</span>
+                  </div>
+                  <div>
+                    <p className="font-mono text-xs text-text">Contact sous 24-48h</p>
+                    <p className="font-mono text-[10px] text-text-dim">Notre equipe vous contactera pour confirmer la reception.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-surface-2 border border-border flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="font-mono text-[10px] text-text-dim font-bold">2</span>
+                  </div>
+                  <div>
+                    <p className="font-mono text-xs text-text">Diagnostic gratuit</p>
+                    <p className="font-mono text-[10px] text-text-dim">Examen complet et devis detaille sans engagement.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-surface-2 border border-border flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="font-mono text-[10px] text-text-dim font-bold">3</span>
+                  </div>
+                  <div>
+                    <p className="font-mono text-xs text-text">Reparation sur validation</p>
+                    <p className="font-mono text-[10px] text-text-dim">Intervention uniquement apres votre accord sur le devis.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="divider" />
+
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button
+                onClick={() => setSuccess(null)}
+                className="btn-outline cursor-pointer"
+              >
+                DEPOSER UNE AUTRE DEMANDE
+              </button>
+              <Link href="/produits" className="btn-neon cursor-pointer">
+                PARCOURIR LA BOUTIQUE
+              </Link>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes sav-ring {
+              0% { transform: scale(0.5); opacity: 0; }
+              50% { transform: scale(1.1); opacity: 1; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes sav-fill {
+              0% { transform: scale(0); opacity: 0; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes sav-check {
+              0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+              100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            }
+          `}</style>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -231,7 +332,7 @@ function ReparationPage() {
                 id="repair-name"
                 type="text"
                 required
-                placeholder="Nom Prénom"
+                placeholder="Nom Prenom"
                 value={formData.customerName}
                 onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
                 className="input-dark w-full"
@@ -239,7 +340,7 @@ function ReparationPage() {
             </div>
             <div>
               <label htmlFor="repair-phone" className="spec-label block mb-2">
-                Téléphone <span className="text-danger">*</span>
+                Telephone <span className="text-danger">*</span>
               </label>
               <input
                 id="repair-phone"
@@ -270,7 +371,7 @@ function ReparationPage() {
           {/* Product model */}
           <div>
             <label htmlFor="repair-model" className="spec-label block mb-2">
-              Modèle de trottinette <span className="text-danger">*</span>
+              Modele de trottinette <span className="text-danger">*</span>
             </label>
             <input
               id="repair-model"
@@ -286,7 +387,7 @@ function ReparationPage() {
           {/* Serial number */}
           <div>
             <label htmlFor="repair-serial" className="spec-label block mb-2">
-              Numéro de série <span className="text-text-dim font-normal">(optionnel)</span>
+              Numero de serie <span className="text-text-dim font-normal">(optionnel)</span>
             </label>
             <input
               id="repair-serial"
@@ -298,53 +399,60 @@ function ReparationPage() {
             />
           </div>
 
-          {/* Type */}
+          {/* Type — card-style with icons */}
           <div>
             <p id="repair-request-type-label" className="spec-label block mb-3">
               Type de demande <span className="text-danger">*</span>
             </p>
             <div role="group" aria-labelledby="repair-request-type-label" className="grid grid-cols-2 gap-3">
-              {TICKET_TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, type: t.value })}
-                  className={cn(
-                    "px-4 py-3.5 border text-left transition-all bg-surface-2",
-                    formData.type === t.value
-                      ? "border-neon"
-                      : "border-border hover:border-text-dim"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <p
-                      className={cn(
-                        "font-mono text-sm font-bold",
-                        formData.type === t.value ? "text-neon" : "text-text"
-                      )}
-                    >
-                      {t.label}
-                    </p>
-                    {formData.type === t.value && (
-                      <span className="badge badge-neon">Sélectionné</span>
+              {TICKET_TYPES.map((t) => {
+                const Icon = t.icon;
+                const isSelected = formData.type === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, type: t.value })}
+                    className={cn(
+                      "flex items-start gap-3 px-4 py-4 border text-left transition-all duration-200 cursor-pointer",
+                      isSelected
+                        ? "border-neon bg-neon/5 shadow-[0_0_15px_rgba(0,255,209,0.08)]"
+                        : "border-border hover:border-text-dim bg-surface-2"
                     )}
-                  </div>
-                  <p className="font-mono text-xs text-text-dim mt-0.5">{t.desc}</p>
-                </button>
-              ))}
+                  >
+                    <div className={cn(
+                      "w-9 h-9 flex items-center justify-center border flex-shrink-0 transition-all duration-200",
+                      isSelected ? "border-neon/30 bg-neon/10" : "border-border bg-surface"
+                    )}>
+                      <Icon className={cn("w-4 h-4 transition-colors duration-200", isSelected ? "text-neon" : "text-text-dim")} />
+                    </div>
+                    <div>
+                      <p
+                        className={cn(
+                          "font-mono text-sm font-bold transition-colors duration-200",
+                          isSelected ? "text-neon" : "text-text"
+                        )}
+                      >
+                        {t.label}
+                      </p>
+                      <p className="font-mono text-xs text-text-dim mt-0.5">{t.desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Description */}
           <div>
             <label htmlFor="repair-description" className="spec-label block mb-2">
-              Description du problème <span className="text-danger">*</span>
+              Description du probleme <span className="text-danger">*</span>
             </label>
             <textarea
               id="repair-description"
               required
               rows={5}
-              placeholder="Décrivez le problème en détail : quand est-ce apparu ? Quels symptômes ? La trottinette démarre-t-elle encore ?"
+              placeholder="Decrivez le probleme en detail : quand est-ce apparu ? Quels symptomes ? La trottinette demarre-t-elle encore ?"
               value={formData.issueDescription}
               onChange={(e) => setFormData({ ...formData, issueDescription: e.target.value })}
               className="input-dark w-full resize-none"
@@ -365,16 +473,20 @@ function ReparationPage() {
                     setSelectedSlot("");
                   }
                 }}
+                className="cursor-pointer"
               />
               <span className="font-mono text-sm text-text">
-                Je souhaite réserver un créneau à l&apos;atelier
+                Je souhaite reserver un creneau a l&apos;atelier
               </span>
             </label>
 
             {wantsAppointment && (
               <div className="space-y-3 pt-2">
                 <div>
-                  <label htmlFor="appt-date" className="spec-label block mb-2">Date souhaitée</label>
+                  <label htmlFor="appt-date" className="spec-label block mb-2">
+                    <Calendar className="w-3 h-3 inline mr-1" />
+                    Date souhaitee
+                  </label>
                   <input
                     id="appt-date"
                     type="date"
@@ -395,19 +507,19 @@ function ReparationPage() {
                       } catch { /* ignore */ }
                       setLoadingSlots(false);
                     }}
-                    className="input-dark w-full"
+                    className="input-dark w-full cursor-pointer"
                   />
                 </div>
 
                 {loadingSlots && (
                   <p className="font-mono text-xs text-text-dim flex items-center gap-2">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Chargement des créneaux...
+                    <Loader2 className="w-3 h-3 animate-spin" /> Chargement des creneaux...
                   </p>
                 )}
 
                 {availableSlots.length > 0 && (
                   <div>
-                    <p className="spec-label mb-2">Créneaux disponibles</p>
+                    <p className="spec-label mb-2">Creneaux disponibles</p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {availableSlots.filter((s) => s.available).map((slot) => {
                         const time = new Date(slot.startsAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -418,12 +530,13 @@ function ReparationPage() {
                             type="button"
                             onClick={() => setSelectedSlot(slot.startsAt)}
                             className={cn(
-                              "py-2 px-3 border font-mono text-xs transition-all",
+                              "py-2.5 px-3 border font-mono text-xs transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5",
                               isSelected
-                                ? "border-neon bg-neon-dim text-neon"
+                                ? "border-neon bg-neon-dim text-neon shadow-[0_0_10px_rgba(0,255,209,0.1)]"
                                 : "border-border text-text-muted hover:border-text-dim"
                             )}
                           >
+                            <Clock className="w-3 h-3" />
                             {time}
                           </button>
                         );
@@ -433,7 +546,7 @@ function ReparationPage() {
                 )}
 
                 {appointmentDate && !loadingSlots && availableSlots.filter((s) => s.available).length === 0 && (
-                  <p className="font-mono text-xs text-text-dim">Aucun créneau disponible ce jour. Essayez une autre date.</p>
+                  <p className="font-mono text-xs text-text-dim">Aucun creneau disponible ce jour. Essayez une autre date.</p>
                 )}
               </div>
             )}
@@ -450,7 +563,7 @@ function ReparationPage() {
           <button
             type="submit"
             disabled={submitting || !consent}
-            className="btn-neon w-full py-4 disabled:opacity-50"
+            className="btn-neon w-full py-4 disabled:opacity-50 cursor-pointer"
           >
             {submitting ? (
               <>
@@ -460,7 +573,7 @@ function ReparationPage() {
             ) : (
               <>
                 <Send className="w-5 h-5" />
-                ENVOYER
+                ENVOYER MA DEMANDE
               </>
             )}
           </button>
@@ -469,6 +582,30 @@ function ReparationPage() {
             Diagnostic gratuit. Aucun engagement avant acceptation du devis.
           </p>
         </form>
+      )}
+
+      {/* "Pourquoi TrottiStore ?" trust section */}
+      {!success && (
+        <section className="mt-12 mb-4">
+          <p className="spec-label text-center mb-6">POURQUOI TROTTISTORE ?</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {TRUST_POINTS.map((point) => {
+              const Icon = point.icon;
+              return (
+                <div
+                  key={point.title}
+                  className="bg-surface border border-border p-5 text-center hover:border-neon/30 transition-all duration-200"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-neon/10 border border-neon/20 flex items-center justify-center">
+                    <Icon className="w-5 h-5 text-neon" />
+                  </div>
+                  <p className="font-mono text-xs font-bold text-text mb-1">{point.title}</p>
+                  <p className="font-mono text-[11px] text-text-dim leading-relaxed">{point.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );

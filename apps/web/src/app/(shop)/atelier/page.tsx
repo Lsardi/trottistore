@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
-import { Wrench, Zap, Shield, Clock, MapPin, Phone, Star, ChevronRight, Award, CheckCircle2 } from "lucide-react";
+import { Wrench, Zap, Shield, Clock, MapPin, Phone, Star, Award, CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: `Atelier reparation trottinette | ${brand.name}`,
@@ -46,10 +46,6 @@ const BRANDS_REPAIRED = [
   "Dualtron", "Xiaomi", "Ninebot", "Kaabo", "Vsett", "Segway",
   "Inokim", "Minimotors", "Teverun", "Kuickwheel",
 ];
-
-const GOOGLE_MAPS_EMBED = `https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${encodeURIComponent(
-  `${brand.address.street}, ${brand.address.postalCode} ${brand.address.city}`
-)}&zoom=15`;
 
 const GOOGLE_MAPS_DIR = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
   `${brand.address.street}, ${brand.address.postalCode} ${brand.address.city}`
