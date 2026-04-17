@@ -357,6 +357,27 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               </div>
             )}
 
+            {/* Description & specs — visible before add-to-cart */}
+            {(product.shortDescription || product.description) && (
+              <div className="mb-5">
+                <div className="divider mb-4" />
+                {product.description && product.description !== product.shortDescription && (
+                  <div
+                    className="font-mono text-sm leading-relaxed product-description"
+                    style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.description) }}
+                  />
+                )}
+                {!product.description && product.shortDescription && (
+                  <p
+                    className="font-mono text-sm leading-relaxed"
+                    style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.shortDescription) }}
+                  />
+                )}
+              </div>
+            )}
+
             <div className="divider mb-5" />
 
             {inStock ? (
@@ -366,29 +387,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             )}
           </div>
         </div>
-
-        {(product.shortDescription || product.description) && (
-          <div className="mt-16">
-            <div className="divider mb-8" />
-            <p className="spec-label mb-4">DESCRIPTION</p>
-
-            {product.shortDescription && (
-              <div
-                className="font-mono text-sm leading-relaxed mb-4"
-                style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}
-                dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.shortDescription) }}
-              />
-            )}
-
-            {product.description && product.description !== product.shortDescription && (
-              <div
-                className="font-mono text-sm leading-relaxed"
-                style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}
-                dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.description) }}
-              />
-            )}
-          </div>
-        )}
 
         <ProductReviews slug={product.slug} />
 
