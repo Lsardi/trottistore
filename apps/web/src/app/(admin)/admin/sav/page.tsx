@@ -74,6 +74,31 @@ export default function AdminSavPage() {
   const [triggerDryRun, setTriggerDryRun] = useState(true);
   const [triggerResult, setTriggerResult] = useState<TriggerRunResult | null>(null);
   const [triggerMessage, setTriggerMessage] = useState("");
+  const [draggedTicketId, setDraggedTicketId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
+  async function handleDropTicket(ticketId: string, newStatus: RepairStatus) {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+    const allowed = STATUS_TRANSITIONS[ticket.status as RepairStatus] ?? [];
+    if (!allowed.includes(newStatus)) {
+      setError(`Transition ${ticket.status} → ${newStatus} non autorisée`);
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await repairsApi.updateStatus(ticketId, { status: newStatus, note: "Déplacé via drag & drop" });
+      await loadTickets();
+    } catch {
+      setError("Échec de la mise à jour du statut.");
+    } finally {
+      setSaving(false);
+      setDraggedTicketId(null);
+      setDragOverColumn(null);
+    }
+  }
 
   const getErrorMessage = (error: unknown, fallback: string): string => {
     if (error instanceof Error && error.message.trim()) {
@@ -258,18 +283,42 @@ export default function AdminSavPage() {
           {KANBAN_COLUMNS.map((column) => {
             const columnTickets = tickets.filter((ticket) => ticket.status === column.key);
             return (
-              <section key={column.key} className="bg-surface border border-border min-h-56 flex flex-col">
+              <section
+                key={column.key}
+                className={cn(
+                  "bg-surface border min-h-56 flex flex-col transition-all duration-200",
+                  dragOverColumn === column.key ? "border-neon bg-neon-dim/10 shadow-[0_0_20px_rgba(0,255,209,0.1)]" : "border-border",
+                )}
+                onDragOver={(e) => { e.preventDefault(); setDragOverColumn(column.key); }}
+                onDragLeave={() => setDragOverColumn(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverColumn(null);
+                  const ticketId = e.dataTransfer.getData("text/plain");
+                  if (ticketId && ticketId !== column.key) {
+                    void handleDropTicket(ticketId, column.key);
+                  }
+                }}
+              >
                 <header className="px-3 py-2 border-b border-border bg-surface-2">
                   <p className="spec-label">{column.title}</p>
                   <p className="font-mono text-[11px] text-text-dim mt-1">{columnTickets.length} ticket(s)</p>
                 </header>
-                <div className="p-2 space-y-2 overflow-auto">
+                <div className="p-2 space-y-2 overflow-auto flex-1">
                   {columnTickets.map((ticket) => (
-                    <button
+                    <div
                       key={ticket.id}
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggedTicketId(ticket.id);
+                        e.dataTransfer.setData("text/plain", ticket.id);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragEnd={() => { setDraggedTicketId(null); setDragOverColumn(null); }}
                       onClick={() => setSelectedTicketId(ticket.id)}
                       className={cn(
-                        "w-full text-left border p-2 transition-colors",
+                        "w-full text-left border p-2 transition-all cursor-grab active:cursor-grabbing",
+                        draggedTicketId === ticket.id ? "opacity-40 scale-95" : "",
                         selectedTicketId === ticket.id
                           ? "border-neon bg-neon-dim/30"
                           : "border-border hover:border-neon/40",
@@ -287,10 +336,12 @@ export default function AdminSavPage() {
                           {new Date(ticket.createdAt).toLocaleDateString("fr-FR")}
                         </span>
                       </div>
-                    </button>
+                    </div>
                   ))}
                   {columnTickets.length === 0 ? (
-                    <p className="font-mono text-[11px] text-text-dim px-1 py-2">Aucun ticket</p>
+                    <p className="font-mono text-[11px] text-text-dim px-1 py-2 text-center">
+                      {dragOverColumn === column.key ? "Déposer ici" : "Aucun ticket"}
+                    </p>
                   ) : null}
                 </div>
               </section>
