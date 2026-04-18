@@ -22,7 +22,7 @@ const TIERS = {
     color: "#C0C0C0",
     nextTier: "GOLD",
     nextThreshold: 2000,
-    benefits: ["Diagnostic offert", "-10% sur les pièces", "Priorité RDV atelier"],
+    benefits: ["Diagnostic offert", "Priorité RDV atelier", "Offres exclusives"],
   },
   GOLD: {
     icon: Crown,
@@ -31,10 +31,9 @@ const TIERS = {
     nextThreshold: null,
     benefits: [
       "Diagnostic offert",
-      "-15% sur les pièces",
       "Priorité RDV atelier",
-      "1 réparation express offerte / an",
-      "Livraison offerte",
+      "Offres exclusives",
+      "Service VIP",
     ],
   },
 } as const;
@@ -110,8 +109,8 @@ export default function LoyaltyCard({ tier, points, totalSpent, totalOrders }: L
         <div className="space-y-1">
           {[
             { action: "1€ dépensé", reward: "= 1 point" },
-            { action: "500 points", reward: "→ SILVER (-10% pièces)" },
-            { action: "2000 points", reward: "→ GOLD (-15% + livraison offerte)" },
+            { action: "500 points", reward: "→ SILVER" },
+            { action: "2000 points", reward: "→ GOLD" },
           ].map((rule) => (
             <div key={rule.action} className="flex items-center justify-between font-mono text-[10px]">
               <span className="text-text-muted">{rule.action}</span>
