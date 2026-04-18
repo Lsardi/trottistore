@@ -505,7 +505,8 @@ type OrderItemLite = {
   unitPriceHt: string | number | null;
   totalHt?: string | number | null;
   serialNumbers?: string[];
-  product?: { name?: string } | null;
+  product?: { name?: string; slug?: string; sku?: string; images?: Array<{ url: string; alt?: string }> } | null;
+  variant?: { name?: string; sku?: string } | null;
 };
 
 function OrderItemCard({
@@ -573,14 +574,32 @@ function OrderItemCard({
 
   const hasSerials = (item.serialNumbers ?? []).length > 0;
 
+  const productImage = item.product?.images?.[0];
+  const productSlug = item.product?.slug;
+
   return (
     <div className="border border-border p-3 bg-surface-2 space-y-2">
-      <div>
-        <p className="font-mono text-xs text-text">{item.product?.name ?? "Produit"}</p>
-        <p className="font-mono text-[11px] text-text-dim">
-          Qté: {item.quantity} • PU HT: {formatPrice(item.unitPriceHt)} • Total HT:{" "}
-          {formatPrice(item.totalHt)}
-        </p>
+      <div className="flex gap-3">
+        {/* Product thumbnail */}
+        {productImage && (
+          <div className="w-14 h-14 flex-shrink-0 bg-surface border border-border overflow-hidden">
+            <img src={productImage.url} alt={productImage.alt || item.product?.name || ""} className="w-full h-full object-contain p-1" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          {productSlug ? (
+            <a href={`/produits/${productSlug}`} target="_blank" rel="noopener noreferrer" className="font-mono text-xs text-neon hover:underline cursor-pointer">
+              {item.product?.name ?? "Produit"}
+            </a>
+          ) : (
+            <p className="font-mono text-xs text-text">{item.product?.name ?? "Produit"}</p>
+          )}
+          <p className="font-mono text-[11px] text-text-dim">
+            {item.product?.sku && <span className="text-text-dim">REF: {item.product.sku} · </span>}
+            {item.variant?.name && item.variant.name !== "Default" && <span>Variante: {item.variant.name} · </span>}
+            Qté: {item.quantity} · PU HT: {formatPrice(item.unitPriceHt)} · Total HT: {formatPrice(item.totalHt)}
+          </p>
+        </div>
       </div>
 
       {/* Serial numbers display / editor */}
