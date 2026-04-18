@@ -208,7 +208,7 @@ function formatPrice(amount: string | number): string {
     try {
       const res = await authApi.login(loginForm);
       localStorage.setItem("accessToken", res.accessToken);
-      document.cookie = `accessToken=${res.accessToken}; path=/; max-age=${15 * 60}; SameSite=Strict`;
+      document.cookie = `accessToken=${res.accessToken}; path=/; max-age=${4 * 60 * 60}; SameSite=Strict`;
       // Best-effort: sync the garage before redirecting so the user lands
       // on a page where their saved scooters are already merged in.
       await syncGarageWithServer(res.accessToken).catch(() => undefined);
@@ -654,7 +654,7 @@ function formatPrice(amount: string | number): string {
                     password: registerForm.password,
                   });
                   localStorage.setItem("accessToken", res.accessToken);
-      document.cookie = `accessToken=${res.accessToken}; path=/; max-age=${15 * 60}; SameSite=Strict`;
+      document.cookie = `accessToken=${res.accessToken}; path=/; max-age=${4 * 60 * 60}; SameSite=Strict`;
                   window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
                 } catch (err) {
                   setVerifyError(err instanceof Error ? err.message : "Code invalide ou expire");

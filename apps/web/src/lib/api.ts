@@ -12,7 +12,7 @@ function persistToken(token: string | null) {
   if (token) {
     localStorage.setItem("accessToken", token);
     // Set cookie readable by Next.js middleware (not httpOnly — middleware needs it)
-    document.cookie = `accessToken=${token}; path=/; max-age=${15 * 60}; SameSite=Strict`;
+    document.cookie = `accessToken=${token}; path=/; max-age=${4 * 60 * 60}; SameSite=Strict`;
   } else {
     localStorage.removeItem("accessToken");
     document.cookie = "accessToken=; path=/; max-age=0; SameSite=Strict";

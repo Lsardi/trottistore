@@ -10,7 +10,7 @@ import type { InputJsonValue } from "@prisma/client/runtime/library";
 
 // ─── Constants ─────────────────────────────────────────────
 
-const ACCESS_TOKEN_EXPIRY = "15m";
+const ACCESS_TOKEN_EXPIRY = "4h";
 const REFRESH_TOKEN_DAYS = 30;
 const BCRYPT_ROUNDS = 12;
 const PASSWORD_RESET_EXPIRY_HOURS = 1;
