@@ -106,7 +106,7 @@ export default function AdminAtelierPage() {
   const loadTickets = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await repairsApi.list({ limit: 100, sort: "newest" });
+      const res = await repairsApi.list({ limit: 50, sort: "newest" });
       const all = res.data || [];
       // Keep only the work-in-progress side of the SAV pipeline.
       setTickets(all.filter((t) => WORK_STATUSES.has(t.status)));

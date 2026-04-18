@@ -86,7 +86,7 @@ function SearchContent() {
         adminProductsApi.list({ page: 1, limit: 20, search: query }),
         ordersApi.adminList({ page: 1, limit: 30, search: query }),
         customersApi.list({ page: 1, limit: 30, search: query }),
-        repairsApi.list({ page: 1, limit: 100 }),
+        repairsApi.list({ page: 1, limit: 50 }),
         ordersApi.adminFindBySerial(query),
       ]);
 

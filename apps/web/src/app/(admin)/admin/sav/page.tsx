@@ -86,7 +86,7 @@ export default function AdminSavPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await repairsApi.list({ page: 1, limit: 100, sort: "priority" });
+      const res = await repairsApi.list({ page: 1, limit: 50, sort: "priority" });
       setTickets(res.data || []);
     } catch {
       setError("Impossible de charger les tickets SAV.");

@@ -105,7 +105,7 @@ function AdminCommandesContent() {
     try {
       const res = await ordersApi.adminList({
         page: 1,
-        limit: 100,
+        limit: 50,
         status: statusFilter || undefined,
         search: search.trim() || undefined,
       });

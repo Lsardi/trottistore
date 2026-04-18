@@ -52,7 +52,7 @@ export default function AdminAuditPage() {
       setLoading(true);
       try {
         const res = await auditApi.list({
-          limit: 100,
+          limit: 50,
           resource: resourceFilter || undefined,
           action: actionFilter || undefined,
         });

@@ -71,7 +71,7 @@ export default function AdminFacturesPage() {
           search: search.trim() || undefined,
           from: from || undefined,
           to: to || undefined,
-          limit: 100,
+          limit: 50,
         });
         if (cancelled) return;
         setEntries(res.data || []);
@@ -108,7 +108,7 @@ export default function AdminFacturesPage() {
         search: search.trim() || undefined,
         from: from || undefined,
         to: to || undefined,
-        limit: 100,
+        limit: 50,
       });
       setEntries(res.data || []);
     } catch (err) {
