@@ -179,24 +179,24 @@ export default function AdminClientsPage() {
                         </Link>
                         <button
                           onClick={async () => {
-                            if (!confirm(`Anonymiser le compte de ${customer.email} ? Cette action est irréversible (RGPD art. 17).`)) return;
+                            if (!confirm(`Supprimer définitivement ${customer.email} ? Cette action est irréversible.`)) return;
                             try {
                               const token = localStorage.getItem("accessToken");
-                              const res = await fetch(`/api/v1/customers/${customer.id}/anonymize`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                              const res = await fetch(`/api/v1/customers/${customer.id}`, {
+                                method: "DELETE",
+                                headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                               });
                               if (res.ok) {
                                 setCustomers(prev => prev.filter(c => c.id !== customer.id));
                               } else {
                                 const data = await res.json();
-                                alert(data.error?.message || "Erreur lors de l'anonymisation");
+                                alert(data.error?.message || "Erreur lors de la suppression");
                               }
                             } catch { alert("Erreur réseau"); }
                           }}
                           className="font-mono text-[10px] text-danger hover:text-red-300 underline cursor-pointer"
                         >
-                          Anonymiser
+                          Supprimer
                         </button>
                       </div>
                     </td>

@@ -737,6 +737,37 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // Replaces PII with anonymous placeholders but keeps the user row
   // + order history because the orders have legal value for tax
+  // DELETE /customers/:id — Hard delete a customer (SUPERADMIN/ADMIN only)
+  app.delete("/customers/:id", async (request, reply) => {
+    const reqUser = request.user as { role?: string } | undefined;
+    if (!reqUser || !["SUPERADMIN", "ADMIN"].includes(reqUser.role ?? "")) {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Seuls SUPERADMIN et ADMIN peuvent supprimer un compte" } });
+    }
+
+    const id = parseIdParam(request.params);
+    const existing = await app.prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+    if (!existing) {
+      return reply.status(404).send({ success: false, error: { code: "NOT_FOUND", message: "Client introuvable" } });
+    }
+    if (existing.role !== "CLIENT") {
+      return reply.status(400).send({ success: false, error: { code: "NOT_CLIENT", message: "Seuls les comptes clients peuvent être supprimés" } });
+    }
+
+    await app.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.deleteMany({ where: { userId: id } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: id } });
+      await tx.customerInteraction.deleteMany({ where: { customerId: id } });
+      await tx.loyaltyPoint.deleteMany({ where: { profile: { userId: id } } });
+      await tx.customerProfile.deleteMany({ where: { userId: id } });
+      await tx.address.deleteMany({ where: { userId: id } });
+      await tx.review.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
+
+    app.log.info({ customerId: id, userId: (reqUser as { userId?: string }).userId }, "Customer deleted by admin");
+    return { success: true, data: { message: "Client supprimé définitivement" } };
+  });
+
   // purposes (min 10 years retention). The customer is banned to
   // prevent new logins, the email is rewritten to a non-routable
   // sentinel, and the customerProfile is wiped of identifying tags.
