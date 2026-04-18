@@ -852,6 +852,45 @@ export async function adminRoutes(app: FastifyInstance) {
   });
 
   // ═══════════════════════════════════════════════════════════
+  // ADMIN BRANDS CRUD
+  // ═══════════════════════════════════════════════════════════
+
+  // GET /admin/brands — List all brands
+  app.get("/admin/brands", adminOnly, async () => {
+    const brands = await app.prisma.brand.findMany({
+      orderBy: { name: "asc" },
+    });
+    return { success: true, data: brands };
+  });
+
+  // POST /admin/brands — Create brand
+  app.post("/admin/brands", adminOnly, async (request, reply) => {
+    const schema = z.object({
+      name: z.string().min(1).max(200),
+      logoUrl: z.string().url().optional().nullable(),
+      description: z.string().optional().nullable(),
+    });
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "Invalid brand data", details: parsed.error.flatten().fieldErrors },
+      });
+    }
+
+    const slug = slugify(parsed.data.name);
+    const existing = await app.prisma.brand.findUnique({ where: { slug } });
+    if (existing) {
+      return { success: true, data: existing }; // Idempotent — return existing
+    }
+
+    const brand = await app.prisma.brand.create({
+      data: { name: parsed.data.name, slug, logoUrl: parsed.data.logoUrl, description: parsed.data.description },
+    });
+    return reply.status(201).send({ success: true, data: brand });
+  });
+
+  // ═══════════════════════════════════════════════════════════
   // CSV IMPORT — Supplier product import
   // ═══════════════════════════════════════════════════════════
 

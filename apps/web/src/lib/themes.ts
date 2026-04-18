@@ -19,6 +19,12 @@ export const THEME_PROFILES = [
     short: "Impact brut",
     description: "Style retail agressif, formes franches et contrastes forts.",
   },
+  {
+    id: "contraste",
+    label: "Haute Lisibilité",
+    short: "Contraste max",
+    description: "Textes pur blanc sur noir profond, contrastes maximisés pour lecture facilitée.",
+  },
 ] as const;
 
 export type ThemeId = (typeof THEME_PROFILES)[number]["id"];

@@ -1,4 +1,4 @@
-import { Syne, Space_Mono, IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif, Manrope } from "next/font/google";
+import { Syne, Space_Mono, IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif, Manrope, Inter } from "next/font/google";
 
 // Atelier theme (default) — loaded eagerly
 export const syne = Syne({
@@ -45,6 +45,14 @@ export const manrope = Manrope({
   variable: "--font-manrope",
 });
 
+// Haute Lisibilité theme — Inter, standard pro e-commerce (Stripe, Linear, Vercel)
+export const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
 /** All font CSS variable classes combined */
 export const fontVariables = [
   syne.variable,
@@ -53,4 +61,5 @@ export const fontVariables = [
   ibmPlexSans.variable,
   ibmPlexSerif.variable,
   manrope.variable,
+  inter.variable,
 ].join(" ");
