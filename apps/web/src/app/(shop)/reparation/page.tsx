@@ -93,6 +93,7 @@ function ReparationPage() {
   const [availableSlots, setAvailableSlots] = useState<Array<{ startsAt: string; available: boolean }>>([]);
   const [selectedSlot, setSelectedSlot] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,7 +105,10 @@ function ReparationPage() {
     setError("");
 
     try {
-      const res = await repairsApi.create(formData);
+      const res = await repairsApi.create({
+        ...formData,
+        ...(photos.length > 0 ? { photosUrls: photos } : {}),
+      });
       setSuccess({ ticketNumber: res.data.ticketNumber, trackingUrl: res.data.trackingUrl });
       setFormData({
         customerName: "",
@@ -457,6 +461,67 @@ function ReparationPage() {
               onChange={(e) => setFormData({ ...formData, issueDescription: e.target.value })}
               className="input-dark w-full resize-none"
             />
+          </div>
+
+          {/* Photos */}
+          <div>
+            <p className="spec-label block mb-2">
+              Photos de la panne <span className="text-text-dim font-normal">(optionnel, 5 max)</span>
+            </p>
+            <div className="flex flex-wrap gap-3 mb-3">
+              {photos.map((src, i) => (
+                <div key={i} className="relative w-20 h-20 border border-border bg-surface overflow-hidden group">
+                  <img src={src} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setPhotos(photos.filter((_, j) => j !== i))}
+                    className="absolute top-0 right-0 w-5 h-5 bg-danger text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    aria-label="Supprimer"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {photos.length < 5 && (
+                <label className="w-20 h-20 border border-dashed border-border bg-surface flex flex-col items-center justify-center cursor-pointer hover:border-neon transition-colors">
+                  <span className="text-neon text-xl">+</span>
+                  <span className="font-mono text-[9px] text-text-dim">Photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      const remaining = 5 - photos.length;
+                      files.slice(0, remaining).forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          // Compress: resize to 800px max
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = document.createElement("canvas");
+                            const maxW = 800;
+                            const scale = img.width > maxW ? maxW / img.width : 1;
+                            canvas.width = img.width * scale;
+                            canvas.height = img.height * scale;
+                            canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            const compressed = canvas.toDataURL("image/jpeg", 0.7);
+                            setPhotos((prev) => [...prev, compressed].slice(0, 5));
+                          };
+                          img.src = reader.result as string;
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+            <p className="font-mono text-[10px] text-text-dim">
+              Prenez en photo la panne, le tableau de bord, ou les dégâts visibles.
+            </p>
           </div>
 
           {/* Optional appointment booking */}
