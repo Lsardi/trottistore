@@ -80,6 +80,13 @@ export default function ProductCard({ product }: { product: Product }) {
           <p className="spec-label mb-1">{categoryName}</p>
         )}
 
+        {/* Brand */}
+        {product.brand && (
+          <p className="spec-label mb-0.5" style={{ color: "var(--color-neon)", fontSize: "0.65rem" }}>
+            {product.brand.name}
+          </p>
+        )}
+
         {/* Product name */}
         <h3 className="heading-md text-text leading-tight mb-3" style={{ fontSize: "0.95rem" }}>
           {product.name}

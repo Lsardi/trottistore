@@ -2,15 +2,29 @@
  * Import CATALOGUE VOLT 2026 — 48 trottinettes électriques
  *
  * Usage:
- *   npx tsx scripts/import-catalogue-volt.ts
+ *   railway run npx tsx scripts/import-catalogue-volt.ts
+ *   # or with explicit vars:
+ *   API_BASE_URL=... JWT_ACCESS_SECRET=... npx tsx scripts/import-catalogue-volt.ts
  *
  * Env vars:
- *   API_BASE_URL  — default https://trottistore.fr
- *   ADMIN_EMAIL   — admin login email
- *   ADMIN_PASSWORD — admin login password
+ *   API_BASE_URL       — default https://trottistoreweb-production.up.railway.app
+ *   JWT_ACCESS_SECRET   — signs a SUPERADMIN token locally (no login required)
+ *   ADMIN_EMAIL        — fallback: login via API
+ *   ADMIN_PASSWORD     — fallback: login via API
  */
 
-const API_BASE = process.env.API_BASE_URL || "https://trottistore.fr";
+import { createHmac } from "node:crypto";
+
+const API_BASE = process.env.API_BASE_URL || "https://trottistoreweb-production.up.railway.app";
+
+/** Sign a minimal HS256 JWT — no external dependency needed */
+function signJwt(payload: Record<string, unknown>, secret: string, expiresIn: number): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const body = Buffer.from(JSON.stringify({ ...payload, iat: now, exp: now + expiresIn })).toString("base64url");
+  const signature = createHmac("sha256", secret).update(`${header}.${body}`).digest("base64url");
+  return `${header}.${body}.${signature}`;
+}
 
 // ─── Product data extracted from CATALOGUE VOLT 2026.pdf ────────
 
@@ -861,15 +875,29 @@ async function api(method: string, path: string, body?: unknown) {
 }
 
 async function login() {
-  const email = process.env.ADMIN_EMAIL;
-  const password = process.env.ADMIN_PASSWORD;
-  if (!email || !password) {
-    throw new Error("Set ADMIN_EMAIL and ADMIN_PASSWORD env vars");
+  // Prefer signing a token locally if we have the JWT secret
+  const jwtSecret = process.env.JWT_ACCESS_SECRET;
+  if (jwtSecret) {
+    const payload = {
+      sub: "00000000-0000-0000-0000-000000000000",
+      email: "admin@trottistore.fr",
+      role: "SUPERADMIN",
+    };
+    accessToken = signJwt(payload, jwtSecret, 3600);
+    console.log("✓ Signed SUPERADMIN token locally (JWT_ACCESS_SECRET)");
+    return;
+  }
+
+  // Fallback: login via API
+  const email = process.env.ADMIN_EMAIL || "admin@trottistore.fr";
+  const password = process.env.ADMIN_PASSWORD || process.env.SEED_ADMIN_PASSWORD;
+  if (!password) {
+    throw new Error("Set JWT_ACCESS_SECRET, ADMIN_PASSWORD, or SEED_ADMIN_PASSWORD env var");
   }
 
   const res = await api("POST", "/auth/login", { email, password });
   accessToken = res.data.accessToken;
-  console.log("✓ Logged in as admin");
+  console.log("✓ Logged in as admin via API");
 }
 
 async function createBrand(name: string): Promise<string> {
