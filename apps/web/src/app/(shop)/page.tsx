@@ -391,73 +391,55 @@ export default async function HomePage() {
       </section>
 
       {/* ================================================================
-          ATELIER — Clear repair service block
+          ATELIER — 4-step process timeline
           ================================================================ */}
-      <section
-        className="grain"
-        style={{ backgroundColor: "var(--color-surface)", padding: "80px 0" }}
-      >
-        <div
-          className="atelier-grid px-4 md:px-6"
-          style={{
-            maxWidth: 1280,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 64,
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <p className="spec-label text-neon mb-3">NOTRE ATELIER</p>
-            <h2 className="heading-xl" style={{ marginBottom: 16 }}>
-              VOTRE TROTTINETTE<br />
-              <span style={{ color: "var(--color-neon)" }}>ENTRE DE BONNES MAINS</span>
-            </h2>
-            <p className="font-mono text-sm text-text-muted" style={{ lineHeight: 1.7, maxWidth: 420, marginBottom: 32 }}>
-              Diagnostic gratuit, devis transparent, pièces d&apos;origine en stock.
-              On répare toutes les marques — du Xiaomi M365 au Dualtron Thunder.
+      <section className="grain" style={{ backgroundColor: "var(--color-surface)", padding: "64px 0" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
+          {/* Header — compact */}
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <p className="spec-label text-neon mb-2">NOTRE ATELIER À {brand.address.cityShort}</p>
+            <h2 className="heading-lg" style={{ marginBottom: 12 }}>COMMENT ÇA MARCHE</h2>
+            <p className="font-mono text-xs text-text-muted" style={{ maxWidth: 500, margin: "0 auto" }}>
+              Du diagnostic au retrait, on s&apos;occupe de tout. Toutes marques, pièces en stock.
             </p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Link href="/reparation" className="btn-neon">
-                DÉPOSER UN TICKET SAV
-              </Link>
-              <Link href="/diagnostic" className="btn-outline">
-                DIAGNOSTIC EN LIGNE
-              </Link>
-            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Timeline — 4 steps horizontal */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, position: "relative" }} className="atelier-timeline">
+            {/* Connector line */}
+            <div style={{ position: "absolute", top: 24, left: "12.5%", right: "12.5%", height: 2, background: "linear-gradient(90deg, var(--color-neon), var(--color-border-light))" }} className="hidden md:block" />
+
             {[
-              { step: "01", title: "DIAGNOSTIC", desc: "Identification du problème — 15 min sur place ou en ligne" },
-              { step: "02", title: "DEVIS", desc: "Prix transparent, pas de surprise. Vous validez avant qu'on touche à quoi que ce soit" },
-              { step: "03", title: "RÉPARATION", desc: "1 à 3 jours ouvrés. Suivi en temps réel depuis votre espace client" },
-              { step: "04", title: "RETRAIT", desc: "On vous prévient par SMS. Votre trottinette est prête, testée et garantie" },
-            ].map((item) => (
-              <div
-                key={item.step}
-                style={{
-                  display: "flex",
-                  gap: 16,
-                  alignItems: "flex-start",
-                  padding: "16px 0",
-                  borderBottom: "1px solid var(--color-border)",
-                }}
-              >
-                <span className="font-mono" style={{ fontSize: "0.7rem", color: "var(--color-neon)", fontWeight: 700, minWidth: 24 }}>
-                  {item.step}
-                </span>
-                <div>
-                  <h4 className="font-display" style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--color-text)", marginBottom: 4 }}>
-                    {item.title}
-                  </h4>
-                  <p className="font-mono" style={{ fontSize: "0.72rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
-                    {item.desc}
-                  </p>
+              { step: "01", title: "DIAGNOSTIC", desc: "15 min, gratuit", icon: "⚡" },
+              { step: "02", title: "DEVIS", desc: "Transparent, sans surprise", icon: "📋" },
+              { step: "03", title: "RÉPARATION", desc: "1 à 3 jours, suivi en ligne", icon: "🔧" },
+              { step: "04", title: "RETRAIT", desc: "SMS quand c'est prêt", icon: "✓" },
+            ].map((item, i) => (
+              <div key={item.step} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", position: "relative", zIndex: 2 }}>
+                <div style={{
+                  width: 48, height: 48,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  backgroundColor: i === 0 ? "var(--color-neon)" : "var(--color-void)",
+                  border: `2px solid ${i === 0 ? "var(--color-neon)" : "var(--color-border)"}`,
+                  color: i === 0 ? "var(--color-void)" : "var(--color-text-dim)",
+                  marginBottom: 16,
+                }}>
+                  <span className="font-mono" style={{ fontSize: "0.75rem", fontWeight: 800 }}>{item.step}</span>
                 </div>
+                <h4 className="font-display" style={{ fontWeight: 700, fontSize: "0.8rem", color: i === 0 ? "var(--color-neon)" : "var(--color-text)", marginBottom: 4 }}>
+                  {item.title}
+                </h4>
+                <p className="font-mono" style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", lineHeight: 1.4, maxWidth: 160 }}>
+                  {item.desc}
+                </p>
               </div>
             ))}
+          </div>
+
+          {/* CTA buttons centered */}
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 40 }}>
+            <Link href="/reparation" className="btn-neon">DÉPOSER UN TICKET</Link>
+            <Link href="/diagnostic" className="btn-outline">DIAGNOSTIC EN LIGNE</Link>
           </div>
         </div>
       </section>
