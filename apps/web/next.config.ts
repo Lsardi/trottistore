@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: process.env.NEXT_PUBLIC_BRAND_DOMAIN || "trottistore.fr" },
       { protocol: "https", hostname: `www.${process.env.NEXT_PUBLIC_BRAND_DOMAIN || "trottistore.fr"}` },
+      { protocol: "https", hostname: "wattiz.fr" }, // Supplier images
+      { protocol: "https", hostname: "www.wattiz.fr" },
       { protocol: "http", hostname: "localhost", port: "9001" }, // MinIO dev
     ],
   },
