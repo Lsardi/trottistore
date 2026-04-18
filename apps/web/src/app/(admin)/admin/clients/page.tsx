@@ -172,10 +172,33 @@ export default function AdminClientsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Link href={`/admin/clients/${customer.id}`} className="btn-outline inline-flex items-center gap-1.5 py-1.5 px-2.5">
-                        Fiche garage
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/admin/clients/${customer.id}`} className="btn-outline inline-flex items-center gap-1.5 py-1.5 px-2.5">
+                          Fiche
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Anonymiser le compte de ${customer.email} ? Cette action est irréversible (RGPD art. 17).`)) return;
+                            try {
+                              const token = localStorage.getItem("accessToken");
+                              const res = await fetch(`/api/v1/customers/${customer.id}/anonymize`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                              });
+                              if (res.ok) {
+                                setCustomers(prev => prev.filter(c => c.id !== customer.id));
+                              } else {
+                                const data = await res.json();
+                                alert(data.error?.message || "Erreur lors de l'anonymisation");
+                              }
+                            } catch { alert("Erreur réseau"); }
+                          }}
+                          className="font-mono text-[10px] text-danger hover:text-red-300 underline cursor-pointer"
+                        >
+                          Anonymiser
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
