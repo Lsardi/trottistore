@@ -47,7 +47,7 @@ const CUSTOMER_PATHS = [
     icon: Wrench,
     title: "RÉPARER MA TROTTINETTE",
     subtitle: "Toutes marques, toutes pannes",
-    description: "Diagnostic gratuit, devis transparent, réparation en 1 à 3 jours. Atelier à L'Île-Saint-Denis.",
+    description: "Diagnostic 30€ (inclus si réparation ≤ 30€), devis transparent, réparation 1-3 jours.",
     cta: "PRENDRE RENDEZ-VOUS",
     href: "/reparation",
     accent: false,
@@ -173,7 +173,7 @@ export default async function HomePage() {
                 icon: Wrench,
                 title: "RÉPARER",
                 subtitle: "Atelier & SAV",
-                stat: "Diagnostic gratuit",
+                stat: "Diagnostic 30€",
                 desc: "Toutes marques, toutes pannes. Devis transparent, réparation 1-3j.",
                 href: "/reparation",
                 gradient: "linear-gradient(135deg, rgba(0,153,255,0.08) 0%, transparent 60%)",
@@ -410,10 +410,10 @@ export default async function HomePage() {
             <div style={{ position: "absolute", top: 24, left: "12.5%", right: "12.5%", height: 2, background: "linear-gradient(90deg, var(--color-neon), var(--color-border-light))" }} className="hidden md:block" />
 
             {[
-              { step: "01", title: "DIAGNOSTIC", desc: "15 min, gratuit", icon: "⚡" },
-              { step: "02", title: "DEVIS", desc: "Transparent, sans surprise", icon: "📋" },
-              { step: "03", title: "RÉPARATION", desc: "1 à 3 jours, suivi en ligne", icon: "🔧" },
-              { step: "04", title: "RETRAIT", desc: "SMS quand c'est prêt", icon: "✓" },
+              { step: "01", title: "DIAGNOSTIC", desc: "30€ — si la réparation coûte 30€ ou moins, rien de plus à payer" },
+              { step: "02", title: "DEVIS", desc: "Si > 30€, devis détaillé avant intervention. Vous décidez" },
+              { step: "03", title: "RÉPARATION", desc: "1 à 3 jours, suivi en temps réel" },
+              { step: "04", title: "RETRAIT", desc: "SMS dès que c'est prêt" },
             ].map((item, i) => (
               <div key={item.step} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", position: "relative", zIndex: 2 }}>
                 <div style={{

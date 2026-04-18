@@ -133,7 +133,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const name = brandData?.name || slug;
   return {
     title: `Réparation trottinette ${name} — ${brand.address.city} | ${brand.name}`,
-    description: `Atelier spécialisé réparation trottinette ${name} à ${brand.address.city}. Diagnostic gratuit, devis transparent, pièces en stock. Toutes pannes : ${brandData?.commonIssues.slice(0, 3).join(", ")}.`,
+    description: `Atelier spécialisé réparation trottinette ${name} à ${brand.address.city}. Diagnostic 30€, devis transparent, pièces en stock. Toutes pannes : ${brandData?.commonIssues.slice(0, 3).join(", ")}.`,
   };
 }
 
@@ -264,7 +264,7 @@ export default async function ReparationBrandPage({ params }: { params: Promise<
         <p className="spec-label mb-2 text-neon">ATELIER SPECIALISE</p>
         <h1 className="heading-lg mb-3">REPARATION {data.name.toUpperCase()}</h1>
         <p className="font-mono text-sm text-text-muted max-w-xl">
-          {data.tagline}. Atelier à {brand.address.city}, diagnostic gratuit, pièces d&apos;origine en stock.
+          {data.tagline}. Atelier à {brand.address.city}, diagnostic 30€, pièces d&apos;origine en stock.
         </p>
       </div>
 
@@ -314,7 +314,7 @@ export default async function ReparationBrandPage({ params }: { params: Promise<
         <h2 className="font-display font-bold text-text uppercase text-sm mb-4">Pourquoi choisir {brand.name} ?</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <p className="font-display font-bold text-neon text-sm mb-1">DIAGNOSTIC GRATUIT</p>
+            <p className="font-display font-bold text-neon text-sm mb-1">DIAGNOSTIC 30€</p>
             <p className="font-mono text-xs text-text-muted">Identification du problème sans engagement</p>
           </div>
           <div>

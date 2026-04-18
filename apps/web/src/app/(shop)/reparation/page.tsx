@@ -39,7 +39,7 @@ const WORKFLOW_STEPS = [
 ];
 
 const TRUST_POINTS = [
-  { icon: Search, title: "Diagnostic gratuit", desc: "Examen complet de votre trottinette sans engagement avant acceptation du devis." },
+  { icon: Search, title: "Diagnostic 30€", desc: "Si la panne coûte 30€ ou moins, rien de plus à payer. Sinon, devis détaillé avant intervention." },
   { icon: ShieldCheck, title: "Toutes marques", desc: "Dualtron, Xiaomi, Ninebot, Kaabo, Vsett... Notre atelier repare toutes les marques." },
   { icon: Box, title: "Pieces en stock", desc: "Large stock de pieces detachees pour une reparation rapide, souvent sous 48h." },
 ];
@@ -274,7 +274,7 @@ function ReparationPage() {
                     <span className="font-mono text-[10px] text-text-dim font-bold">2</span>
                   </div>
                   <div>
-                    <p className="font-mono text-xs text-text">Diagnostic gratuit</p>
+                    <p className="font-mono text-xs text-text">Diagnostic 30€</p>
                     <p className="font-mono text-[10px] text-text-dim">Examen complet et devis detaille sans engagement.</p>
                   </div>
                 </div>
@@ -579,7 +579,7 @@ function ReparationPage() {
           </button>
 
           <p className="font-mono text-xs text-text-dim text-center">
-            Diagnostic gratuit. Aucun engagement avant acceptation du devis.
+            Diagnostic 30€ — inclus si la réparation coûte 30€ ou moins. Sinon, devis avant intervention.
           </p>
         </form>
       )}

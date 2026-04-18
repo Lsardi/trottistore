@@ -5,7 +5,7 @@ import { Wrench, Zap, Shield, Clock, MapPin, Phone, Star, Award, CheckCircle2 } 
 
 export const metadata: Metadata = {
   title: `Atelier reparation trottinette | ${brand.name}`,
-  description: `Atelier specialise reparation trottinettes electriques a ${brand.address.city}. Diagnostic gratuit, toutes marques, pieces en stock. Ouvert lundi-samedi 10h-19h.`,
+  description: `Atelier specialise reparation trottinettes electriques a ${brand.address.city}. Diagnostic 30€, toutes marques, pieces en stock. Ouvert lundi-samedi 10h-19h.`,
 };
 
 const PROCESS_STEPS = [
@@ -95,7 +95,7 @@ export default function AtelierPage() {
           </h1>
 
           <p className="font-mono text-sm text-text-muted max-w-xl mb-8 leading-relaxed">
-            Diagnostic gratuit, reparation toutes marques, pieces en stock.
+            Diagnostic 30€, reparation toutes marques, pieces en stock.
             On repare votre trottinette pendant que vous prenez un cafe.
           </p>
 
@@ -332,7 +332,7 @@ export default function AtelierPage() {
           <CheckCircle2 className="w-10 h-10 text-neon mx-auto mb-4" />
           <h2 className="heading-md text-text mb-3 uppercase">Pret a reparer ?</h2>
           <p className="font-mono text-sm text-text-muted mb-8 max-w-lg mx-auto">
-            Diagnostic gratuit et sans engagement. Deposez votre trottinette ou prenez rendez-vous en ligne.
+            Diagnostic 30€ et sans engagement. Deposez votre trottinette ou prenez rendez-vous en ligne.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link href="/urgence" className="btn-neon">

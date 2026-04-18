@@ -15,14 +15,14 @@ const TIERS = {
     color: "#CD7F32",
     nextTier: "SILVER",
     nextThreshold: 500,
-    benefits: ["Diagnostic gratuit", "Newsletter exclusive"],
+    benefits: ["Diagnostic offert", "Newsletter exclusive"],
   },
   SILVER: {
     icon: Star,
     color: "#C0C0C0",
     nextTier: "GOLD",
     nextThreshold: 2000,
-    benefits: ["Diagnostic gratuit", "-10% sur les pièces", "Priorité RDV atelier"],
+    benefits: ["Diagnostic offert", "-10% sur les pièces", "Priorité RDV atelier"],
   },
   GOLD: {
     icon: Crown,
@@ -30,7 +30,7 @@ const TIERS = {
     nextTier: null,
     nextThreshold: null,
     benefits: [
-      "Diagnostic gratuit",
+      "Diagnostic offert",
       "-15% sur les pièces",
       "Priorité RDV atelier",
       "1 réparation express offerte / an",

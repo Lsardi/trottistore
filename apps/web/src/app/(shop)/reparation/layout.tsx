@@ -3,7 +3,7 @@ import { brand } from "@/lib/brand";
 
 export const metadata: Metadata = {
   title: `Réparation trottinette SAV | ${brand.name}`,
-  description: `Déposez votre demande de réparation en ligne. Diagnostic gratuit, devis transparent, suivi en temps réel. Atelier à ${brand.address.city}.`,
+  description: `Déposez votre demande de réparation en ligne. Diagnostic 30€, devis transparent, suivi en temps réel. Atelier à ${brand.address.city}.`,
 };
 
 export default function ReparationLayout({ children }: { children: React.ReactNode }) {

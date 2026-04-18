@@ -361,7 +361,7 @@ export default function DiagnosticPage() {
                 <div className="bg-void border border-neon/30 p-6 text-center">
                   <p className="spec-label mb-2">Cout estime</p>
                   <p className="font-display font-bold text-3xl text-neon tracking-tight">{getEstimatedCost()}</p>
-                  <p className="font-mono text-xs text-text-dim mt-2">Diagnostic gratuit. Prix final apres examen en atelier.</p>
+                  <p className="font-mono text-xs text-text-dim mt-2">Diagnostic 30€. Prix final apres examen en atelier.</p>
                 </div>
 
                 {/* Details grid */}
