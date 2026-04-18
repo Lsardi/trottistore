@@ -291,16 +291,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               <p className="font-mono text-xs mt-1.5" style={{ color: "var(--color-text-dim)" }}>
                 {formatHT(displayPriceHt)} &euro; HT
               </p>
-              {ttcNum >= 300 && (
-                <p className="font-mono text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>
-                  Payez en 3&times;{" "}
-                  {new Intl.NumberFormat("fr-FR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }).format(ttcNum / 3)}{" "}
-                  &euro;
-                </p>
-              )}
             </div>
 
             {/* Delivery + pickup badges */}
