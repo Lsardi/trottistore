@@ -104,6 +104,23 @@ export default function LoyaltyCard({ tier, points, totalSpent, totalOrders }: L
         </div>
       )}
 
+      {/* Comment gagner des points */}
+      <div className="px-5 py-3 border-t" style={{ borderColor: config.color + "20" }}>
+        <p className="font-mono text-[10px] text-text-dim uppercase mb-2">Comment gagner des points</p>
+        <div className="space-y-1">
+          {[
+            { action: "1€ dépensé", reward: "= 1 point" },
+            { action: "500 points", reward: "→ SILVER (-10% pièces)" },
+            { action: "2000 points", reward: "→ GOLD (-15% + livraison offerte)" },
+          ].map((rule) => (
+            <div key={rule.action} className="flex items-center justify-between font-mono text-[10px]">
+              <span className="text-text-muted">{rule.action}</span>
+              <span style={{ color: config.color }}>{rule.reward}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Avantages */}
       <div className="px-5 py-3 border-t" style={{ borderColor: config.color + "20" }}>
         <p className="font-mono text-[10px] text-text-dim uppercase mb-2">Vos avantages</p>

@@ -419,6 +419,43 @@ export default function AdminSavPage() {
                   </div>
 
                   <div className="border border-border p-3">
+                    <p className="spec-label mb-2">Ajouter une note</p>
+                    <textarea
+                      rows={2}
+                      id="standalone-note"
+                      className="input-dark w-full resize-none mb-2"
+                      placeholder="Note interne sur ce ticket..."
+                    />
+                    <button
+                      onClick={async () => {
+                        const textarea = document.getElementById("standalone-note") as HTMLTextAreaElement;
+                        const noteText = textarea?.value?.trim();
+                        if (!noteText || !selectedTicket) return;
+                        setSaving(true);
+                        try {
+                          await fetch(`/api/v1/repairs/${selectedTicket.id}/notes`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+                            body: JSON.stringify({ note: noteText }),
+                          });
+                          textarea.value = "";
+                          // Reload ticket to show the note in history
+                          const res = await repairsApi.getById(selectedTicket.id);
+                          setSelectedTicket(res.data);
+                        } catch {
+                          setError("Impossible d'ajouter la note.");
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                      disabled={saving}
+                      className="btn-outline text-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      {saving ? "Envoi..." : "AJOUTER NOTE"}
+                    </button>
+                  </div>
+
+                  <div className="border border-border p-3">
                     <p className="spec-label mb-2">Infos client</p>
                     <div className="space-y-1 font-mono text-xs text-text-muted">
                       <p>Nom: <span className="text-text">{selectedTicket.customerName || "—"}</span></p>

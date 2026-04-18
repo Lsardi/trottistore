@@ -1171,6 +1171,35 @@ export async function repairRoutes(app: FastifyInstance) {
     return { success: true, data: { message: "Pièce retirée, stock restauré" } };
   });
 
+  // POST /repairs/:id/notes — Add internal note to a ticket
+  app.post("/repairs/:id/notes", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (user?.role === "CLIENT") {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Clients cannot add notes" } });
+    }
+
+    const id = parseIdParam(request.params);
+    const body = z.object({ note: z.string().min(1).max(2000) }).parse(request.body);
+
+    const ticket = await app.prisma.repairTicket.findUnique({ where: { id }, select: { id: true, status: true } });
+    if (!ticket) {
+      return reply.status(404).send({ success: false, error: { code: "NOT_FOUND", message: "Ticket introuvable" } });
+    }
+
+    const entry = await app.prisma.repairStatusLog.create({
+      data: {
+        ticketId: id,
+        fromStatus: ticket.status,
+        toStatus: ticket.status, // same status — it's just a note
+        note: body.note,
+        performedBy: user?.userId ?? null,
+      },
+    });
+
+    app.log.info({ ticketId: id, userId: user?.userId }, "Note added to ticket");
+    return reply.status(201).send({ success: true, data: entry });
+  });
+
   // POST /repairs/:id/complete — Mark ticket as complete
   app.post("/repairs/:id/complete", async (request, reply) => {
     const user = getRequestUser(request);
