@@ -216,8 +216,9 @@ async function enrichCartItems(app: FastifyInstance, cart: Cart) {
 
 export async function cartRoutes(app: FastifyInstance) {
   // Try to decode JWT if present (optional auth — anonymous carts still work)
-  // A1-03: If a Bearer token is present but invalid, return 401 instead of silent downgrade
-  app.addHook("onRequest", async (request, reply) => {
+  // Cart must NEVER block on expired tokens — just fall back to session-based cart.
+  // A customer with an expired token should still be able to browse and add to cart.
+  app.addHook("onRequest", async (request) => {
     const authHeader = request.headers.authorization;
     if (authHeader?.startsWith("Bearer ")) {
       try {
@@ -228,10 +229,8 @@ export async function cartRoutes(app: FastifyInstance) {
           userId: decoded.sub,
         };
       } catch {
-        return reply.status(401).send({
-          success: false,
-          error: { code: "INVALID_TOKEN", message: "Token invalide ou expiré, veuillez vous reconnecter" },
-        });
+        // Token expired/invalid — silently fall back to session-based cart.
+        // Don't return 401 — the cart should always work for anonymous users.
       }
     }
   });
