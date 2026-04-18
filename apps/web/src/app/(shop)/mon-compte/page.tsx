@@ -679,7 +679,7 @@ function formatPrice(amount: string | number): string {
               </div>
               {verifyError && <p className="font-mono text-xs text-danger" role="alert">{verifyError}</p>}
               <button type="submit" disabled={verifyCode.length !== 6} className="btn-neon w-full disabled:opacity-50 cursor-pointer">
-                VERIFIER
+                VÉRIFIER
               </button>
             </form>
             <div className="text-center space-y-2">
@@ -908,7 +908,7 @@ function formatPrice(amount: string | number): string {
                       INSCRIPTION...
                     </>
                   ) : (
-                    "CREER MON COMPTE"
+                    "CRÉER MON COMPTE"
                   )}
                 </button>
               </form>
