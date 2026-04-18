@@ -33,6 +33,8 @@ function signJwt(
 
 let accessToken = "";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function api(
   method: string,
   path: string,
@@ -44,19 +46,30 @@ async function api(
   };
   if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
 
-  const data = await res.json();
-  if (!res.ok && res.status !== 409) {
-    throw new Error(
-      `${method} ${path} → ${res.status}: ${JSON.stringify(data).slice(0, 200)}`,
-    );
+    if (res.status === 429) {
+      // Rate limited — wait and retry
+      const retryAfter = parseInt(res.headers.get("retry-after") || "45", 10);
+      console.log(`    ⏳ Rate limited, waiting ${retryAfter}s...`);
+      await sleep(retryAfter * 1000);
+      continue;
+    }
+
+    const data = await res.json();
+    if (!res.ok && res.status !== 409) {
+      throw new Error(
+        `${method} ${path} → ${res.status}: ${JSON.stringify(data).slice(0, 200)}`,
+      );
+    }
+    return data;
   }
-  return data;
+  throw new Error(`${method} ${path} → 429 after 3 retries`);
 }
 
 // ─── Parse CSV ──────────────────────────────────────────────
@@ -347,6 +360,8 @@ async function main() {
           `  ... ${created} created (${i + 1}/${rows.length})`,
         );
       }
+      // Throttle: ~80 req/min to stay under 100/min rate limit
+      await sleep(750);
     } catch (err: any) {
       const msg = err.message || "";
       if (msg.includes("409") || msg.includes("DUPLICATE")) {
