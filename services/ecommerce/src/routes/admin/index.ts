@@ -48,7 +48,7 @@ const createProductSchema = z.object({
   images: z
     .array(
       z.object({
-        url: z.string().url(),
+        url: z.string().min(1).refine((v) => v.startsWith("/") || v.startsWith("http"), { message: "Must be a URL or absolute path" }),
         alt: z.string().max(300).optional(),
         isPrimary: z.boolean().optional(),
       })
@@ -75,7 +75,7 @@ const updateProductSchema = z.object({
   images: z
     .array(
       z.object({
-        url: z.string().url(),
+        url: z.string().min(1).refine((v) => v.startsWith("/") || v.startsWith("http"), { message: "Must be a URL or absolute path" }),
         alt: z.string().max(300).optional(),
         isPrimary: z.boolean().optional(),
       })
