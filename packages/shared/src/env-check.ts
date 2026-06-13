@@ -43,4 +43,5 @@ export const COMMON_ENV: EnvRequirement[] = [
   { name: "JWT_ACCESS_SECRET", required: true, secret: true },
   { name: "NODE_ENV", required: false },
   { name: "BASE_URL", required: false },
+  { name: "SENTRY_DSN", required: false, secret: true },
 ];

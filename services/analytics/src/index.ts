@@ -21,6 +21,8 @@ import {
   AppError,
   registerRequestCorrelation,
   getRequestCorrelation,
+  initSentry,
+  captureException,
 } from "@trottistore/shared";
 
 validateEnv("analytics", [
@@ -28,6 +30,9 @@ validateEnv("analytics", [
   { name: "PORT_ANALYTICS", required: false },
   { name: "CLICKHOUSE_URL", required: false },
 ]);
+
+// Error tracking (no-op unless SENTRY_DSN is set)
+initSentry("analytics");
 
 const PORT = parseInt(process.env.PORT || process.env.PORT_ANALYTICS || "3003", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -155,6 +160,16 @@ async function start() {
       url: request.url,
       statusCode,
     });
+
+    // Only report server-side failures to Sentry — 4xx are client errors.
+    if (statusCode >= 500) {
+      captureException(error, {
+        ...getRequestCorrelation(request),
+        method: request.method,
+        url: request.url,
+        statusCode,
+      });
+    }
 
     reply.status(statusCode).send({
       success: false,
