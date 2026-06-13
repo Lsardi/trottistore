@@ -12,7 +12,10 @@
       "vite": "8.0.5",
       "defu": ">=6.1.5",
       "nodemailer": ">=8.0.5",
-      "fast-jwt": ">=6.2.1"
+      "fast-jwt": ">=6.2.4",
+      "fast-uri": ">=3.1.2",
+      "fast-xml-builder": ">=1.1.7",
+      "esbuild": ">=0.28.1"
     }
   },
   "scripts": {
