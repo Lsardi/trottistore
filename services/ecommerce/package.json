@@ -18,7 +18,7 @@
     "@prisma/client": "^6.6.0",
     "@trottistore/database": "workspace:*",
     "@trottistore/shared": "workspace:*",
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.7",
     "fastify": "^5.8.5",
     "fastify-plugin": "^5.1.0",
@@ -30,7 +30,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "@types/nodemailer": "^7.0.11",
     "@types/pdfkit": "^0.17.5",
     "prisma": "^6.19.2",
