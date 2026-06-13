@@ -17,10 +17,10 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "nodemailer": "^8.0.5"
+    "nodemailer": "^8.0.11"
   },
   "devDependencies": {
-    "@types/nodemailer": "^7.0.11",
+    "@types/nodemailer": "^8.0.1",
     "typescript": "^5.7.0"
   }
 }
