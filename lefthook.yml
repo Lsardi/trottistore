@@ -1,0 +1,18 @@
+# https://lefthook.dev — git hooks. Installed via the `prepare` npm script.
+# Kept fast and non-blocking-by-default so it never gets bypassed with --no-verify.
+
+pre-commit:
+  parallel: true
+  commands:
+    # Auto-format only the files being committed (progressive adoption — no
+    # big-bang reformat of the existing tree). Re-stages what it fixes.
+    format:
+      glob: "*.{ts,tsx,js,jsx,json,css,md,yml,yaml}"
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true
+
+pre-push:
+  commands:
+    # The documented gate before push (~1s, 23 tests).
+    smoke:
+      run: pnpm test:smoke
