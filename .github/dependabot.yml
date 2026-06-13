@@ -1,0 +1,51 @@
+version: 2
+
+# Automated dependency + GitHub Actions updates.
+# Rationale: the CVE patching done by hand (fast-jwt, sanitize-html, next,
+# fast-uri...) should never be a manual firefight again. Dependabot opens PRs
+# that run through the existing CI (Security Scan / audit gate) before merge.
+updates:
+  # ----- JavaScript / pnpm workspace (root lockfile covers all packages) -----
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    reviewers:
+      - "Lsardi"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    groups:
+      # One PR for all non-major bumps keeps the queue small; majors stay
+      # separate so breaking changes get individual review.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Security updates are always raised regardless of grouping/limits.
+
+  # ----- GitHub Actions -----
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    labels:
+      - "ci"
+    reviewers:
+      - "Lsardi"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"
