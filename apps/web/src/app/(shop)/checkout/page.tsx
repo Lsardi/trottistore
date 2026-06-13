@@ -35,6 +35,21 @@ const DELIVERY_MODES = [
   { value: "PICKUP_1H", label: "Retrait boutique en 1h" },
 ] as const;
 
+// ISO 3166-1 alpha-2 codes. Backend requires an exact 2-letter country code,
+// so a select prevents free-text values like "France" from being rejected.
+const COUNTRIES = [
+  { code: "FR", label: "France" },
+  { code: "BE", label: "Belgique" },
+  { code: "LU", label: "Luxembourg" },
+  { code: "CH", label: "Suisse" },
+  { code: "MC", label: "Monaco" },
+  { code: "DE", label: "Allemagne" },
+  { code: "ES", label: "Espagne" },
+  { code: "IT", label: "Italie" },
+  { code: "NL", label: "Pays-Bas" },
+  { code: "PT", label: "Portugal" },
+] as const;
+
 type StripePaymentMethod = "CARD" | "APPLE_PAY" | "GOOGLE_PAY" | "LINK";
 
 const CHECKOUT_STEPS = [
@@ -386,7 +401,7 @@ export default function CheckoutPage() {
               street2: inlineAddress.street2 || undefined,
               postalCode: inlineAddress.postalCode,
               city: inlineAddress.city,
-              country: inlineAddress.country || "FR",
+              country: normalizeCountryCode(inlineAddress.country),
               phone: inlineAddress.phone || undefined,
             },
             paymentMethod,
@@ -654,12 +669,21 @@ export default function CheckoutPage() {
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <input
-                      className="input-dark w-full"
-                      placeholder="Pays (code ISO, ex: FR)"
-                      value={inlineAddress.country}
-                      onChange={(e) => setInlineAddress((prev) => ({ ...prev, country: e.target.value }))}
-                    />
+                    <div>
+                      <label htmlFor="addr-country" className="sr-only">Pays</label>
+                      <select
+                        id="addr-country"
+                        className="input-dark w-full cursor-pointer"
+                        value={inlineAddress.country}
+                        onChange={(e) => setInlineAddress((prev) => ({ ...prev, country: e.target.value }))}
+                      >
+                        {COUNTRIES.map((country) => (
+                          <option key={country.code} value={country.code}>
+                            {country.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <input
                       className="input-dark w-full"
                       placeholder="Telephone"
