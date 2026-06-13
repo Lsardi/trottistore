@@ -43,7 +43,7 @@ jobs:
     environment: production
     if: inputs.run_migrations || inputs.run_seed_catalog || inputs.run_seed_orders
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate database secrets
         env:
@@ -62,11 +62,11 @@ jobs:
             exit 1
           fi
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.32.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -108,7 +108,7 @@ jobs:
       (needs.prepare-database.result == 'success' || needs.prepare-database.result == 'skipped') &&
       inputs.service != 'none'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate Railway configuration
         run: |
