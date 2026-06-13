@@ -27,6 +27,8 @@ import {
   AppError,
   registerRequestCorrelation,
   getRequestCorrelation,
+  initSentry,
+  captureException,
 } from "@trottistore/shared";
 import { isInternalCronCall } from "./lib/cron-auth.js";
 
@@ -35,6 +37,9 @@ validateEnv("crm", [
   { name: "PORT_CRM", required: false },
   { name: "BREVO_API_KEY", required: false },
 ]);
+
+// Error tracking (no-op unless SENTRY_DSN is set)
+initSentry("crm");
 
 const PORT = parseInt(process.env.PORT || process.env.PORT_CRM || "3002", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -197,6 +202,16 @@ async function start() {
       url: request.url,
       statusCode,
     });
+
+    // Only report server-side failures to Sentry — 4xx are client errors.
+    if (statusCode >= 500) {
+      captureException(error, {
+        ...getRequestCorrelation(request),
+        method: request.method,
+        url: request.url,
+        statusCode,
+      });
+    }
 
     reply.status(statusCode).send({
       success: false,

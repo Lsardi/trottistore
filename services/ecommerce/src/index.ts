@@ -41,6 +41,8 @@ import {
   AppError,
   registerRequestCorrelation,
   getRequestCorrelation,
+  initSentry,
+  captureException,
 } from "@trottistore/shared";
 import { runFinancialReconciliation } from "./lib/finance-reconciliation.js";
 
@@ -52,6 +54,9 @@ validateEnv("ecommerce", [
   { name: "STRIPE_SECRET_KEY", required: false },
   { name: "STRIPE_WEBHOOK_SECRET", required: false },
 ]);
+
+// Error tracking (no-op unless SENTRY_DSN is set)
+initSentry("ecommerce");
 
 const PORT = parseInt(process.env.PORT || process.env.PORT_ECOMMERCE || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -158,6 +163,16 @@ async function start() {
       url: request.url,
       statusCode,
     });
+
+    // Only report server-side failures to Sentry — 4xx are client errors.
+    if (statusCode >= 500) {
+      captureException(error, {
+        ...getRequestCorrelation(request),
+        method: request.method,
+        url: request.url,
+        statusCode,
+      });
+    }
 
     reply.status(statusCode).send({
       success: false,
