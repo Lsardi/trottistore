@@ -44,7 +44,7 @@ jobs:
     env:
       BASE_URL: ${{ vars.PROD_WEB_URL || 'https://trottistoreweb-production.up.railway.app' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install k6
         run: |
@@ -72,7 +72,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: k6-results-runner-${{ matrix.runner }}
           path: results-*.json
