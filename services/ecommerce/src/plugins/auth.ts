@@ -41,7 +41,9 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
     parseOptions: {},
   });
 
-  // Register @fastify/jwt for access token verification
+  // Register @fastify/jwt for access token verification.
+  // Token is read from the Authorization header OR the httpOnly `access_token`
+  // cookie (cookie-based auth keeps the token out of reach of JS / XSS).
   await app.register(fjwt, {
     secret,
     sign: {
@@ -49,12 +51,12 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
       expiresIn: "15m",
     },
     cookie: {
-      cookieName: "refresh_token",
+      cookieName: "access_token",
       signed: false,
     },
   });
 
-  // Decorator: verifies access token from Authorization header
+  // Decorator: verifies access token from Authorization header or cookie
   app.decorate(
     "authenticate",
     async (request: FastifyRequest, reply: FastifyReply) => {

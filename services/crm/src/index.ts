@@ -20,6 +20,7 @@ import { metricsPlugin } from "./plugins/metrics.js";
 import cron from "node-cron";
 import crypto from "node:crypto";
 import { ZodError } from "zod";
+import { setEmailLogStore } from "@trottistore/shared/notifications";
 import {
   validateEnv,
   COMMON_ENV,
@@ -27,6 +28,8 @@ import {
   AppError,
   registerRequestCorrelation,
   getRequestCorrelation,
+  initSentry,
+  captureError,
 } from "@trottistore/shared";
 import { isInternalCronCall } from "./lib/cron-auth.js";
 
@@ -53,6 +56,8 @@ function resolveTrustProxy(): boolean | string[] {
 }
 
 async function start() {
+  initSentry("crm");
+
   const app = Fastify({
     trustProxy: resolveTrustProxy(),
     requestIdHeader: "x-request-id",
@@ -84,6 +89,7 @@ async function start() {
   // Plugins metier
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
+  setEmailLogStore(app.prisma);
   await app.register(authPlugin);
   await app.register(metricsPlugin);
 
@@ -197,6 +203,14 @@ async function start() {
       url: request.url,
       statusCode,
     });
+
+    if (statusCode >= 500) {
+      captureError(error, {
+        requestId: request.id,
+        method: request.method,
+        url: request.url,
+      });
+    }
 
     reply.status(statusCode).send({
       success: false,

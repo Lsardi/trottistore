@@ -21,6 +21,8 @@ import {
   AppError,
   registerRequestCorrelation,
   getRequestCorrelation,
+  initSentry,
+  captureError,
 } from "@trottistore/shared";
 
 validateEnv("analytics", [
@@ -46,6 +48,8 @@ function resolveTrustProxy(): boolean | string[] {
 }
 
 async function start() {
+  initSentry("analytics");
+
   const app = Fastify({
     trustProxy: resolveTrustProxy(),
     requestIdHeader: "x-request-id",
@@ -155,6 +159,14 @@ async function start() {
       url: request.url,
       statusCode,
     });
+
+    if (statusCode >= 500) {
+      captureError(error, {
+        requestId: request.id,
+        method: request.method,
+        url: request.url,
+      });
+    }
 
     reply.status(statusCode).send({
       success: false,
