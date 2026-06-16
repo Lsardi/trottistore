@@ -8,7 +8,8 @@
  *
  * @module @trottistore/shared/notifications
  */
-export { sendEmail } from "./email.js";
+export { sendEmail, setEmailLogStore } from "./email.js";
+export type { EmailLogStore } from "./email.js";
 export { sendSms, normalizePhone } from "./sms.js";
 export {
   createSmtpTransport,
