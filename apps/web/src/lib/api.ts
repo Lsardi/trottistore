@@ -6,17 +6,17 @@
 // On server: call services directly
 const isBrowser = typeof window !== "undefined";
 
-/** Store/remove access token in both localStorage and cookie (for middleware) */
-function persistToken(token: string | null) {
+/**
+ * Auth is now carried by the httpOnly `access_token` cookie set by the API on
+ * login/refresh — the token is no longer kept in JS-readable storage (XSS
+ * hardening). This helper only clears any legacy token left in localStorage by
+ * a previous version; it never writes the token back.
+ */
+function persistToken(_token: string | null) {
   if (!isBrowser) return;
-  if (token) {
-    localStorage.setItem("accessToken", token);
-    // Set cookie readable by Next.js middleware (not httpOnly — middleware needs it)
-    document.cookie = `accessToken=${token}; path=/; max-age=${4 * 60 * 60}; SameSite=Strict`;
-  } else {
-    localStorage.removeItem("accessToken");
-    document.cookie = "accessToken=; path=/; max-age=0; SameSite=Strict";
-  }
+  // Clean up legacy storage from the pre-httpOnly era.
+  localStorage.removeItem("accessToken");
+  document.cookie = "accessToken=; path=/; max-age=0; SameSite=Strict";
 }
 
 const API_URLS = {
@@ -80,15 +80,9 @@ async function tryRefreshAccessToken(): Promise<string | null> {
 }
 
 function buildAuthHeaders(base: Record<string, string>): Record<string, string> {
-  if (typeof window === "undefined") return base;
-  const token = localStorage.getItem("accessToken");
-  const next: Record<string, string> = { ...base };
-  if (token) {
-    next["Authorization"] = `Bearer ${token}`;
-  } else {
-    delete next["Authorization"];
-  }
-  return next;
+  // Auth travels via the httpOnly access_token cookie (sent automatically with
+  // credentials:"include"). No Authorization header is built from JS anymore.
+  return base;
 }
 
 async function apiFetch<T>(
@@ -826,17 +820,40 @@ export const adminCategoriesApi = {
 // ─── AUTH ──────────────────────────────────────────────────
 
 export const authApi = {
-  login: (body: { email: string; password: string }) =>
-    apiFetch<{ success: boolean; data: { accessToken: string; user: User } }>(
+  login: (
+    email: string,
+    password: string,
+    opts?: { totp?: string; turnstileToken?: string },
+  ) =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        twoFactorRequired?: boolean;
+        accessToken?: string;
+        user?: User;
+      };
+    }>(
       'ecommerce',
       '/auth/login',
       {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          email,
+          password,
+          totp: opts?.totp,
+          turnstileToken: opts?.turnstileToken,
+        }),
       },
     ).then((res) => ({ success: res.success, ...res.data })),
 
-  register: (body: { email: string; password: string; firstName: string; lastName: string; phone?: string }) =>
+  register: (body: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    turnstileToken?: string;
+  }) =>
     apiFetch<{ success: boolean; data: { user: User } }>('ecommerce', '/auth/register', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -872,10 +889,10 @@ export const authApi = {
       body: JSON.stringify(body),
     }),
 
-  forgotPassword: (body: { email: string }) =>
+  forgotPassword: (email: string, turnstileToken?: string) =>
     apiFetch<{ success: boolean; data: { message: string } }>('ecommerce', '/auth/forgot-password', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ email, turnstileToken }),
     }),
 
   resetPassword: (body: { token: string; newPassword: string }) =>
@@ -883,6 +900,30 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+};
+
+// ─── TWO-FACTOR AUTH (authenticated) ──────────────────────────
+
+export const twoFactor = {
+  setup: () =>
+    apiFetch<{
+      success: boolean;
+      data: { secret: string; otpauthUrl: string; qrDataUrl: string };
+    }>('ecommerce', '/auth/2fa/setup', { method: 'POST' }).then((res) => res.data),
+
+  enable: (totp: string) =>
+    apiFetch<{ success: boolean; data: { backupCodes: string[] } }>(
+      'ecommerce',
+      '/auth/2fa/enable',
+      { method: 'POST', body: JSON.stringify({ totp }) },
+    ).then((res) => res.data),
+
+  disable: (password: string) =>
+    apiFetch<{ success: boolean; data: { enabled: boolean } }>(
+      'ecommerce',
+      '/auth/2fa/disable',
+      { method: 'POST', body: JSON.stringify({ password }) },
+    ).then((res) => res.data),
 };
 
 // ─── Reviews ─────────────────────────────────────────────
@@ -1402,6 +1443,7 @@ export interface User {
   id: string;
   email: string;
   emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
   phone?: string | null;
   firstName: string;
   lastName: string;

@@ -11,15 +11,12 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 }
 
-// The invoice endpoint requires a Bearer token; a plain <a href> link would
-// hit it unauthenticated and get 401. Fetch with the token, build a blob URL,
-// and trigger a download.
+// The invoice endpoint is authenticated via the httpOnly access_token cookie
+// (credentials:"include"). Fetch as a blob and trigger a download so we can
+// control the filename.
 async function downloadInvoice(orderId: string, orderNumber: number | undefined): Promise<void> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
   const res = await fetch(`/api/v1/admin/orders/${orderId}/invoice`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    credentials: "include",
   });
   if (!res.ok) {
     throw new Error(`Invoice download failed: ${res.status}`);
@@ -334,11 +331,8 @@ export default function AdminClientGaragePage() {
 // ─── RGPD action buttons ──────────────────────────────────────────
 
 async function downloadRgpdExport(customerId: string): Promise<void> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
   const res = await fetch(`/api/v1/customers/${customerId}/rgpd-export`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    credentials: "include",
   });
   if (!res.ok) {
     throw new Error(`Export failed: ${res.status}`);

@@ -24,14 +24,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Download the repair quote PDF through a fetch-with-auth flow (the
-// endpoint requires a Bearer token, so a plain <a href> would 401).
+// Download the repair quote PDF through a fetch-with-auth flow. Auth travels
+// via the httpOnly access_token cookie (credentials:"include").
 async function downloadQuotePdf(ticketId: string, ticketNumber: number): Promise<void> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
   const res = await fetch(`/api/v1/repairs/${ticketId}/quote/pdf`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    credentials: "include",
   });
   if (!res.ok) {
     throw new Error(`Download failed: ${res.status}`);

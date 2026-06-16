@@ -435,7 +435,8 @@ export default function AdminSavPage() {
                         try {
                           await fetch(`/api/v1/repairs/${selectedTicket.id}/notes`, {
                             method: "POST",
-                            headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ note: noteText }),
                           });
                           textarea.value = "";

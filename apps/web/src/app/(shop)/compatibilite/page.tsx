@@ -229,8 +229,7 @@ export default function CompatibilitePage() {
                   onClick={() => {
                     addScooterToGarage(selectedBrand, selectedModel);
                     setSavedToGarage(true);
-                    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-                    if (token) pushGarageToServer(token).catch(() => undefined);
+                    pushGarageToServer().catch(() => undefined);
                   }}
                   className="btn-outline text-xs flex items-center gap-2 cursor-pointer"
                 >

@@ -1,27 +1,14 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
+// NB: Content-Security-Policy is set per-request in middleware.ts (nonce +
+// strict-dynamic). The static headers below apply to every response.
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https: blob:",
-      "font-src 'self' data:",
-      "connect-src 'self' https://api.stripe.com",
-      "frame-src https://js.stripe.com https://hooks.stripe.com",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'self'",
-    ].join("; "),
-  },
 ];
 
 const nextConfig: NextConfig = {
@@ -88,4 +75,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Keep the build quiet on CI; logs locally.
+  silent: !!process.env.CI,
+  // org/project are read from env when present; the wrap stays a no-op
+  // for source-map upload when they are absent (e.g. local/dev builds).
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+});

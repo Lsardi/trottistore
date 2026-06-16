@@ -458,12 +458,10 @@ export default function AdminImportCsvPage() {
 
     try {
       for (let i = 0; i < batches.length; i++) {
-        const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
         const res = await fetch("/api/v1/admin/products/import-csv", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
           body: JSON.stringify({ rows: batches[i] }),

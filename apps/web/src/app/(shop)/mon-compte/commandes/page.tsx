@@ -13,7 +13,7 @@ import {
   Receipt,
   ExternalLink,
 } from "lucide-react";
-import { ordersApi, type Order } from "@/lib/api";
+import { ordersApi, ApiError, type Order } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -68,10 +68,8 @@ function formatDate(d: string): string {
 }
 
 function downloadInvoice(orderId: string, orderNumber: number) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-  if (!token) return;
   fetch(`/api/v1/orders/${orderId}/invoice`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   })
     .then(async (res) => {
       if (!res.ok) throw new Error("invoice_failed");
@@ -97,11 +95,6 @@ export default function MesCommandesPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (!token) {
-      window.location.href = "/mon-compte";
-      return;
-    }
     let cancelled = false;
     setLoading(true);
     ordersApi
@@ -110,8 +103,13 @@ export default function MesCommandesPage() {
         if (cancelled) return;
         setOrders(res.data || []);
       })
-      .catch(() => {
-        if (!cancelled) setError("Impossible de charger vos commandes.");
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 401) {
+          window.location.href = "/mon-compte";
+          return;
+        }
+        setError("Impossible de charger vos commandes.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

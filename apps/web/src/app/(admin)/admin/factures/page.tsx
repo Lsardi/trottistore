@@ -32,14 +32,12 @@ function formatDate(iso: string | null | undefined): string {
   }).format(new Date(iso));
 }
 
-// The invoice PDF endpoint requires a Bearer token → fetch + blob
-// instead of a plain <a href>. Same pattern as CsvExportButton.
+// The invoice PDF endpoint is authenticated via the httpOnly access_token
+// cookie (credentials:"include") → fetch + blob instead of a plain <a href>
+// so we can control the filename. Same pattern as CsvExportButton.
 async function downloadInvoice(orderId: string, orderNumber: number): Promise<void> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
   const res = await fetch(`/api/v1/admin/orders/${orderId}/invoice`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    credentials: "include",
   });
   if (!res.ok) throw new Error(`Download failed: ${res.status}`);
   const blob = await res.blob();

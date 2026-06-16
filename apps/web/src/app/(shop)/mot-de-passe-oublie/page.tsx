@@ -4,14 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Mail } from "lucide-react";
 import { authApi } from "@/lib/api";
-import { brand } from "@/lib/brand";
-import type { Metadata } from "next";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
     setError("");
 
     try {
-      await authApi.forgotPassword({ email });
+      await authApi.forgotPassword(email, turnstileToken || undefined);
       setSent(true);
     } catch {
       setError("Une erreur est survenue. Veuillez réessayer.");
@@ -84,6 +84,8 @@ export default function ForgotPasswordPage() {
                 placeholder="votre@email.com"
               />
             </div>
+
+            <TurnstileWidget onToken={setTurnstileToken} />
 
             <button
               type="submit"
