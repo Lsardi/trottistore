@@ -33,9 +33,8 @@ export default function AdminExportComptaPage() {
   async function handleDownload(endpoint: string, filename: string) {
     setDownloading(endpoint);
     try {
-      const token = localStorage.getItem("accessToken");
       const res = await fetch(endpoint, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();

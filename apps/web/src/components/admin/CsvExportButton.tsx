@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 
-// Admin CSV exports need a Bearer token so a plain <a href> would 401.
-// This button fetches with the token, triggers a blob download, and
-// falls back to the `apiFetch` refresh-on-401 flow since we go through
-// the same `/api/v1/*` path that the rewrites proxy to.
+// Admin CSV exports are authenticated via the httpOnly access_token cookie
+// (sent automatically with credentials:"include"), so a plain <a href> would
+// work too — but we fetch as a blob to control the download filename.
 
 export function CsvExportButton({
   path,
@@ -22,12 +21,8 @@ export function CsvExportButton({
   async function handleClick() {
     setLoading(true);
     try {
-      const token =
-        typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
       const res = await fetch(path, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        credentials: "include",
       });
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);
       const blob = await res.blob();

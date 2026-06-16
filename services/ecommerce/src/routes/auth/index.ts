@@ -1,16 +1,20 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID, createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { authenticator } from "otplib";
+import qrcode from "qrcode";
 import type { Role, JwtAccessPayload, JwtRefreshPayload } from "@trottistore/shared";
 import { sendEmail } from "@trottistore/shared/notifications";
 import { welcomeEmail, passwordResetEmail } from "../../emails/templates.js";
 import { ROLES } from "@trottistore/shared";
+import { verifyTurnstile, turnstileEnabled } from "../../lib/turnstile.js";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
 
 // ─── Constants ─────────────────────────────────────────────
 
 const ACCESS_TOKEN_EXPIRY = "4h";
+const ACCESS_TOKEN_MAX_AGE_S = 4 * 60 * 60; // keep in sync with ACCESS_TOKEN_EXPIRY
 const REFRESH_TOKEN_DAYS = 30;
 const BCRYPT_ROUNDS = 12;
 const PASSWORD_RESET_EXPIRY_HOURS = 1;
@@ -34,15 +38,19 @@ const registerSchema = z.object({
   firstName: z.string().min(1).max(100).trim(),
   lastName: z.string().min(1).max(100).trim(),
   phone: z.string().max(20).optional(),
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 const loginSchema = z.object({
   email: z.string().email().max(255).toLowerCase().trim(),
   password: z.string().min(1).max(128),
+  totp: z.string().max(20).optional(),
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 const forgotPasswordSchema = z.object({
   email: z.string().email().max(255).toLowerCase().trim(),
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 const resetPasswordSchema = z.object({
@@ -132,14 +140,92 @@ function clearRefreshCookie(reply: FastifyReply) {
   });
 }
 
+/**
+ * Set the access token as an httpOnly cookie (path "/").
+ * Read by @fastify/jwt (cookieName "access_token") on the API side and by the
+ * Next.js middleware server-side. Keeps the token out of reach of JS (no XSS
+ * exfiltration), unlike the previous localStorage approach.
+ */
+function setAccessCookie(reply: FastifyReply, token: string) {
+  reply.setCookie("access_token", token, {
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: ACCESS_TOKEN_MAX_AGE_S,
+  });
+}
+
+/** Clear the access token cookie */
+function clearAccessCookie(reply: FastifyReply) {
+  reply.clearCookie("access_token", {
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+}
+
+// ─── 2FA helpers ───────────────────────────────────────────
+
+const TOTP_ISSUER = process.env.TOTP_ISSUER || "TrottiStore";
+
+/** Generate N single-use backup codes (returned once, stored hashed). */
+function generateBackupCodes(count = 8): { plain: string[]; hashed: string[] } {
+  const plain: string[] = [];
+  for (let i = 0; i < count; i++) {
+    // 10 hex chars, grouped as xxxxx-xxxxx for readability
+    const raw = randomBytes(5).toString("hex");
+    plain.push(`${raw.slice(0, 5)}-${raw.slice(5)}`);
+  }
+  const hashed = plain.map((c) => hashToken(c.replace("-", "")));
+  return { plain, hashed };
+}
+
+/** Verify a TOTP code against a secret (with a ±1 step window). */
+function verifyTotp(token: string, secret: string): boolean {
+  try {
+    return authenticator.verify({ token: token.replace(/\s/g, ""), secret });
+  } catch {
+    return false;
+  }
+}
+
 // ─── Routes ────────────────────────────────────────────────
 
 export async function authRoutes(app: FastifyInstance) {
+  /**
+   * Bot guard for public auth endpoints. Returns true when the request was
+   * blocked (a 400 has already been sent). No-op pass when Turnstile is not
+   * configured (dev/test).
+   */
+  async function blockedByTurnstile(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    token: string | undefined,
+  ): Promise<boolean> {
+    const result = await verifyTurnstile(token, request.ip);
+    if (!result.ok) {
+      reply.status(400).send({
+        success: false,
+        error: {
+          code: "CAPTCHA_FAILED",
+          message: "Vérification anti-robot échouée. Réessayez.",
+          details: { reason: result.reason },
+        },
+      });
+      return true;
+    }
+    return false;
+  }
+
   // ── POST /auth/register ────────────────────────────────
   app.post("/auth/register", {
     config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
   }, async (request, reply) => {
     const body = registerSchema.parse(request.body);
+
+    if (await blockedByTurnstile(request, reply, body.turnstileToken)) return;
 
     // Check if email already taken
     const existing = await app.prisma.user.findUnique({
@@ -312,6 +398,8 @@ export async function authRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const body = loginSchema.parse(request.body);
 
+    if (await blockedByTurnstile(request, reply, body.turnstileToken)) return;
+
     // Find user
     const user = await app.prisma.user.findUnique({
       where: { email: body.email },
@@ -324,6 +412,9 @@ export async function authRoutes(app: FastifyInstance) {
         status: true,
         passwordHash: true,
         loginCount: true,
+        twoFactorEnabled: true,
+        twoFactorSecret: true,
+        twoFactorBackupCodes: true,
       },
     });
 
@@ -359,6 +450,41 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
+    // Two-factor challenge (TOTP) — when enabled, a valid code (or a single-use
+    // backup code) is required before any token is issued.
+    if (user.twoFactorEnabled && user.twoFactorSecret) {
+      if (!body.totp) {
+        // Password OK but second factor needed — tell the client to prompt.
+        return reply.send({ success: true, data: { twoFactorRequired: true } });
+      }
+
+      const codeOk = verifyTotp(body.totp, user.twoFactorSecret);
+      let backupConsumed = false;
+
+      if (!codeOk) {
+        // Fall back to single-use backup codes.
+        const presentedHash = hashToken(body.totp.replace(/[\s-]/g, ""));
+        if (user.twoFactorBackupCodes.includes(presentedHash)) {
+          backupConsumed = true;
+          await app.prisma.user.update({
+            where: { id: user.id },
+            data: {
+              twoFactorBackupCodes: user.twoFactorBackupCodes.filter(
+                (h) => h !== presentedHash,
+              ),
+            },
+          });
+        }
+      }
+
+      if (!codeOk && !backupConsumed) {
+        return reply.status(401).send({
+          success: false,
+          error: { code: "INVALID_2FA", message: "Code de vérification invalide" },
+        });
+      }
+    }
+
     // Generate tokens
     const accessToken = signAccessToken(app, user);
     const { rawToken, expiresAt } = await createRefreshToken(app, user.id);
@@ -372,8 +498,9 @@ export async function authRoutes(app: FastifyInstance) {
       },
     });
 
-    // Set cookie
+    // Set cookies (refresh + httpOnly access token)
     setRefreshCookie(reply, rawToken, expiresAt);
+    setAccessCookie(reply, accessToken);
 
     return {
       success: true,
@@ -491,6 +618,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const accessToken = signAccessToken(app, storedToken.user);
     setRefreshCookie(reply, newRawToken, newExpiresAt);
+    setAccessCookie(reply, accessToken);
 
     return {
       success: true,
@@ -516,6 +644,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     clearRefreshCookie(reply);
+    clearAccessCookie(reply);
 
     return { success: true };
   });
@@ -533,11 +662,126 @@ export async function authRoutes(app: FastifyInstance) {
       });
 
       clearRefreshCookie(reply);
+      clearAccessCookie(reply);
 
       return {
         success: true,
         data: { revokedCount: count, message: "Tous les appareils ont été déconnectés" },
       };
+    },
+  );
+
+  // ── 2FA (TOTP) management ──────────────────────────────
+
+  // POST /auth/2fa/setup — generate a secret + provisioning QR (not yet enabled)
+  app.post(
+    "/auth/2fa/setup",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId, email } = request.user;
+
+      const current = await app.prisma.user.findUnique({
+        where: { id: userId },
+        select: { twoFactorEnabled: true },
+      });
+      if (current?.twoFactorEnabled) {
+        return reply.status(409).send({
+          success: false,
+          error: { code: "2FA_ALREADY_ENABLED", message: "La 2FA est déjà activée" },
+        });
+      }
+
+      const secret = authenticator.generateSecret();
+      const otpauthUrl = authenticator.keyuri(email, TOTP_ISSUER, secret);
+      const qrDataUrl = await qrcode.toDataURL(otpauthUrl);
+
+      // Store the pending secret; activation requires a verified code.
+      await app.prisma.user.update({
+        where: { id: userId },
+        data: { twoFactorSecret: secret, twoFactorEnabled: false },
+      });
+
+      return {
+        success: true,
+        data: { secret, otpauthUrl, qrDataUrl },
+      };
+    },
+  );
+
+  // POST /auth/2fa/enable — confirm a code, activate 2FA, return backup codes once
+  app.post(
+    "/auth/2fa/enable",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId } = request.user;
+      const { totp } = z.object({ totp: z.string().min(6).max(10) }).parse(request.body);
+
+      const user = await app.prisma.user.findUnique({
+        where: { id: userId },
+        select: { twoFactorSecret: true, twoFactorEnabled: true },
+      });
+
+      if (!user?.twoFactorSecret) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "2FA_NOT_INITIALIZED", message: "Lancez d'abord la configuration 2FA" },
+        });
+      }
+      if (user.twoFactorEnabled) {
+        return reply.status(409).send({
+          success: false,
+          error: { code: "2FA_ALREADY_ENABLED", message: "La 2FA est déjà activée" },
+        });
+      }
+      if (!verifyTotp(totp, user.twoFactorSecret)) {
+        return reply.status(401).send({
+          success: false,
+          error: { code: "INVALID_2FA", message: "Code invalide" },
+        });
+      }
+
+      const { plain, hashed } = generateBackupCodes();
+      await app.prisma.user.update({
+        where: { id: userId },
+        data: { twoFactorEnabled: true, twoFactorBackupCodes: hashed },
+      });
+
+      return {
+        success: true,
+        data: {
+          enabled: true,
+          backupCodes: plain,
+          message: "2FA activée. Conservez ces codes de secours en lieu sûr — ils ne seront plus affichés.",
+        },
+      };
+    },
+  );
+
+  // POST /auth/2fa/disable — requires the account password
+  app.post(
+    "/auth/2fa/disable",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const { userId } = request.user;
+      const { password } = z.object({ password: z.string().min(1).max(128) }).parse(request.body);
+
+      const user = await app.prisma.user.findUnique({
+        where: { id: userId },
+        select: { passwordHash: true },
+      });
+      if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+        return reply.status(401).send({
+          success: false,
+          error: { code: "INVALID_CREDENTIALS", message: "Mot de passe incorrect" },
+        });
+      }
+
+      await app.prisma.user.update({
+        where: { id: userId },
+        data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorBackupCodes: [] },
+      });
+
+      return { success: true, data: { enabled: false } };
     },
   );
 
@@ -855,6 +1099,14 @@ export async function authRoutes(app: FastifyInstance) {
     const parsed = forgotPasswordSchema.safeParse(request.body);
     if (!parsed.success) {
       // Still return 200 to prevent enumeration
+      await constantTimeJitter();
+      return { success: true, data: { message: GENERIC_FORGOT_MESSAGE } };
+    }
+
+    // Bot guard — on failure, behave identically to the generic path so bots
+    // get no signal (and no email enumeration).
+    const turnstile = await verifyTurnstile(parsed.data.turnstileToken, request.ip);
+    if (!turnstile.ok) {
       await constantTimeJitter();
       return { success: true, data: { message: GENERIC_FORGOT_MESSAGE } };
     }

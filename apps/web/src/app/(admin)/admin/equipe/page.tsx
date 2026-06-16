@@ -53,12 +53,12 @@ export default function AdminEquipePage() {
     phone: "",
   });
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  // Auth travels via the httpOnly access_token cookie (credentials:"include").
+  const headers = { "Content-Type": "application/json" };
 
   async function loadStaff() {
     try {
-      const res = await fetch("/api/v1/admin/users", { headers });
+      const res = await fetch("/api/v1/admin/users", { headers, credentials: "include" });
       const data = await res.json();
       if (data.success) setStaff(data.data);
     } finally {
@@ -78,6 +78,7 @@ export default function AdminEquipePage() {
       const res = await fetch("/api/v1/admin/users", {
         method: "POST",
         headers,
+        credentials: "include",
         body: JSON.stringify({
           ...form,
           phone: form.phone || undefined,
@@ -107,6 +108,7 @@ export default function AdminEquipePage() {
       await fetch(`/api/v1/admin/users/${id}`, {
         method: "PUT",
         headers,
+        credentials: "include",
         body: JSON.stringify({ status: newStatus }),
       });
       await loadStaff();
@@ -122,6 +124,7 @@ export default function AdminEquipePage() {
       await fetch(`/api/v1/admin/users/${id}/reset-password`, {
         method: "POST",
         headers,
+        credentials: "include",
       });
       setSuccess(`Email de réinitialisation envoyé à ${email}`);
     } catch {

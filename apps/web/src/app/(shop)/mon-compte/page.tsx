@@ -30,11 +30,13 @@ import {
   authApi,
   ordersApi,
   repairsApi,
+  twoFactor,
   type Address,
   type Order,
   type RepairTicket,
   type User,
 } from "@/lib/api";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 import { syncGarageWithServer } from "@/lib/garage";
@@ -104,6 +106,226 @@ function PasswordStrengthIndicator({ password }: { password: string }) {
   );
 }
 
+/**
+ * Two-factor authentication panel for the account settings.
+ * - Not enabled: "Activer" → setup() shows QR + secret → code → enable()
+ *   reveals the one-time backup codes.
+ * - Enabled: "Désactiver" asks for the password and calls disable().
+ */
+function TwoFactorPanel({ initialEnabled }: { initialEnabled: boolean }) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  // Enable flow
+  const [setupData, setSetupData] = useState<{ secret: string; qrDataUrl: string } | null>(null);
+  const [enableCode, setEnableCode] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  // Disable flow
+  const [disabling, setDisabling] = useState(false);
+  const [disablePassword, setDisablePassword] = useState("");
+
+  async function handleStartSetup() {
+    setBusy(true);
+    setError("");
+    try {
+      const data = await twoFactor.setup();
+      setSetupData({ secret: data.secret, qrDataUrl: data.qrDataUrl });
+    } catch {
+      setError("Impossible de démarrer l'activation. Réessayez.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleEnable(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const data = await twoFactor.enable(enableCode);
+      setBackupCodes(data.backupCodes);
+      setEnabled(true);
+      setSetupData(null);
+      setEnableCode("");
+    } catch {
+      setError("Code invalide. Vérifiez l'heure de votre téléphone et réessayez.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDisable(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await twoFactor.disable(disablePassword);
+      setEnabled(false);
+      setDisabling(false);
+      setDisablePassword("");
+      setBackupCodes(null);
+    } catch {
+      setError("Mot de passe incorrect.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="bg-surface border border-border p-5 mt-6">
+      <div className="flex items-center gap-2 mb-4">
+        <ShieldCheck className="w-4 h-4 text-neon" />
+        <p className="spec-label">Authentification à deux facteurs</p>
+        <span
+          className={cn(
+            "ml-auto font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 border",
+            enabled
+              ? "text-neon border-neon/40 bg-neon/10"
+              : "text-text-dim border-border bg-surface-2",
+          )}
+        >
+          {enabled ? "Activée" : "Désactivée"}
+        </span>
+      </div>
+
+      {error && (
+        <p className="font-mono text-xs text-danger mb-3" role="alert">
+          {error}
+        </p>
+      )}
+
+      {/* Freshly generated backup codes (shown once). */}
+      {backupCodes && (
+        <div className="mb-4 border border-neon/30 bg-neon/5 p-4 space-y-2">
+          <p className="font-mono text-xs text-text">
+            Conservez ces codes de secours en lieu sûr. Ils ne seront affichés qu&apos;une seule fois.
+          </p>
+          <div className="grid grid-cols-2 gap-1 font-mono text-xs text-neon">
+            {backupCodes.map((code) => (
+              <span key={code}>{code}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!enabled && !setupData && (
+        <button
+          type="button"
+          onClick={handleStartSetup}
+          disabled={busy}
+          className="btn-neon text-xs disabled:opacity-50 cursor-pointer"
+        >
+          {busy ? "Préparation..." : "Activer"}
+        </button>
+      )}
+
+      {!enabled && setupData && (
+        <form onSubmit={handleEnable} className="space-y-3">
+          <p className="font-mono text-xs text-text-muted">
+            Scannez ce QR code avec votre application d&apos;authentification (Google
+            Authenticator, Authy…), puis saisissez le code généré.
+          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={setupData.qrDataUrl}
+            alt="QR code 2FA"
+            className="w-40 h-40 border border-border bg-white"
+          />
+          <p className="font-mono text-[11px] text-text-dim break-all">
+            Clé manuelle : <span className="text-text-muted">{setupData.secret}</span>
+          </p>
+          <div>
+            <label htmlFor="enable-totp" className="spec-label block mb-2">
+              Code à 6 chiffres
+            </label>
+            <input
+              id="enable-totp"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              required
+              value={enableCode}
+              onChange={(e) => setEnableCode(e.target.value.replace(/\D/g, ""))}
+              className="input-dark w-full text-center text-xl tracking-[0.4em] font-mono"
+              placeholder="000000"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={busy || enableCode.length !== 6}
+              className="btn-neon text-xs disabled:opacity-50 cursor-pointer"
+            >
+              {busy ? "Vérification..." : "Confirmer"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSetupData(null);
+                setEnableCode("");
+                setError("");
+              }}
+              className="btn-outline text-xs cursor-pointer"
+            >
+              Annuler
+            </button>
+          </div>
+        </form>
+      )}
+
+      {enabled && !disabling && (
+        <button
+          type="button"
+          onClick={() => setDisabling(true)}
+          className="btn-outline text-xs text-danger border-danger/30 cursor-pointer"
+        >
+          Désactiver
+        </button>
+      )}
+
+      {enabled && disabling && (
+        <form onSubmit={handleDisable} className="space-y-3">
+          <div>
+            <label htmlFor="disable-password" className="spec-label block mb-2">
+              Confirmez votre mot de passe
+            </label>
+            <input
+              id="disable-password"
+              type="password"
+              required
+              value={disablePassword}
+              onChange={(e) => setDisablePassword(e.target.value)}
+              className="input-dark w-full"
+              placeholder="Votre mot de passe"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={busy || !disablePassword}
+              className="btn-outline text-xs text-danger border-danger/30 disabled:opacity-50 cursor-pointer"
+            >
+              {busy ? "Désactivation..." : "Confirmer la désactivation"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDisabling(false);
+                setDisablePassword("");
+                setError("");
+              }}
+              className="btn-outline text-xs cursor-pointer"
+            >
+              Annuler
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 export default function MonCompteWrapper() {
   return (
     <Suspense fallback={<div className="min-h-[80vh] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-neon" /></div>}>
@@ -150,15 +372,15 @@ function formatPrice(amount: string | number): string {
     lastName: "",
     phone: "",
   });
+  // Turnstile tokens (one per form). Empty string = not solved / expired.
+  const [loginTurnstile, setLoginTurnstile] = useState("");
+  const [registerTurnstile, setRegisterTurnstile] = useState("");
+  // 2FA login challenge: when the password is valid but a TOTP code is needed.
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
 
   useEffect(() => {
     async function loadAccount() {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        setBooting(false);
-        return;
-      }
-
       try {
         const meRes = await authApi.me();
         const currentUser = meRes.data;
@@ -166,7 +388,7 @@ function formatPrice(amount: string | number): string {
 
         // Sync the garage (localStorage <-> CustomerProfile.scooterModels) so
         // the user retrieves their saved scooters across devices.
-        syncGarageWithServer(token).catch(() => undefined);
+        syncGarageWithServer().catch(() => undefined);
 
         if (isBackofficeRole(currentUser.role)) {
           window.location.href = "/admin";
@@ -206,15 +428,29 @@ function formatPrice(amount: string | number): string {
     setLoading(true);
     setError("");
     try {
-      const res = await authApi.login(loginForm);
-      localStorage.setItem("accessToken", res.accessToken);
-      document.cookie = `accessToken=${res.accessToken}; path=/; max-age=${4 * 60 * 60}; SameSite=Strict`;
+      const res = await authApi.login(loginForm.email, loginForm.password, {
+        totp: twoFactorRequired ? totpCode : undefined,
+        turnstileToken: loginTurnstile || undefined,
+      });
+
+      // Password OK but the account has 2FA enabled — ask for the code.
+      if (res.twoFactorRequired) {
+        setTwoFactorRequired(true);
+        setLoading(false);
+        return;
+      }
+
+      // The httpOnly access_token cookie is set by the API. No JS storage.
       // Best-effort: sync the garage before redirecting so the user lands
       // on a page where their saved scooters are already merged in.
-      await syncGarageWithServer(res.accessToken).catch(() => undefined);
+      await syncGarageWithServer().catch(() => undefined);
       window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
     } catch {
-      setError("Email ou mot de passe incorrect");
+      setError(
+        twoFactorRequired
+          ? "Code à 6 chiffres invalide."
+          : "Email ou mot de passe incorrect",
+      );
     } finally {
       setLoading(false);
     }
@@ -225,7 +461,10 @@ function formatPrice(amount: string | number): string {
     setLoading(true);
     setError("");
     try {
-      const regResult = await authApi.register(registerForm);
+      const regResult = await authApi.register({
+        ...registerForm,
+        turnstileToken: registerTurnstile || undefined,
+      });
       // Show email verification step instead of auto-login
       setPendingVerification({ userId: regResult.user.id, email: registerForm.email });
     } catch {
@@ -237,8 +476,9 @@ function formatPrice(amount: string | number): string {
 
   async function handleLogout() {
     try { await authApi.logout(); } catch { /* best effort */ }
+    // The API clears the httpOnly cookie. Clean up any legacy localStorage
+    // token left over from the pre-httpOnly era.
     localStorage.removeItem("accessToken");
-    document.cookie = "accessToken=; path=/; max-age=0; SameSite=Strict";
     window.location.href = "/mon-compte";
   }
 
@@ -551,6 +791,8 @@ function formatPrice(amount: string | number): string {
           />
         </div>
 
+        <TwoFactorPanel initialEnabled={user.twoFactorEnabled ?? false} />
+
         {/* Account management — bottom section */}
         <div className="mt-8 border-t border-border pt-6 flex flex-wrap items-center gap-4">
           <button
@@ -558,7 +800,7 @@ function formatPrice(amount: string | number): string {
               setActionFeedback("");
               try {
                 const res = await fetch("/api/v1/auth/export", {
-                  headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+                  credentials: "include",
                 });
                 const data = await res.json();
                 const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: "application/json" });
@@ -598,7 +840,7 @@ function formatPrice(amount: string | number): string {
                   try {
                     await fetch("/api/v1/auth/account", {
                       method: "DELETE",
-                      headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+                      credentials: "include",
                     });
                     localStorage.removeItem("accessToken");
                     window.location.href = "/";
@@ -648,13 +890,11 @@ function formatPrice(amount: string | number): string {
                   }).then(async (r) => {
                     if (!r.ok) throw new Error((await r.json()).error?.message || "Code invalide");
                   });
-                  // Verified — now login
-                  const res = await authApi.login({
-                    email: pendingVerification.email,
-                    password: registerForm.password,
-                  });
-                  localStorage.setItem("accessToken", res.accessToken);
-      document.cookie = `accessToken=${res.accessToken}; path=/; max-age=${4 * 60 * 60}; SameSite=Strict`;
+                  // Verified — now login. The API sets the httpOnly cookie.
+                  const res = await authApi.login(
+                    pendingVerification.email,
+                    registerForm.password,
+                  );
                   window.location.href = isBackofficeRole(res.user?.role) ? "/admin" : nextPath;
                 } catch (err) {
                   setVerifyError(err instanceof Error ? err.message : "Code invalide ou expire");
@@ -809,12 +1049,44 @@ function formatPrice(amount: string | number): string {
                     Mot de passe oublie ?
                   </a>
                 </div>
-                <button type="submit" disabled={loading} className="btn-neon w-full mt-2 disabled:opacity-50 cursor-pointer">
+                {twoFactorRequired && (
+                  <div>
+                    <label htmlFor="login-totp" className="spec-label block mb-2">
+                      Code à 6 chiffres
+                    </label>
+                    <input
+                      id="login-totp"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      required
+                      autoFocus
+                      value={totpCode}
+                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                      className="input-dark w-full text-center text-2xl tracking-[0.5em] font-mono"
+                      placeholder="000000"
+                    />
+                    <p className="mt-1 font-mono text-[11px] text-text-dim">
+                      Saisissez le code de votre application d&apos;authentification.
+                    </p>
+                  </div>
+                )}
+                {!twoFactorRequired && (
+                  <TurnstileWidget onToken={setLoginTurnstile} />
+                )}
+                <button
+                  type="submit"
+                  disabled={loading || (twoFactorRequired && totpCode.length !== 6)}
+                  className="btn-neon w-full mt-2 disabled:opacity-50 cursor-pointer"
+                >
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       CONNEXION...
                     </>
+                  ) : twoFactorRequired ? (
+                    "VÉRIFIER LE CODE"
                   ) : (
                     "SE CONNECTER"
                   )}
@@ -901,6 +1173,7 @@ function formatPrice(amount: string | number): string {
                   </div>
                   <PasswordStrengthIndicator password={registerForm.password} />
                 </div>
+                <TurnstileWidget onToken={setRegisterTurnstile} />
                 <button type="submit" disabled={loading} className="btn-neon w-full mt-2 disabled:opacity-50 cursor-pointer">
                   {loading ? (
                     <>

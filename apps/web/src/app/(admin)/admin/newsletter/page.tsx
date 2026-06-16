@@ -62,9 +62,8 @@ export default function AdminNewsletterPage() {
 
   function handleExport(status: NewsletterStatus | "ALL") {
     const url = `/api/v1/newsletter/admin/export.csv?status=${status}`;
-    // Use fetch + blob to inject the auth header (the simple <a download> wouldn't carry it).
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    // Auth travels via the httpOnly access_token cookie (credentials:"include").
+    fetch(url, { credentials: "include" })
       .then(async (res) => {
         if (!res.ok) throw new Error("Export failed");
         const blob = await res.blob();

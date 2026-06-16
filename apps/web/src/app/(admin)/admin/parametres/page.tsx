@@ -55,12 +55,11 @@ export default function AdminParametresPage() {
     setSaving(true);
     setError("");
     try {
-      const token = localStorage.getItem("accessToken");
       const res = await fetch("/api/v1/admin/settings", {
         method: "PUT",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(settings),
       });

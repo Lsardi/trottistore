@@ -94,13 +94,13 @@ function canonicalString(brand: string, model: string): string {
  * - Adds any server-only scooter to localStorage
  * - PUTs the union back so both sides converge
  */
-export async function syncGarageWithServer(token: string): Promise<void> {
+export async function syncGarageWithServer(): Promise<void> {
   if (typeof window === "undefined") return;
 
   let serverList: string[] = [];
   try {
     const res = await fetch("/api/v1/auth/garage", {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
     });
     if (!res.ok) return;
     const json = await res.json();
@@ -142,9 +142,9 @@ export async function syncGarageWithServer(token: string): Promise<void> {
   try {
     await fetch("/api/v1/auth/garage", {
       method: "PUT",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ scooters: canonicalList }),
     });
@@ -158,16 +158,16 @@ export async function syncGarageWithServer(token: string): Promise<void> {
  * when the user is authenticated, so the server stays in sync without
  * waiting for the next login.
  */
-export async function pushGarageToServer(token: string): Promise<void> {
+export async function pushGarageToServer(): Promise<void> {
   if (typeof window === "undefined") return;
   const local = readGarage();
   const canonicalList = local.map((s) => canonicalString(s.brand, s.model));
   try {
     await fetch("/api/v1/auth/garage", {
       method: "PUT",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ scooters: canonicalList }),
     });

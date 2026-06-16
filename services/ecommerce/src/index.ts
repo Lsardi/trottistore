@@ -32,6 +32,7 @@ import { auditRoutes } from "./routes/admin-audit/index.js";
 import { invoiceRoutes } from "./routes/admin-invoices/index.js";
 import { financeRoutes } from "./routes/finance/index.js";
 import { settingsRoutes } from "./routes/admin-settings/index.js";
+import { emailWebhookRoutes } from "./routes/email-webhooks/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
 import { ZodError } from "zod";
 import {
@@ -41,8 +42,11 @@ import {
   AppError,
   registerRequestCorrelation,
   getRequestCorrelation,
+  initSentry,
+  captureError,
 } from "@trottistore/shared";
 import { runFinancialReconciliation } from "./lib/finance-reconciliation.js";
+import { setEmailLogStore } from "@trottistore/shared/notifications";
 
 // Fail-fast if required env vars are missing
 validateEnv("ecommerce", [
@@ -70,6 +74,8 @@ function resolveTrustProxy(): boolean | string[] {
 }
 
 async function start() {
+  initSentry("ecommerce");
+
   const app = Fastify({
     trustProxy: resolveTrustProxy(),
     requestIdHeader: "x-request-id",
@@ -116,6 +122,9 @@ async function start() {
   await app.register(auditPlugin);
   await app.register(metricsPlugin);
 
+  // Email deliverability tracking — persist EmailLog rows for every send
+  setEmailLogStore(app.prisma);
+
   // Global error handler
   app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
     const prismaAppError = mapPrismaError(error);
@@ -158,6 +167,14 @@ async function start() {
       url: request.url,
       statusCode,
     });
+
+    if (statusCode >= 500) {
+      captureError(error, {
+        requestId: request.id,
+        method: request.method,
+        url: request.url,
+      });
+    }
 
     reply.status(statusCode).send({
       success: false,
@@ -202,6 +219,7 @@ async function start() {
   await app.register(invoiceRoutes, { prefix: "/api/v1" });
   await app.register(financeRoutes, { prefix: "/api/v1" });
   await app.register(settingsRoutes, { prefix: "/api/v1" });
+  await app.register(emailWebhookRoutes, { prefix: "/api/v1" });
 
   // API docs — list available routes
   app.get("/api/v1/docs", async () => ({

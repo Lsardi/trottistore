@@ -181,10 +181,9 @@ export default function AdminClientsPage() {
                           onClick={async () => {
                             if (!confirm(`Supprimer définitivement ${customer.email} ? Cette action est irréversible.`)) return;
                             try {
-                              const token = localStorage.getItem("accessToken");
                               const res = await fetch(`/api/v1/customers/${customer.id}`, {
                                 method: "DELETE",
-                                headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                                credentials: "include",
                               });
                               if (res.ok) {
                                 setCustomers(prev => prev.filter(c => c.id !== customer.id));

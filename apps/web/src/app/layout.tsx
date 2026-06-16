@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { brand } from "@/lib/brand";
 import { fontVariables } from "@/lib/fonts";
 import { DEFAULT_THEME, THEME_PROFILES, THEME_STORAGE_KEY } from "@/lib/themes";
 import StructuredData from "@/components/StructuredData";
+import WebVitals from "@/components/WebVitals";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -48,8 +50,9 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const allowedThemes = THEME_PROFILES.map((item) => item.id);
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <html lang="fr" data-theme={DEFAULT_THEME} className={fontVariables} suppressHydrationWarning>
@@ -58,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans antialiased">
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -74,6 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `,
           }}
         />
+        <WebVitals />
         {children}
       </body>
     </html>
