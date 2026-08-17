@@ -10,15 +10,15 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@fastify/cors": "^11.0.0",
-    "@fastify/helmet": "^13.0.0",
-    "@fastify/jwt": "^10.0.0",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.0",
+    "@fastify/jwt": "^10.2.1",
     "@fastify/rate-limit": "^10.2.0",
     "@prisma/client": "^6.6.0",
     "@trottistore/database": "workspace:*",
     "@trottistore/shared": "workspace:*",
     "dotenv": "^16.4.7",
-    "fastify": "^5.8.5",
+    "fastify": "^5.12.0",
     "fastify-plugin": "^5.1.0",
     "ioredis": "^5.4.0",
     "prom-client": "^15.1.3",
@@ -26,7 +26,7 @@
   },
   "devDependencies": {
     "prisma": "^6.19.2",
-    "tsx": "^4.19.0",
+    "tsx": "^4.23.12",
     "typescript": "^5.7.0"
   }
 }
