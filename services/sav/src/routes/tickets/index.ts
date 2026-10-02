@@ -1,3 +1,4 @@
+import { assertTicketAccess } from "../../utils/ticket-access.js";
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -213,7 +214,7 @@ export async function repairRoutes(app: FastifyInstance) {
     const ticket = await app.prisma.$transaction(async (tx) => {
       const created = await tx.repairTicket.create({
         data: {
-          customerId: user?.userId ?? body.customerId ?? null,
+          customerId: !user ? null : user.role === "CLIENT" ? user.userId : body.customerId ?? null,
           customerName: body.customerName ?? null,
           customerEmail: body.customerEmail ?? null,
           customerPhone: body.customerPhone ?? null,
@@ -490,6 +491,7 @@ export async function repairRoutes(app: FastifyInstance) {
           error: { code: "NOT_FOUND", message: "Ticket introuvable" },
         });
       }
+      if (user) assertTicketAccess(user, ticket);
       const isStaff = !!user && user.role !== "CLIENT";
       const isOwner = !!user && user.role === "CLIENT" && ticket.customerId === user.userId;
       if (!isStaff && !isOwner) {
@@ -590,20 +592,9 @@ export async function repairRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
       });
     }
+    assertTicketAccess(user, ticket);
 
-    if (user?.role === "CLIENT" && ticket.customerId !== user.userId) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: "FORBIDDEN", message: "Access denied to this ticket" },
-      });
-    }
 
-    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
-      });
-    }
 
     return { success: true, data: ticket };
   });
@@ -635,14 +626,8 @@ export async function repairRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
       });
     }
+    assertTicketAccess(user, ticket);
 
-    // TECHNICIAN can only modify their assigned tickets
-    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
-      });
-    }
 
     if (!validateTransition(ticket.status, body.status)) {
       const allowed = getNextStatuses(ticket.status);
@@ -754,14 +739,8 @@ export async function repairRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
       });
     }
+    assertTicketAccess(user, ticket);
 
-    // TECHNICIAN can only diagnose their assigned tickets
-    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
-      });
-    }
 
     if (!validateTransition(ticket.status, "DIAGNOSTIC")) {
       return reply.status(400).send({
@@ -845,6 +824,7 @@ export async function repairRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
       });
     }
+    assertTicketAccess(user, ticket);
 
     if (!validateTransition(ticket.status, "DEVIS_ENVOYE")) {
       return reply.status(400).send({
@@ -916,20 +896,8 @@ export async function repairRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
       });
     }
+    assertTicketAccess(user, ticket);
 
-    // A TECHNICIAN may only accept the quote on tickets they are
-    // assigned to — matches the existing pattern in the sibling routes
-    // (lines 552, 591, 708, 980, 1059). MANAGER+/STAFF bypass this check.
-    // Refs: AUDIT_ATOMIC.md#P1-2
-    if (user.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
-      return reply.status(403).send({
-        success: false,
-        error: {
-          code: "FORBIDDEN",
-          message: "Only the assigned technician can accept this quote",
-        },
-      });
-    }
 
     if (!validateTransition(ticket.status, "DEVIS_ACCEPTE")) {
       return reply.status(400).send({
@@ -980,6 +948,7 @@ export async function repairRoutes(app: FastifyInstance) {
       });
     }
 
+    if (user) assertTicketAccess(user, ticket);
     const isStaff = !!user && user.role !== "CLIENT";
     const isOwnerClient = !!user && user.role === "CLIENT" && ticket.customerId === user.userId;
     const hasValidToken = !!body.trackingToken && body.trackingToken === ticket.trackingToken;
@@ -1064,14 +1033,8 @@ export async function repairRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
       });
     }
+    assertTicketAccess(user, ticket);
 
-    // TECHNICIAN can only add parts to their assigned tickets
-    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
-      });
-    }
 
     const part = await app.prisma.$transaction(async (tx) => {
       const created = await tx.repairPartUsed.create({
@@ -1144,6 +1107,14 @@ export async function repairRoutes(app: FastifyInstance) {
     const ticketId = parseIdParam(request.params);
     const { partId } = request.params as { partId: string };
 
+    const ticket = await app.prisma.repairTicket.findUnique({
+      where: { id: ticketId }, select: { customerId: true, assignedTo: true },
+    });
+    if (!ticket) {
+      return reply.status(404).send({ success: false, error: { code: "NOT_FOUND", message: "Ticket introuvable" } });
+    }
+    assertTicketAccess(user, ticket);
+
     const part = await app.prisma.repairPartUsed.findFirst({
       where: { id: partId, ticketId },
     });
@@ -1181,10 +1152,11 @@ export async function repairRoutes(app: FastifyInstance) {
     const id = parseIdParam(request.params);
     const body = z.object({ note: z.string().min(1).max(2000) }).parse(request.body);
 
-    const ticket = await app.prisma.repairTicket.findUnique({ where: { id }, select: { id: true, status: true } });
+    const ticket = await app.prisma.repairTicket.findUnique({ where: { id }, select: { id: true, status: true, customerId: true, assignedTo: true } });
     if (!ticket) {
       return reply.status(404).send({ success: false, error: { code: "NOT_FOUND", message: "Ticket introuvable" } });
     }
+    assertTicketAccess(user, ticket);
 
     const entry = await app.prisma.repairStatusLog.create({
       data: {
@@ -1226,14 +1198,8 @@ export async function repairRoutes(app: FastifyInstance) {
         error: { code: "NOT_FOUND", message: `Ticket ${id} introuvable` },
       });
     }
+    assertTicketAccess(user, ticket);
 
-    // TECHNICIAN can only complete their assigned tickets
-    if (user?.role === "TECHNICIAN" && ticket.assignedTo !== user.userId) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: "FORBIDDEN", message: "Ticket non assigne a vous" },
-      });
-    }
 
     if (!validateTransition(ticket.status, "PRET")) {
       return reply.status(400).send({

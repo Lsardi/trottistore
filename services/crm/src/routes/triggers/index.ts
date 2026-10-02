@@ -1,3 +1,4 @@
+import { requireRole } from "../../plugins/auth.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseIdParam } from "@trottistore/shared";
@@ -45,7 +46,7 @@ function getRequestUser(request: { user?: unknown }): RequestUser | undefined {
 
 export async function triggerRoutes(app: FastifyInstance) {
   // GET /triggers — List all automated triggers (MANAGER+ only)
-  app.get("/triggers", async (request, reply) => {
+  app.get("/triggers", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const user = getRequestUser(request);
     if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({
@@ -64,7 +65,7 @@ export async function triggerRoutes(app: FastifyInstance) {
   });
 
   // POST /triggers — Create a new trigger config
-  app.post("/triggers", async (request, reply) => {
+  app.post("/triggers", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const user = getRequestUser(request);
     if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({
@@ -90,7 +91,13 @@ export async function triggerRoutes(app: FastifyInstance) {
   });
 
   // POST /triggers/run — Execute all active triggers (called by cron or MANAGER+ manually)
-  app.post("/triggers/run", async (request, reply) => {
+  app.post("/triggers/run", {
+    preHandler: [async (request, reply) => {
+      if (!isInternalCronCall(request.headers["x-internal-cron"], app.cronSecret)) {
+        await requireRole("SUPERADMIN", "ADMIN")(request, reply);
+      }
+    }],
+  }, async (request, reply) => {
     // Allow in-process cron calls authenticated by app.cronSecret. The header
     // value is compared constant-time against the per-process random nonce
     // generated at boot in services/crm/src/index.ts. Clients cannot spoof it.
@@ -129,7 +136,7 @@ export async function triggerRoutes(app: FastifyInstance) {
   });
 
   // PUT /triggers/:id/toggle — Enable/disable a trigger (MANAGER+ only)
-  app.put("/triggers/:id/toggle", async (request, reply) => {
+  app.put("/triggers/:id/toggle", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const user = getRequestUser(request);
     if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({
@@ -157,7 +164,7 @@ export async function triggerRoutes(app: FastifyInstance) {
   });
 
   // GET /triggers/:id/logs — Notification logs for a trigger (MANAGER+ only)
-  app.get("/triggers/:id/logs", async (request, reply) => {
+  app.get("/triggers/:id/logs", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const user = getRequestUser(request);
     if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({

@@ -1,3 +1,4 @@
+import { requirePermission } from "../../plugins/auth.js";
 /**
  * Campaign routes — email marketing campaigns with segment targeting.
  *
@@ -70,7 +71,7 @@ function buildProfileWhere(criteria: SegmentCriteria) {
 export async function campaignRoutes(app: FastifyInstance) {
 
   // GET /campaigns — List all campaigns
-  app.get("/campaigns", async () => {
+  app.get("/campaigns", { preHandler: [requirePermission("campaigns:read")] }, async () => {
     const campaigns = await app.prisma.emailCampaign.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -78,7 +79,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // GET /campaigns/:id — Single campaign detail
-  app.get("/campaigns/:id", async (request, reply) => {
+  app.get("/campaigns/:id", { preHandler: [requirePermission("campaigns:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const campaign = await app.prisma.emailCampaign.findUnique({ where: { id } });
     if (!campaign) {
@@ -91,7 +92,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // POST /campaigns — Create draft campaign
-  app.post("/campaigns", async (request, reply) => {
+  app.post("/campaigns", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const body = createCampaignSchema.parse(request.body);
 
     if (body.segmentId) {
@@ -125,7 +126,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // PUT /campaigns/:id — Update a DRAFT campaign
-  app.put("/campaigns/:id", async (request, reply) => {
+  app.put("/campaigns/:id", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const body = updateCampaignSchema.parse(request.body);
 
@@ -159,7 +160,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // DELETE /campaigns/:id — Delete a campaign
-  app.delete("/campaigns/:id", async (request, reply) => {
+  app.delete("/campaigns/:id", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
 
     const existing = await app.prisma.emailCampaign.findUnique({ where: { id } });
@@ -185,7 +186,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // GET /campaigns/:id/stats — Campaign statistics
-  app.get("/campaigns/:id/stats", async (request, reply) => {
+  app.get("/campaigns/:id/stats", { preHandler: [requirePermission("campaigns:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const campaign = await app.prisma.emailCampaign.findUnique({
       where: { id },
@@ -230,7 +231,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // POST /campaigns/:id/preview — Send a test email to the requester
-  app.post("/campaigns/:id/preview", async (request, reply) => {
+  app.post("/campaigns/:id/preview", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const { email } = (request.body as { email?: string }) || {};
 
@@ -268,7 +269,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // POST /campaigns/:id/send — Execute campaign (ADMIN+ only, T-11)
-  app.post("/campaigns/:id/send", async (request, reply) => {
+  app.post("/campaigns/:id/send", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const u = request.user as { role?: string } | undefined;
     if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });

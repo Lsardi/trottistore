@@ -9,6 +9,8 @@ import { customerRoutes } from "./index.js";
 function buildTestApp(): FastifyInstance {
   const app = Fastify({ logger: false });
 
+  app.addHook("onRequest", async (request) => { request.user = { id: "admin-1", userId: "admin-1", email: "admin@test.fr", role: "ADMIN" }; });
+
   // Mock prisma
   app.decorate("prisma", {
     user: {

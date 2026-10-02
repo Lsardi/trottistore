@@ -144,7 +144,7 @@ async function start() {
     }
 
     await app.authenticate(request, reply);
-    if (request.user?.role === "CLIENT") {
+    if (["CLIENT", "TECHNICIAN"].includes(request.user?.role ?? "")) {
       return reply.status(403).send({
         success: false,
         error: {

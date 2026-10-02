@@ -27,7 +27,7 @@ const TRIGGER_FIXTURE = {
 
 const TEST_CRON_SECRET = "deadbeef".repeat(8); // 64 chars, deterministic for tests
 
-function buildApp(role: string = "MANAGER", cronSecret: string | undefined = TEST_CRON_SECRET): FastifyInstance {
+function buildApp(role: string = "ADMIN", cronSecret: string | undefined = TEST_CRON_SECRET): FastifyInstance {
   const app = Fastify({ logger: false });
 
   app.decorate("prisma", {
@@ -51,7 +51,7 @@ function buildApp(role: string = "MANAGER", cronSecret: string | undefined = TES
 
   // Simulate authenticated user with the requested role for all requests
   app.addHook("onRequest", async (request) => {
-    request.user = { userId: `${role.toLowerCase()}-1`, role };
+    request.user = { id: "test-user", email: "test@example.fr", userId: `${role.toLowerCase()}-1`, role };
   });
 
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
@@ -118,8 +118,8 @@ describe("Trigger routes", () => {
     expect(res.json().success).toBe(true);
   });
 
-  it("POST /triggers/run executes for MANAGER role without cron header", async () => {
-    // Manual trigger run by an authenticated MANAGER must still work without
+  it("POST /triggers/run executes for ADMIN role without cron header", async () => {
+    // Manual trigger run by an authenticated ADMIN must still work without
     // any x-internal-cron header at all.
     const res = await app.inject({
       method: "POST",

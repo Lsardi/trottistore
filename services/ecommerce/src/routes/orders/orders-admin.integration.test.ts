@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests for admin order actions: refund, notes, manual order.
  */
@@ -117,7 +118,7 @@ function buildApp(): FastifyInstance {
 }
 
 async function signToken(app: FastifyInstance, role = "ADMIN"): Promise<string> {
-  return app.jwt.sign({ sub: USER_ID, email: "admin@test.com", role });
+  return app.jwt.sign({ tokenVersion: 0, sub: USER_ID, email: "admin@test.com", role });
 }
 
 describe("Admin order actions", () => {
@@ -125,6 +126,7 @@ describe("Admin order actions", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(orderRoutes, { prefix: "/api/v1" });
     await app.ready();

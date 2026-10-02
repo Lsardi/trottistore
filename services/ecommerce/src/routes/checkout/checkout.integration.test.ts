@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests for checkout routes.
  *
@@ -122,7 +123,7 @@ function buildApp(): FastifyInstance {
 
 /** Create a JWT token for authenticated requests (matches JwtAccessPayload). */
 async function getAuthToken(app: FastifyInstance, userId = "user-1", role = "CLIENT"): Promise<string> {
-  return app.jwt.sign({ sub: userId, email: "test@test.com", role });
+  return app.jwt.sign({ tokenVersion: 0, sub: userId, email: "test@test.com", role });
 }
 
 /**
@@ -157,6 +158,7 @@ describe("Checkout routes", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(checkoutRoutes, { prefix: "/api/v1" });
     await app.ready();

@@ -3,3 +3,5 @@ export * from "./errors.js";
 export * from "./events.js";
 export * from "./env-check.js";
 export * from "./request-context.js";
+
+export * from "./token-revocation.js";

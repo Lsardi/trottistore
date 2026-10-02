@@ -1,10 +1,11 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { authPlugin } from "../../plugins/auth.js";
 
 function makeToken(app: FastifyInstance, role: string): string {
   const now = Math.floor(Date.now() / 1000);
-  return app.jwt.sign({
+  return app.jwt.sign({ tokenVersion: 0,
     sub: "00000000-0000-0000-0000-000000000222",
     email: "smoke@trottistore.test",
     role,
@@ -20,6 +21,7 @@ describe("SAV auth guard smoke", () => {
     process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "test-secret";
 
     app = Fastify({ logger: false });
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
 
     app.addHook("onRequest", async (request, reply) => {
@@ -92,7 +94,7 @@ describe("SAV auth guard smoke", () => {
 
   it("rejects expired token", async () => {
     const now = Math.floor(Date.now() / 1000);
-    const token = app.jwt.sign({
+    const token = app.jwt.sign({ tokenVersion: 0,
       sub: "00000000-0000-0000-0000-000000000222",
       email: "expired@trottistore.test",
       role: "MANAGER",

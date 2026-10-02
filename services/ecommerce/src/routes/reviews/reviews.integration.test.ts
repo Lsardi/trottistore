@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests for review routes.
  *
@@ -87,7 +88,7 @@ function buildApp(): FastifyInstance {
 }
 
 async function signToken(app: FastifyInstance, role = "CLIENT", userId = "user-1"): Promise<string> {
-  return app.jwt.sign({ sub: userId, email: "test@test.com", role });
+  return app.jwt.sign({ tokenVersion: 0, sub: userId, email: "test@test.com", role });
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,7 @@ describe("Review routes", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(reviewRoutes, { prefix: "/api/v1" });
     await app.ready();

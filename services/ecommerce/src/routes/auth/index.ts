@@ -1,3 +1,4 @@
+import { invalidateAccessUser } from "@trottistore/shared";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { randomUUID, createHash } from "node:crypto";
@@ -69,9 +70,10 @@ function hashToken(token: string): string {
 /** Generate a signed access token */
 function signAccessToken(
   app: FastifyInstance,
-  user: { id: string; email: string; role: string },
+  user: { id: string; email: string; role: string; tokenVersion: number },
 ): string {
   const payload: Omit<JwtAccessPayload, "iat" | "exp"> = {
+    tokenVersion: user.tokenVersion,
     sub: user.id,
     email: user.email,
     role: user.role as Role,
@@ -323,6 +325,7 @@ export async function authRoutes(app: FastifyInstance) {
         role: true,
         status: true,
         passwordHash: true,
+        tokenVersion: true,
         loginCount: true,
       },
     });
@@ -418,6 +421,7 @@ export async function authRoutes(app: FastifyInstance) {
             email: true,
             role: true,
             status: true,
+            tokenVersion: true,
           },
         },
       },
@@ -461,7 +465,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({
         success: false,
         error: {
-          code: "REFRESH_TOKEN_REVOKED",
+          code: "REFRESH_REUSED",
           message: "Refresh token révoqué — reconnectez-vous",
         },
       });
@@ -480,14 +484,33 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     // Token rotation: revoke old, issue new
-    const [, { rawToken: newRawToken, expiresAt: newExpiresAt }] =
-      await Promise.all([
-        app.prisma.refreshToken.update({
-          where: { id: storedToken.id },
+    const rotated = await app.prisma.$transaction(async (tx) => {
+      const claim = await tx.refreshToken.updateMany({
+        where: { id: storedToken.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      if (claim.count === 0) {
+        await tx.refreshToken.updateMany({
+          where: { userId: storedToken.userId, revokedAt: null },
           data: { revokedAt: new Date() },
-        }),
-        createRefreshToken(app, storedToken.userId),
-      ]);
+        });
+        return null;
+      }
+      const rawToken = randomUUID() + randomUUID();
+      const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+      await tx.refreshToken.create({
+        data: { userId: storedToken.userId, tokenHash: hashToken(rawToken), expiresAt },
+      });
+      return { rawToken, expiresAt };
+    });
+    if (!rotated) {
+      clearRefreshCookie(reply);
+      return reply.status(401).send({
+        success: false,
+        error: { code: "REFRESH_REUSED", message: "Refresh token déjà utilisé" },
+      });
+    }
+    const { rawToken: newRawToken, expiresAt: newExpiresAt } = rotated;
 
     const accessToken = signAccessToken(app, storedToken.user);
     setRefreshCookie(reply, newRawToken, newExpiresAt);
@@ -532,6 +555,8 @@ export async function authRoutes(app: FastifyInstance) {
         data: { revokedAt: new Date() },
       });
 
+      await app.prisma.user.update({ where: { id: userId }, data: { tokenVersion: { increment: 1 } } });
+      await invalidateAccessUser(app, userId);
       clearRefreshCookie(reply);
 
       return {
@@ -969,7 +994,7 @@ export async function authRoutes(app: FastifyInstance) {
 
       await tx.user.update({
         where: { id: resetToken.userId },
-        data: { passwordHash: newPasswordHash },
+        data: { passwordHash: newPasswordHash, tokenVersion: { increment: 1 } },
       });
 
       // Revoke all refresh tokens — force re-login on all devices.
@@ -987,6 +1012,8 @@ export async function authRoutes(app: FastifyInstance) {
         error: { code: "TOKEN_USED", message: "Ce lien a déjà été utilisé" },
       });
     }
+
+    await invalidateAccessUser(app, resetToken.userId);
 
     return { success: true, data: { message: "Mot de passe mis à jour. Vous pouvez vous connecter." } };
   });

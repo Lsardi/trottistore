@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests for audit log route + logAudit helper.
  */
@@ -37,7 +38,7 @@ function buildApp(): FastifyInstance {
 }
 
 async function signToken(app: FastifyInstance, role = "ADMIN"): Promise<string> {
-  return app.jwt.sign({ sub: "admin-1", email: "admin@test.com", role });
+  return app.jwt.sign({ tokenVersion: 0, sub: "admin-1", email: "admin@test.com", role });
 }
 
 describe("Audit routes", () => {
@@ -45,6 +46,7 @@ describe("Audit routes", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(auditRoutes, { prefix: "/api/v1" });
     await app.ready();

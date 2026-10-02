@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
@@ -46,7 +47,7 @@ function buildApp(): FastifyInstance {
 }
 
 async function signToken(app: FastifyInstance, role = "ADMIN"): Promise<string> {
-  return app.jwt.sign({ sub: "admin-1", email: "admin@test.com", role });
+  return app.jwt.sign({ tokenVersion: 0, sub: "admin-1", email: "admin@test.com", role });
 }
 
 describe("Finance reconciliation routes", () => {
@@ -54,6 +55,7 @@ describe("Finance reconciliation routes", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(financeRoutes, { prefix: "/api/v1" });
     await app.ready();

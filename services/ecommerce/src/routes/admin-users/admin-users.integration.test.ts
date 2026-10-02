@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests for admin user/staff management routes.
  *
@@ -67,7 +68,7 @@ function buildApp(): FastifyInstance {
 }
 
 async function signToken(app: FastifyInstance, role = "ADMIN", userId = "admin-1"): Promise<string> {
-  return app.jwt.sign({ sub: userId, email: "admin@trottistore.fr", role });
+  return app.jwt.sign({ tokenVersion: 0, sub: userId, email: "admin@trottistore.fr", role });
 }
 
 describe("Admin user routes", () => {
@@ -75,6 +76,7 @@ describe("Admin user routes", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(adminUserRoutes, { prefix: "/api/v1" });
     await app.ready();
@@ -194,6 +196,10 @@ describe("Admin user routes", () => {
       payload: { role: "MANAGER" },
     });
     expect(res.statusCode).toBe(200);
+    expect(app.prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ role: "MANAGER", tokenVersion: { increment: 1 } }),
+    }));
+    expect(app.redis.del).toHaveBeenCalledWith("auth:user:staff-1");
   });
 
   it("PUT /admin/users/:id prevents self-suspend", async () => {

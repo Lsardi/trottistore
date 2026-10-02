@@ -210,6 +210,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Require security-spec reference for sensitive paths
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -e
           sensitive_paths=$(cat <<'EOF'
@@ -227,8 +232,8 @@ jobs:
           packages/shared/src/
           EOF
           )
-          base=${{ github.event.pull_request.base.sha }}
-          head=${{ github.event.pull_request.head.sha }}
+          base="$PR_BASE_SHA"
+          head="$PR_HEAD_SHA"
           changed=$(git diff --name-only "$base" "$head")
           touches_sensitive=false
           while IFS= read -r path; do
@@ -239,7 +244,7 @@ jobs:
             fi
           done <<< "$sensitive_paths"
           if [ "$touches_sensitive" = "true" ]; then
-            body="${{ github.event.pull_request.body }}"
+            body="$PR_BODY"
             if ! echo "$body" | grep -qE "Refs:\s*#|AUDIT_.*\.md#"; then
               echo "::error::Sensitive path change requires a Refs: line in the PR body"
               echo "::error::Point to a security-spec issue or AUDIT_*.md section"
@@ -248,12 +253,17 @@ jobs:
           fi
 
       - name: Require red test commit for fix(...) PR on sensitive paths
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -e
-          title="${{ github.event.pull_request.title }}"
+          title="$PR_TITLE"
           if echo "$title" | grep -qE "^fix\("; then
-            base=${{ github.event.pull_request.base.sha }}
-            head=${{ github.event.pull_request.head.sha }}
+            base="$PR_BASE_SHA"
+            head="$PR_HEAD_SHA"
             if ! git log --format="%s" "$base".."$head" | grep -qE "^test\(.*\):.*red"; then
               echo "::warning::fix(...) PR without a visible 'test(...): red' commit."
               echo "::warning::Governance requires a red test committed before the fix."

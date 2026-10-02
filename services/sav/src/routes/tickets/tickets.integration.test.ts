@@ -15,7 +15,7 @@ function buildTestApp(): FastifyInstance {
     reply.status(statusCode).send({
       success: false,
       error: {
-        code: statusCode >= 500 ? "INTERNAL_ERROR" : "REQUEST_ERROR",
+        code: statusCode >= 500 ? "INTERNAL_ERROR" : (error as Error & { code?: string }).code ?? "REQUEST_ERROR",
         message: statusCode >= 500 ? "Une erreur interne est survenue" : error.message,
       },
     });
@@ -107,6 +107,38 @@ describe("SAV Tickets integration tests", () => {
   // test order.
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("guest intake ignores the supplied customerId", async () => {
+    const create = app.prisma.repairTicket.create as ReturnType<typeof vi.fn>;
+    create.mockImplementationOnce(async ({ data }: { data: Record<string, unknown> }) => ({ ...data, id: "ticket-guest" }));
+    const res = await app.inject({
+      method: "POST", url: "/api/v1/repairs",
+      payload: {
+        customerId: "00000000-0000-0000-0000-000000000123",
+        customerName: "Guest", customerEmail: "guest@example.fr",
+        productModel: "Xiaomi Pro 2", type: "REPARATION", issueDescription: "Broken brake",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().data.customerId).toBeNull();
+    expect(create.mock.calls[0][0].data.customerId).toBeNull();
+  });
+
+  it("unassigned TECHNICIAN cannot create a quote or an internal note", async () => {
+    const findUnique = app.prisma.repairTicket.findUnique as ReturnType<typeof vi.fn>;
+    for (const [path, payload] of [
+      ["quote", { parts: [], laborCost: 30 }],
+      ["notes", { note: "private note" }],
+    ] as const) {
+      findUnique.mockResolvedValueOnce({ id: "ticket-1", customerId: "client-1", assignedTo: "other-tech", status: "DIAGNOSTIC" });
+      const res = await app.inject({
+        method: "POST", url: `/api/v1/repairs/ticket-1/${path}`, payload,
+        headers: { "x-test-user": JSON.stringify({ userId: "tech-1", role: "TECHNICIAN" }) },
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe("FORBIDDEN");
+    }
   });
 
   // ── GET /api/v1/repairs ──────────────────────────────────────

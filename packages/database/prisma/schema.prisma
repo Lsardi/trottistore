@@ -16,6 +16,7 @@ model User {
   id            String   @id @default(uuid()) @db.Uuid
   email         String   @unique @db.VarChar(255)
   emailVerified Boolean  @default(false) @map("email_verified")
+  tokenVersion  Int      @default(0) @map("token_version") // bumped on password reset / role or status change → revokes access JWTs
   phone         String?  @db.VarChar(20)
   phoneVerified Boolean  @default(false) @map("phone_verified")
   passwordHash  String?  @map("password_hash") @db.VarChar(255)

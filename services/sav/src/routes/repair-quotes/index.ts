@@ -1,3 +1,4 @@
+import { assertTicketAccess } from "../../utils/ticket-access.js";
 /**
  * Devis PDF generation for repair tickets — Professional layout
  *
@@ -54,6 +55,8 @@ export async function quoteRoutes(app: FastifyInstance) {
         .status(404)
         .send({ success: false, error: { code: "NOT_FOUND", message: "Ticket introuvable" } });
     }
+
+    assertTicketAccess(request.user, ticket);
 
     const partsTotalHt = ticket.partsUsed.reduce(
       (sum, p) => sum + Number(p.unitCost) * p.quantity,
