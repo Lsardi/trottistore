@@ -362,7 +362,9 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
-    // Generate tokens
+    // Generate tokens. Drop any cached auth snapshot so the fresh token is
+    // validated against the tokenVersion we just read, not a stale one.
+    await invalidateAccessUser(app, user.id);
     const accessToken = signAccessToken(app, user);
     const { rawToken, expiresAt } = await createRefreshToken(app, user.id);
 

@@ -149,7 +149,7 @@ async function start() {
         success: false,
         error: {
           code: "FORBIDDEN",
-          message: "Access denied for CLIENT role on CRM service",
+          message: `Access denied for ${request.user?.role} role on CRM service`,
         },
       });
     }
