@@ -1,7 +1,24 @@
 # TrottiStore
 
-Plateforme e-commerce + SAV + CRM pour boutique de trottinettes electriques.
+**Le logiciel qui fait tourner une boutique-atelier de trottinettes electriques au quotidien** : reparations, stock, commandes, clients, relances — dans un seul outil. Le site marchand expose le stock de la boutique en ligne ; il est une consequence, pas le produit.
+
 Monorepo Next.js 15 + 4 microservices Fastify + PostgreSQL multi-schema.
+
+## A quoi ca sert : une journee au magasin
+
+| Moment | Ce qui se passe | Module |
+|--------|-----------------|--------|
+| 9h — ouverture | RDV du jour, tickets a rendre, commandes web a preparer, alertes stock | `/admin` (cockpit), SAV, stock |
+| Un client entre avec une panne | Ticket en 30 s, diagnostic guide, devis pieces + main-d'oeuvre, creneau atelier, lien de suivi | SAV (`/admin/atelier`, `/admin/sav`) |
+| Il repart avec une piece / un accessoire | Stock decremente — le meme stock que celui affiche sur le site | Ecommerce (stock, variantes) |
+| Une commande web arrive | Preparation, retrait 1h en boutique ou expedition, notification client | Ecommerce (`/admin/commandes`) |
+| Un pro (livreur, loueur) appelle | Fiche client, historique machines, tarifs pro | CRM (`/admin/clients`), page `/pro` |
+| 19h — fermeture | Quoi reparer demain, quoi recommander aux fournisseurs, qui relancer | SAV, `/admin/fournisseurs`, CRM triggers |
+| Fin de mois | CA boutique vs web, marge atelier vs vente, fidelite | Analytics (`/admin/analytics`) |
+
+Le scenario complet est joue par `tests/simulation/day-in-the-life.ts`.
+
+**Positionnement** : les concurrents IDF (Weebot, Fix My Trott, Moov Rider…) vendent et reparent avec un Shopify/WooCommerce + un outil SAV a part. La difference de TrottiStore tient dans trois parcours : **suivi de reparation en ligne, diagnostic/compatibilite, retrait 1h** — tous adosses au meme stock et au meme fichier client que la boutique.
 
 ## Architecture
 
@@ -173,7 +190,7 @@ Roles definis dans `packages/shared/src/auth.ts` :
 | STAFF | Produits, commandes, clients, tickets (lecture/ecriture) |
 | CLIENT | Ses propres donnees uniquement |
 
-JWT access token (15min) + refresh token (30j) avec rotation.
+JWT access token (4h, `ACCESS_TOKEN_EXPIRY` dans `services/ecommerce/src/routes/auth/index.ts`) + refresh token (30j) avec rotation.
 Le middleware `requireRole()` et `requirePermission()` protege chaque route.
 
 ## Workflow multi-agent (Claude + Codex)
@@ -244,7 +261,8 @@ GitHub Actions (`.github/workflows/ci.yml`) :
 |---------|---------|
 | `ARCHITECTURE.md` | Architecture technique detaillee |
 | `RELEASE_RUNBOOK.md` | Procedure de release et rollback |
-| `TECHLEAD_AUDIT.md` | Resultats de l'audit technique |
+| `AUDIT_2026-10-03.md` | Audit complet (Claude + Codex), constats classes par impact magasin / vente en ligne / dette |
+| `TECHLEAD_AUDIT.md` | Resultats de l'audit technique (ancien) |
 | `docs/MULTI_AGENT_GIT.md` | Workflow multi-agent |
 | `docs/FEATURE_URGENCE_SAV.md` | Spec feature urgence SAV |
 | `docs/LOGGING.md` | Configuration logging |
