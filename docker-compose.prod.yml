@@ -147,6 +147,16 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      # next.config.ts rewrites() and NEXT_PUBLIC_* are baked in at `next build`:
+      # env_file at runtime is too late. Inside the compose network the backends
+      # are reachable by service name, not localhost.
+      args:
+        API_URL: http://ecommerce:3001
+        API_CRM_URL: http://crm:3002
+        API_SAV_URL: http://sav:3004
+        API_ANALYTICS_URL: http://analytics:3003
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
     container_name: trottistore-web
     restart: unless-stopped
     env_file: .env
@@ -201,10 +211,21 @@ services:
         while true; do
           sleep 21600  # Every 6 hours
           echo "[$(date)] Running database backup..."
-          PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h postgres -U "$${POSTGRES_USER:-trottistore}" "$${POSTGRES_DB:-trottistore}" | gzip > /backups/trottistore_$$(date +%Y%m%d_%H%M%S).sql.gz
-          # Cleanup backups older than 30 days
-          find /backups -name "trottistore_*.sql.gz" -mtime +30 -delete
-          echo "[$(date)] Backup complete"
+          out="/backups/trottistore_$$(date +%Y%m%d_%H%M%S).sql.gz"
+          # Write to a temp file first; only publish it if pg_dump AND gzip succeeded
+          # and the archive is non-trivial. A refused connection must not become
+          # an empty .sql.gz followed by "Backup complete".
+          set -o pipefail
+          if PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h postgres -U "$${POSTGRES_USER:-trottistore}" "$${POSTGRES_DB:-trottistore}" | gzip > "$$out.tmp" \
+             && [ "$$(stat -c %s "$$out.tmp")" -gt 1024 ] && gzip -t "$$out.tmp"; then
+            mv "$$out.tmp" "$$out"
+            # Cleanup backups older than 30 days — only after a successful new one
+            find /backups -name "trottistore_*.sql.gz" -mtime +30 -delete
+            echo "[$(date)] Backup complete: $$out ($$(stat -c %s "$$out") bytes)"
+          else
+            rm -f "$$out.tmp"
+            echo "[$(date)] BACKUP FAILED — pg_dump/gzip error or empty archive" >&2
+          fi
         done
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-trottistore}

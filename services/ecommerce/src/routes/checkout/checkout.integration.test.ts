@@ -550,5 +550,46 @@ describe("Checkout routes", () => {
       const indexRaw = await app.redis.get("checkout:webhook:dlq:index");
       expect(indexRaw).toBe("[]");
     });
+
+    it("honours a targeted eventId (JSON body must be parsed, not left as a raw Buffer)", async () => {
+      // Regression: the raw-body parser matched `/checkout/webhook` by substring and
+      // also caught `/admin/checkout/webhooks/dlq/replay`, so Zod saw a Buffer and
+      // silently dropped `eventId` — replaying everything instead of one event.
+      const token = await getAuthToken(app, "admin-1", "ADMIN");
+      (app.prisma.payment.upsert as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+        status: "PENDING",
+        paymentStatus: "PENDING",
+      });
+      (app.prisma.order.update as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const entry = (id: string) => JSON.stringify({
+        eventId: id,
+        eventType: "payment_intent.succeeded",
+        attempts: 3,
+        failedAt: "2026-04-12T00:00:00.000Z",
+        nextRetryAt: "2026-04-12T00:01:00.000Z",
+        lastError: "db down",
+        payload: {
+          id,
+          type: "payment_intent.succeeded",
+          data: { object: { id: `pi_${id}`, amount: 990, payment_method_types: ["card"], metadata: { orderId: "order-1" } } },
+        },
+      });
+      await app.redis.set("checkout:webhook:dlq:index", JSON.stringify(["evt_a", "evt_b"]));
+      await app.redis.set("checkout:webhook:dlq:index:evt_a", entry("evt_a"));
+      await app.redis.set("checkout:webhook:dlq:index:evt_b", entry("evt_b"));
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/admin/checkout/webhooks/dlq/replay",
+        headers: { authorization: `Bearer ${token}` },
+        payload: { eventId: "evt_b" },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.replayed).toBe(1);
+      expect(JSON.parse((await app.redis.get("checkout:webhook:dlq:index")) ?? "[]")).toEqual(["evt_a"]);
+    });
   });
 });

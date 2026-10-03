@@ -8,7 +8,15 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"]
+      "outputs": ["dist/**", ".next/**"],
+      "env": [
+        "API_URL",
+        "API_CRM_URL",
+        "API_SAV_URL",
+        "API_ANALYTICS_URL",
+        "NEXT_PUBLIC_*",
+        "NODE_ENV"
+      ]
     },
     "lint": {
       "dependsOn": ["^build"]

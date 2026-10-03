@@ -918,6 +918,7 @@ model RepairStatusLog {
   fromStatus   String   @map("from_status") @db.VarChar(30)
   toStatus     String   @map("to_status") @db.VarChar(30)
   note         String?  @db.Text
+  isInternal   Boolean  @default(false) @map("is_internal") // staff-only note, hidden from public tracking and CLIENT views
   performedBy  String?  @map("performed_by") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
 

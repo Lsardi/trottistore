@@ -125,6 +125,45 @@ describe("SAV Tickets integration tests", () => {
     expect(create.mock.calls[0][0].data.customerId).toBeNull();
   });
 
+  it("hides internal notes from public tracking and from the CLIENT ticket view", async () => {
+    const findUnique = app.prisma.repairTicket.findUnique as ReturnType<typeof vi.fn>;
+    const logs = [
+      { fromStatus: "RECU", toStatus: "DIAGNOSTIC", note: "Diagnostic en cours", isInternal: false, createdAt: new Date() },
+      { fromStatus: "DIAGNOSTIC", toStatus: "DIAGNOSTIC", note: "Client pénible, surfacturer", isInternal: true, createdAt: new Date() },
+    ];
+    const ticket = {
+      id: "22222222-2222-4222-8222-222222222222", ticketNumber: "SAV-1", customerId: "cust-1", assignedTo: null, status: "DIAGNOSTIC",
+      appointments: [], activityLog: [{ action: "secret" }], partsUsed: [],
+    };
+
+    // Public tracking: the Prisma query itself must exclude internal rows.
+    findUnique.mockImplementationOnce(async (args: { include: { statusLog: { where?: { isInternal?: boolean } } } }) => ({
+      ...ticket,
+      statusLog: logs.filter((l) => args.include.statusLog.where?.isInternal === false ? !l.isInternal : true),
+    }));
+    const tracking = await app.inject({ method: "GET", url: "/api/v1/repairs/tracking/11111111-1111-4111-8111-111111111111" });
+    expect(tracking.statusCode).toBe(200);
+    expect(JSON.stringify(tracking.json())).not.toContain("surfacturer");
+
+    // CLIENT view of their own ticket: filtered in the handler, activity log stripped.
+    findUnique.mockResolvedValueOnce({ ...ticket, statusLog: logs });
+    const own = await app.inject({
+      method: "GET", url: "/api/v1/repairs/22222222-2222-4222-8222-222222222222",
+      headers: { "x-test-user": JSON.stringify({ userId: "cust-1", role: "CLIENT" }) },
+    });
+    expect(own.statusCode).toBe(200);
+    expect(own.json().data.statusLog).toHaveLength(1);
+    expect(own.json().data.activityLog).toBeUndefined();
+
+    // Staff keep everything.
+    findUnique.mockResolvedValueOnce({ ...ticket, statusLog: logs });
+    const staff = await app.inject({
+      method: "GET", url: "/api/v1/repairs/22222222-2222-4222-8222-222222222222",
+      headers: { "x-test-user": JSON.stringify({ userId: "mgr-1", role: "MANAGER" }) },
+    });
+    expect(staff.json().data.statusLog).toHaveLength(2);
+  });
+
   it("unassigned TECHNICIAN cannot create a quote or an internal note", async () => {
     const findUnique = app.prisma.repairTicket.findUnique as ReturnType<typeof vi.fn>;
     for (const [path, payload] of [

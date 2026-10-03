@@ -103,7 +103,10 @@ export async function checkoutRoutes(app: FastifyInstance) {
     "application/json",
     { parseAs: "buffer" },
     (request, body, done) => {
-      if (request.url.includes("/checkout/webhook")) {
+      // Exact path match: `includes()` also caught /admin/checkout/webhooks/dlq/replay
+      // and left its JSON body as a Buffer, breaking Zod validation on the replay route.
+      const path = request.url.split("?")[0];
+      if (path.endsWith("/checkout/webhook")) {
         // Webhook needs raw buffer for Stripe signature verification
         done(null, body);
       } else {

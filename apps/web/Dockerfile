@@ -36,6 +36,13 @@ ENV API_URL=$API_URL
 ENV API_CRM_URL=$API_CRM_URL
 ENV API_SAV_URL=$API_SAV_URL
 ENV API_ANALYTICS_URL=$API_ANALYTICS_URL
+# Public client config is inlined into the JS bundle at build time too.
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+# Fail the build early instead of shipping rewrites that point at localhost.
+RUN test -n "$API_URL" || (echo "API_URL build arg is required" && exit 1)
 RUN pnpm --filter @trottistore/database db:generate
 RUN pnpm --filter @trottistore/web build
 

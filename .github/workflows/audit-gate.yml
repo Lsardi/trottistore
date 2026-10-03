@@ -40,9 +40,7 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @trottistore/database db:generate
-      - name: TypeScript strict type check
-        run: pnpm -r exec tsc --noEmit || pnpm tsc --noEmit || true
-      - name: Lint (zero warning)
+      - name: TypeScript strict type check (tsc --noEmit on every package, blocking)
         run: pnpm lint
       - name: Detect `as any` in route handlers
         run: |
@@ -165,15 +163,15 @@ jobs:
       - name: Prisma generate + push
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/trottistore_test
-        run: pnpm --filter @trottistore/database db:push || true
+        run: pnpm --filter @trottistore/database db:push
       - name: Playwright install
         run: pnpm --filter @trottistore/web exec playwright install --with-deps chromium
-      - name: E2E — Playwright
+      - name: E2E — Playwright (NON-BLOCKING until the suite is green — see AUDIT_2026-10-03.md §7)
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/trottistore_test
           REDIS_URL: redis://localhost:6379
-        run: pnpm --filter @trottistore/web test:e2e || true
-        continue-on-error: true # incremental rollout
+        run: pnpm --filter @trottistore/web test:e2e
+        continue-on-error: true # step shows red on failure instead of being masked by `|| true`
 
   # ──────────────────────────────────────────────────────────────
   # Layer 5 — Property + fuzz

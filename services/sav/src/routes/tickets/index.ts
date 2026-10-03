@@ -379,7 +379,8 @@ export async function repairRoutes(app: FastifyInstance) {
     const ticket = await app.prisma.repairTicket.findUnique({
       where: { trackingToken: token },
       include: {
-        statusLog: { orderBy: { createdAt: "asc" } },
+        // Public page: never expose staff-only notes.
+        statusLog: { where: { isInternal: false }, orderBy: { createdAt: "asc" } },
         appointments: {
           where: { status: { in: ["BOOKED", "CONFIRMED"] } },
           orderBy: { startsAt: "asc" },
@@ -594,7 +595,14 @@ export async function repairRoutes(app: FastifyInstance) {
     }
     assertTicketAccess(user, ticket);
 
-
+    if (user?.role === "CLIENT") {
+      // Customers get their own ticket, minus staff-only notes and the internal activity log.
+      const { activityLog: _activityLog, ...customerView } = ticket;
+      return {
+        success: true,
+        data: { ...customerView, statusLog: ticket.statusLog.filter((entry) => !entry.isInternal) },
+      };
+    }
 
     return { success: true, data: ticket };
   });
@@ -1150,7 +1158,13 @@ export async function repairRoutes(app: FastifyInstance) {
     }
 
     const id = parseIdParam(request.params);
-    const body = z.object({ note: z.string().min(1).max(2000) }).parse(request.body);
+    const body = z
+      .object({
+        note: z.string().min(1).max(2000),
+        // Internal by default: a note is for the workshop unless staff explicitly marks it customer-visible.
+        internal: z.boolean().default(true),
+      })
+      .parse(request.body);
 
     const ticket = await app.prisma.repairTicket.findUnique({ where: { id }, select: { id: true, status: true, customerId: true, assignedTo: true } });
     if (!ticket) {
@@ -1164,6 +1178,7 @@ export async function repairRoutes(app: FastifyInstance) {
         fromStatus: ticket.status,
         toStatus: ticket.status, // same status — it's just a note
         note: body.note,
+        isInternal: body.internal,
         performedBy: user?.userId ?? null,
       },
     });

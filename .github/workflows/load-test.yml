@@ -29,6 +29,14 @@ on:
           - "1"
           - "3"
           - "5"
+      target:
+        description: "Environment to hit. The admin script WRITES (products, order notes) — never run it against production."
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
 
 permissions:
   contents: read
@@ -42,9 +50,22 @@ jobs:
       matrix:
         runner: ${{ fromJSON(format('[{0}]', inputs.parallel_runners == '1' && '"1"' || inputs.parallel_runners == '3' && '"1","2","3"' || '"1","2","3","4","5"')) }}
     env:
-      BASE_URL: ${{ vars.PROD_WEB_URL || 'https://trottistoreweb-production.up.railway.app' }}
+      BASE_URL: ${{ inputs.target == 'production' && vars.PROD_WEB_URL || vars.STAGING_WEB_URL }}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Refuse write scenarios against production
+        if: inputs.target == 'production' && inputs.script == 'admin'
+        run: |
+          echo "::error::tests/load/admin-operations.js mutates real products and orders. Run it against staging only."
+          exit 1
+
+      - name: Require a target URL
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "::error::No URL for target '${{ inputs.target }}' — set the STAGING_WEB_URL / PROD_WEB_URL repository variable."
+            exit 1
+          fi
 
       - name: Install k6
         run: |
