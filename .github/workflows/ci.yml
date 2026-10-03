@@ -178,7 +178,44 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     continue-on-error: false
-    timeout-minutes: 20
+    timeout-minutes: 25
+    # The storefront proxies /api/v1/* to the four backends; without them every
+    # page that touches the cart or auth fails with ECONNREFUSED. Bring up real
+    # Postgres + Redis, migrate, seed the demo accounts the specs log in with
+    # (admin@demo.fr, client1@demo.fr) and start the services before Playwright.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: trottistore_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://test:test@localhost:5432/trottistore_e2e
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: e2e-access-secret-not-for-production-0123456789abcdef
+      JWT_REFRESH_SECRET: e2e-refresh-secret-not-for-production-0123456789abcdef
+      COOKIE_SECRET: e2e-cookie-secret-not-for-production-0123456789abcdef
+      API_URL: http://localhost:3001
+      API_CRM_URL: http://localhost:3002
+      API_ANALYTICS_URL: http://localhost:3003
+      API_SAV_URL: http://localhost:3004
+      NODE_ENV: test
+      ORDER_EXPIRY_ENABLED: "false"
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -188,11 +225,33 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @trottistore/database db:generate
+      - name: Migrate + seed demo data
+        run: |
+          pnpm --filter @trottistore/database exec prisma migrate deploy --schema prisma/schema.prisma
+          pnpm db:seed:demo
       - run: pnpm build
+      - name: Start backend services
+        run: |
+          for svc in ecommerce crm analytics sav; do
+            (pnpm --filter @trottistore/service-$svc start > "/tmp/$svc.log" 2>&1 &)
+          done
+          for port in 3001 3002 3003 3004; do
+            for i in $(seq 1 30); do
+              curl -sf "http://localhost:$port/health" >/dev/null && break
+              sleep 2
+              if [ "$i" = 30 ]; then
+                echo "::error::service on :$port did not become healthy"; cat /tmp/*.log; exit 1
+              fi
+            done
+          done
+          echo "All backends healthy"
       - name: Install Playwright browsers
         run: pnpm --filter @trottistore/web exec playwright install --with-deps chromium webkit
       - name: Run E2E tests
         run: pnpm --filter @trottistore/web test:e2e
+      - name: Backend logs on failure
+        if: failure()
+        run: tail -n 100 /tmp/*.log
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v7
