@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -30,20 +30,30 @@ export default function CartPage() {
   const [applyingCode, setApplyingCode] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await cartApi.get();
-        setItems(res.data.items || []);
-        setDiscount(res.data.discount ?? null);
-      } catch {
-        // Panier vide ou erreur
-      } finally {
-        setLoading(false);
-      }
+  const [cartError, setCartError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [busyLines, setBusyLines] = useState<Set<string>>(new Set());
+  const busyRef = useRef(new Set<string>());
+  const mutationQueue = useRef<Promise<void>>(Promise.resolve());
+  const generation = useRef(0);
+  const lineKey = (item: CartItem) => `${item.productId}:${item.variantId ?? "default"}`;
+
+  async function loadCart() {
+    setLoading(true);
+    setCartError(null);
+    try {
+      const res = await cartApi.get();
+      setItems(res.data.items || []);
+      setDiscount(res.data.discount ?? null);
+      setLoadFailed(false);
+    } catch {
+      setLoadFailed(true);
+      setCartError("Impossible de charger le panier. Veuillez reessayer.");
+    } finally {
+      setLoading(false);
     }
-    load();
-  }, []);
+  }
+  useEffect(() => { void loadCart(); }, []);
 
   async function applyDiscountCode() {
     const trimmed = code.trim().toUpperCase();
@@ -75,35 +85,60 @@ export default function CartPage() {
     }
   }
 
-  async function updateQuantity(productId: string, quantity: number) {
-    try {
-      if (quantity <= 0) {
-        const res = await cartApi.removeItem(productId);
-        setItems(res.data.items || []);
+  async function updateQuantity(item: CartItem, quantity: number) {
+    const key = lineKey(item);
+    if (busyRef.current.has(key)) return;
+    busyRef.current.add(key);
+    setBusyLines(new Set(busyRef.current));
+    // Serialize writes across the cart too: each endpoint returns the entire cart.
+    const current = ++generation.current;
+    mutationQueue.current = mutationQueue.current.then(async () => {
+      try {
+        setCartError(null);
+        const res = quantity <= 0
+          ? await cartApi.removeItem(item.productId, item.variantId)
+          : await cartApi.updateItem(item.productId, { quantity, variantId: item.variantId });
+        if (current === generation.current) {
+          setItems(res.data.items || []);
+        } else {
+          // The response is current for this line; don't apply its older snapshot of other lines.
+          const updated = res.data.items.find((line) => lineKey(line) === key);
+          setItems((previous) => updated
+            ? previous.map((line) => lineKey(line) === key ? updated : line)
+            : previous.filter((line) => lineKey(line) !== key));
+        }
         window.dispatchEvent(new Event("trottistore:cart-updated"));
-      } else {
-        const res = await cartApi.updateItem(productId, { quantity });
-        setItems(res.data.items || []);
-        window.dispatchEvent(new Event("trottistore:cart-updated"));
+      } catch (err) {
+        const payload = err as { data?: { error?: { message?: string } } };
+        setCartError(payload.data?.error?.message || "Impossible de modifier le panier.");
+        // Recover the authoritative cart after a rejected mutation.
+        try {
+          const res = await cartApi.get();
+          if (current === generation.current) setItems(res.data.items || []);
+        } catch { /* Keep the visible cart and error. */ }
+      } finally {
+        busyRef.current.delete(key);
+        setBusyLines(new Set(busyRef.current));
       }
-    } catch {
-      console.error("Erreur mise a jour panier");
-    }
+    });
+    await mutationQueue.current;
   }
 
   async function clearCart() {
     try {
+      if (busyRef.current.size) return;
       await cartApi.clear();
       setItems([]);
       window.dispatchEvent(new Event("trottistore:cart-updated"));
     } catch {
-      console.error("Erreur vidange panier");
+      setCartError("Impossible de vider le panier.");
     }
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-void">
+      {cartError && <p role="alert" className="p-4 text-danger">{cartError}</p>}
         <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8 py-8 md:py-12">
           <div className="h-10 w-48 animate-pulse bg-surface mb-2" />
           <div className="h-4 w-32 animate-pulse bg-surface mb-6" />
@@ -121,6 +156,8 @@ export default function CartPage() {
     );
   }
 
+  if (loadFailed) return <div className="mx-auto max-w-5xl p-8" role="alert">{cartError}<button className="btn-outline mt-4" onClick={() => void loadCart()}>Reessayer</button></div>;
+
   const subtotal = items.reduce((sum, item) => {
     return sum + item.lineTotalHt * 1.2;
   }, 0);
@@ -129,6 +166,7 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-void">
+      {cartError && <p role="alert" className="p-4 text-danger">{cartError}</p>}
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {/* Header */}
         <div className="flex items-end justify-between gap-4 mb-2">
@@ -203,12 +241,12 @@ export default function CartPage() {
             {/* Cart items */}
             <div className="lg:col-span-2 space-y-3">
               {items.map((item) => {
-                const priceTTC = item.unitPriceHt * 1.2;
+                const priceTTC = item.unitPriceHt * (1 + (item.tvaRate ?? 20) / 100);
                 const image = item.product?.image;
 
                 return (
                   <div
-                    key={item.productId}
+                    key={lineKey(item)}
                     className="flex gap-4 p-4 sm:p-5 transition-all duration-200"
                     style={{
                       backgroundColor: "var(--color-surface)",
@@ -254,7 +292,8 @@ export default function CartPage() {
                           </p>
                         </div>
                         <button
-                          onClick={() => updateQuantity(item.productId, 0)}
+                          disabled={busyLines.has(lineKey(item))}
+                          onClick={() => updateQuantity(item, 0)}
                           className="cursor-pointer flex-shrink-0 w-8 h-8 flex items-center justify-center text-text-dim hover:text-danger transition-colors duration-200"
                           aria-label="Supprimer"
                         >
@@ -266,7 +305,8 @@ export default function CartPage() {
                       <div className="flex items-center justify-between mt-4">
                         <div className="flex items-center gap-1.5">
                           <button
-                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                            disabled={busyLines.has(lineKey(item))}
+                          onClick={() => updateQuantity(item, item.quantity - 1)}
                             className="cursor-pointer w-9 h-9 flex items-center justify-center text-text-muted hover:border-neon hover:text-neon transition-colors duration-200"
                             style={{ border: "1px solid var(--color-border)" }}
                           >
@@ -279,7 +319,8 @@ export default function CartPage() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                            disabled={busyLines.has(lineKey(item))}
+                          onClick={() => updateQuantity(item, item.quantity + 1)}
                             className="cursor-pointer w-9 h-9 flex items-center justify-center text-text-muted hover:border-neon hover:text-neon transition-colors duration-200"
                             style={{ border: "1px solid var(--color-border)" }}
                           >

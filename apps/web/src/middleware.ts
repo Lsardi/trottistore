@@ -1,77 +1,33 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-/**
- * Next.js Edge Middleware — runs BEFORE every matching request.
- *
- * Protects /admin/* routes by checking the JWT access token.
- * The token is read from the `accessToken` cookie (set by the frontend
- * after login) and decoded (base64, no signature check — Edge has no
- * access to JWT_ACCESS_SECRET). We only check the `role` claim.
- *
- * This replaces the unreliable client-side useEffect guard that was
- * causing redirect loops due to race conditions and rate-limiting.
- */
+import { jwtVerify } from "jose";
 
 const ADMIN_ROLES = new Set(["SUPERADMIN", "ADMIN", "MANAGER", "TECHNICIAN", "STAFF"]);
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get("accessToken")?.value || request.headers.get("x-access-token");
+  const secret = process.env.JWT_ACCESS_SECRET;
+  const loginUrl = new URL("/mon-compte", request.url);
+  loginUrl.searchParams.set("next", request.nextUrl.pathname);
+
+  if (!secret) {
+    console.error("[admin middleware] JWT_ACCESS_SECRET missing: access denied");
+    return NextResponse.redirect(loginUrl);
+  }
+  if (!token) return NextResponse.redirect(loginUrl);
+
   try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = parts[1];
-    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Only protect /admin routes
-  if (!pathname.startsWith("/admin")) {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
+      algorithms: ["HS256"],
+      requiredClaims: ["exp"],
+    });
+    if (typeof payload.role !== "string" || !ADMIN_ROLES.has(payload.role)) {
+      return NextResponse.redirect(new URL("/mon-compte", request.url));
+    }
     return NextResponse.next();
-  }
-
-  // Try cookie first, then Authorization header (for API-like requests)
-  const token =
-    request.cookies.get("accessToken")?.value ||
-    request.headers.get("x-access-token") ||
-    null;
-
-  if (!token) {
-    const loginUrl = new URL("/mon-compte", request.url);
-    loginUrl.searchParams.set("next", pathname);
+  } catch {
     return NextResponse.redirect(loginUrl);
   }
-
-  const payload = decodeJwtPayload(token);
-  if (!payload) {
-    const loginUrl = new URL("/mon-compte", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Check role
-  const role = payload.role as string | undefined;
-  if (!role || !ADMIN_ROLES.has(role)) {
-    // Not an admin — redirect to customer dashboard
-    return NextResponse.redirect(new URL("/mon-compte", request.url));
-  }
-
-  // Check expiry
-  const exp = payload.exp as number | undefined;
-  if (exp && exp * 1000 < Date.now()) {
-    const loginUrl = new URL("/mon-compte", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return NextResponse.next();
 }
 
-export const config = {
-  matcher: ["/admin/:path*"],
-};
+export const config = { matcher: ["/admin/:path*"] };

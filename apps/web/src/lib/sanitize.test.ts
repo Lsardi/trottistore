@@ -1,22 +1,5 @@
 import { describe, it, expect } from "vitest";
-import sanitizeHtml from "sanitize-html";
-
-// Same config as in produits/[slug]/page.tsx
-function sanitizeProductHtml(html: string): string {
-  return sanitizeHtml(html, {
-    allowedTags: ["p", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li", "h2", "h3", "h4", "span", "div", "table", "thead", "tbody", "tr", "td", "th", "a", "img"],
-    allowedAttributes: {
-      a: ["href", "title", "target", "rel"],
-      img: ["src", "alt", "width", "height"],
-      span: ["class"],
-      div: ["class"],
-      td: ["colspan", "rowspan"],
-      th: ["colspan", "rowspan"],
-    },
-    allowedSchemes: ["http", "https"],
-    disallowedTagsMode: "discard",
-  });
-}
+import { sanitizeProductHtml } from "./sanitize";
 
 describe("XSS sanitization — offensive payloads", () => {
   it("strips <script> tags", () => {

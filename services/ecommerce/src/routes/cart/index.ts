@@ -27,7 +27,10 @@ const addItemSchema = z.object({
   quantity: z.number().int().positive().max(99),
 });
 
+const variantQuerySchema = z.object({ variantId: z.string().uuid().optional() });
+
 const updateItemSchema = z.object({
+  variantId: z.string().uuid().optional(),
   quantity: z.number().int().min(0).max(99),
 });
 
@@ -97,15 +100,21 @@ if op == 'add' then
   end
   if not found then table.insert(cart.items, {productId=data.productId, variantId=data.variantId, quantity=data.quantity}) end
 elseif op == 'quantity' or op == 'remove' then
+  -- Target one line: (productId, variantId). A product can be in the cart in
+  -- several variants; without a variantId we fall back to productId only
+  -- (legacy clients) and refuse to guess between several variants.
+  local hasVariant = data.variantId ~= nil and data.variantId ~= cjson.null
   for i = #cart.items, 1, -1 do
     local item = cart.items[i]
-    if item.productId == data.productId then
+    local itemVariant = item.variantId
+    if itemVariant == cjson.null then itemVariant = nil end
+    local matches = item.productId == data.productId and ((not hasVariant) or itemVariant == data.variantId)
+    if matches then
+      if found and not hasVariant then return 'CART_CHANGED' end
       found = true
       if op == 'remove' or data.quantity == 0 then table.remove(cart.items, i)
       else
-        if item.variantId ~= data.variantId then return 'CART_CHANGED' end
         item.quantity = data.quantity
-        break
       end
     end
   end
@@ -246,6 +255,7 @@ async function enrichCartItems(app: FastifyInstance, cart: Cart) {
             attributes: variant.attributes,
           }
         : null,
+      tvaRate: Number(product.tvaRate),
       unitPriceHt,
       lineTotalHt,
       availableStock,
@@ -408,17 +418,16 @@ export async function cartRoutes(app: FastifyInstance) {
       });
     }
 
-    const { quantity } = parsed.data;
+    const { quantity, variantId } = parsed.data;
     const key = getCartKey(request);
     let cart = await getCart(app, key);
-    const expectedVariantId = cart.items.find((item) => item.productId === productId)?.variantId ?? null;
 
     if (quantity === 0) {
       // Remove item
-      cart.items = cart.items.filter((i) => i.productId !== productId);
+      cart.items = cart.items.filter((i) => !(i.productId === productId && (i.variantId ?? null) === (variantId ?? null)));
     } else {
       const existingIdx = cart.items.findIndex(
-        (i) => i.productId === productId
+        (i) => i.productId === productId && (i.variantId ?? null) === (variantId ?? null)
       );
       if (existingIdx < 0) {
         return reply.status(404).send({
@@ -452,7 +461,7 @@ export async function cartRoutes(app: FastifyInstance) {
       cart.items[existingIdx].quantity = quantity;
     }
 
-    cart = await mutateCart(app, key, "quantity", { productId, variantId: expectedVariantId, quantity });
+    cart = await mutateCart(app, key, "quantity", { productId, variantId: variantId ?? null, quantity });
     const enriched = await enrichCartItems(app, cart);
 
     const user = getRequestUser(request);
@@ -471,9 +480,10 @@ export async function cartRoutes(app: FastifyInstance) {
 
   // DELETE /cart/items/:productId — remove item from cart
   app.delete("/cart/items/:productId", async (request, reply) => {
+    const { variantId } = variantQuerySchema.parse(request.query);
     const productId = parseProductIdParam(request.params);
     const key = getCartKey(request);
-    const cart = await mutateCart(app, key, "remove", { productId });
+    const cart = await mutateCart(app, key, "remove", { productId, variantId: variantId ?? null });
     const enriched = await enrichCartItems(app, cart);
 
     const user = getRequestUser(request);

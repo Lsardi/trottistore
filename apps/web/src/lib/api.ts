@@ -56,7 +56,11 @@ async function tryRefreshAccessToken(): Promise<string | null> {
           method: "POST",
           credentials: "include", // send refresh_token cookie
         });
-        if (!res.ok) return null;
+        if (res.status === 401 || res.status === 403) {
+          persistToken(null);
+          return null;
+        }
+        if (!res.ok) throw new ApiError(res.status, res.statusText, null);
         const body = (await res.json().catch(() => null)) as
           | { success?: boolean; data?: { accessToken?: string } }
           | null;
@@ -64,9 +68,10 @@ async function tryRefreshAccessToken(): Promise<string | null> {
         if (token) {
           persistToken(token);
         }
+        if (!token) throw new Error("Invalid refresh response");
         return token;
-      } catch {
-        return null;
+      } catch (error) {
+        throw error;
       }
     })().finally(() => {
       // Clear after the current microtask so concurrent awaiters still
@@ -143,7 +148,7 @@ async function apiFetch<T>(
   if (
     response.status === 401 &&
     typeof window !== "undefined" &&
-    !path.startsWith("/auth/")
+    (!path.startsWith("/auth/") || path === "/auth/me")
   ) {
     const refreshed = await tryRefreshAccessToken();
     if (refreshed) {
@@ -195,15 +200,16 @@ export const cartApi = {
       body: JSON.stringify(body),
     }),
 
-  updateItem: (productId: string, body: { quantity: number }) =>
+  updateItem: (productId: string, body: { quantity: number; variantId?: string }) =>
     apiFetch<{ success: boolean; data: CartSummary }>('ecommerce', `/cart/items/${productId}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
 
-  removeItem: (productId: string) =>
+  removeItem: (productId: string, variantId?: string) =>
     apiFetch<{ success: boolean; data: CartSummary }>('ecommerce', `/cart/items/${productId}`, {
       method: 'DELETE',
+      params: { variantId },
     }),
 
   clear: () =>
@@ -1260,6 +1266,7 @@ export interface ProductVariant {
   name: string;
   priceOverride?: string;
   stockQuantity: number;
+  stockReserved?: number;
   attributes?: Record<string, string>;
 }
 
@@ -1290,6 +1297,7 @@ export interface CartItem {
   } | null;
   unitPriceHt: number;
   lineTotalHt: number;
+  tvaRate?: number;
   availableStock?: number | null;
 }
 

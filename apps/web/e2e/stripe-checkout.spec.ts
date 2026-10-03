@@ -106,16 +106,18 @@ test.describe("Checkout & Payment", () => {
       await route.fallback();
     });
 
+    await page.route("**/api/v1/checkout/config", (route) => route.fulfill({
+      status: 503, contentType: "application/json", body: JSON.stringify({ success: false }),
+    }));
     await page.goto("/checkout");
     await expect(page.getByRole("heading", { name: /checkout/i })).toBeVisible();
     await expect(page.getByText(/pneu test/i)).toBeVisible();
 
     // Select bank transfer
-    const paymentSelect = page.locator("select").filter({ hasText: /carte bancaire|virement/i });
-    await paymentSelect.selectOption("BANK_TRANSFER");
+    await page.getByRole("button", { name: "Virement bancaire" }).click();
 
     // Accept CGV
-    const cgvCheckbox = page.getByLabel(/conditions générales/i);
+    const cgvCheckbox = page.getByLabel(/conditions generales/i);
     if (await cgvCheckbox.isVisible({ timeout: 2000 }).catch(() => false)) {
       await cgvCheckbox.check();
     }
@@ -129,7 +131,7 @@ test.describe("Checkout & Payment", () => {
     await expect(page.getByText(/merci pour votre commande/i)).toBeVisible({ timeout: 10000 });
   });
 
-  test("checkout displays Stripe payment element for card payment", async ({ page }) => {
+  test("checkout displays payment method buttons", async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.setItem("cookie-consent", JSON.stringify({
         essentials: true, analytics: false, timestamp: new Date().toISOString(),
@@ -140,13 +142,7 @@ test.describe("Checkout & Payment", () => {
     await page.goto("/checkout");
     await expect(page.getByRole("heading", { name: /checkout/i })).toBeVisible();
 
-    // Verify payment method selector exists with Stripe options
-    const paymentSelect = page.locator("select").filter({ hasText: /carte bancaire/i });
-    await expect(paymentSelect).toBeVisible();
-
-    // Verify Stripe-related methods are listed
-    const options = await paymentSelect.locator("option").allTextContents();
-    expect(options.some((o) => o.includes("Carte bancaire"))).toBe(true);
-    expect(options.some((o) => o.includes("Virement"))).toBe(true);
+    await expect(page.getByRole("button", { name: "Carte bancaire" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Virement bancaire" })).toBeVisible();
   });
 });

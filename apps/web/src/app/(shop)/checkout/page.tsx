@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
-import { ApiError, addressesApi, authApi, cartApi, checkoutApi, ordersApi, type CartItem, type User } from "@/lib/api";
+import { ApiError, addressesApi, authApi, cartApi, checkoutApi, ordersApi, type CartItem, type CartSummary, type Order, type User } from "@/lib/api";
+import { reportCheckoutError } from "@/lib/checkout-errors";
 import { cn } from "@/lib/utils";
 
 const PAYMENT_METHODS = [
@@ -68,7 +69,7 @@ function formatPrice(amount: number): string {
 
 interface StripeConfirmationFormProps {
   orderId: string;
-  onSuccess: () => void;
+  onSuccess: (paid: boolean) => void;
   onError: (message: string) => void;
 }
 
@@ -84,10 +85,11 @@ function StripeConfirmationForm({ orderId, onSuccess, onError }: StripeConfirmat
     setConfirming(true);
     onError("");
 
+    try {
     const result = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/mon-compte?commande=${orderId}`,
+        return_url: `${window.location.origin}/checkout?commande=${orderId}`,
       },
       redirect: "if_required",
     });
@@ -100,11 +102,15 @@ function StripeConfirmationForm({ orderId, onSuccess, onError }: StripeConfirmat
     }
 
     if (result.paymentIntent?.status === "succeeded" || result.paymentIntent?.status === "processing") {
-      onSuccess();
+      onSuccess(result.paymentIntent.status === "succeeded");
       return;
     }
 
-    onError("Paiement en attente. Verifiez votre historique de commande.");
+    onError("Paiement en attente. Vous pouvez reprendre le paiement ici.");
+    } catch (err) {
+      reportCheckoutError(err, "confirm-payment", orderId);
+      onError("Impossible de confirmer le paiement. Reessayez.");
+    } finally { setConfirming(false); }
   }
 
   return (
@@ -181,6 +187,13 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState("");
   const [acceptedCgv, setAcceptedCgv] = useState(false);
   const [error, setError] = useState("");
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [cartSummary, setCartSummary] = useState<CartSummary | null>(null);
+  const [serverOrder, setServerOrder] = useState<Order | null>(null);
+  const [serverAmount, setServerAmount] = useState<number | null>(null);
+  const [resumeOrderId, setResumeOrderId] = useState("");
+  const [sessionReady, setSessionReady] = useState(false);
+  const [stripeConfigError, setStripeConfigError] = useState("");
   const [successOrderId, setSuccessOrderId] = useState("");
   const [stripePublishableKey, setStripePublishableKey] = useState<string | null>(null);
   const [pendingStripeCheckout, setPendingStripeCheckout] = useState<{
@@ -207,8 +220,17 @@ export default function CheckoutPage() {
   useEffect(() => {
     async function loadCheckout() {
       try {
-        const cartRes = await cartApi.get();
-        setItems(cartRes.data.items);
+        // Resolve authentication before selecting the authenticated/guest cart.
+        const saved = sessionStorage.getItem("trottistore-pending-order");
+        if (saved) {
+          try {
+            const pending = JSON.parse(saved);
+            if (pending.sessionId === localStorage.getItem("trottistore-session-id")) {
+              setResumeOrderId(pending.orderId);
+              setServerAmount(pending.totalTtc ?? null);
+            }
+          } catch { sessionStorage.removeItem("trottistore-pending-order"); }
+        }
 
         // Try to get user — if 401, switch to guest mode
         try {
@@ -229,21 +251,24 @@ export default function CheckoutPage() {
             setShowInlineAddressForm(true);
           }
         } catch (authErr) {
-          // Not authenticated or token expired — enable guest checkout
-          const hadToken = !!localStorage.getItem("accessToken");
-          if (hadToken) {
-            localStorage.removeItem("accessToken");
-          }
+          if (!(authErr instanceof ApiError) || ![401, 403].includes(authErr.status) || localStorage.getItem("accessToken")) throw authErr;
           setIsGuest(true);
           setShowInlineAddressForm(true);
-          if (hadToken) {
-            setError("Votre session a expire. Vous pouvez continuer en tant qu'invite ou vous reconnecter.");
-          }
         }
-
-        const stripeConfig = await checkoutApi.config().catch(() => null);
+        setSessionReady(true);
+        const [cartResult, configResult] = await Promise.allSettled([cartApi.get(), checkoutApi.config()]);
+        if (cartResult.status === "fulfilled") {
+          setItems(cartResult.value.data.items);
+          setCartSummary(cartResult.value.data);
+        } else {
+          setError("Impossible de charger le panier. Reessayez ou reprenez votre paiement en attente.");
+        }
+        const stripeConfig = configResult.status === "fulfilled" ? configResult.value : null;
         if (stripeConfig?.success) {
           setStripePublishableKey(stripeConfig.data.publishableKey);
+        }
+        if (!stripeConfig?.success || !stripeConfig.data.publishableKey) {
+          setStripeConfigError("Paiements Stripe indisponibles. Choisissez le virement bancaire ou reessayez plus tard.");
         }
       } catch (err) {
         setError("Impossible de charger le checkout.");
@@ -255,11 +280,12 @@ export default function CheckoutPage() {
     loadCheckout();
   }, []);
 
-  const totalHt = useMemo(() => items.reduce((sum, item) => sum + item.lineTotalHt, 0), [items]);
-  const totalTtc = useMemo(() => totalHt * 1.2, [totalHt]);
-  // Shipping is computed server-side at order creation. Display 'Calculee a
-  // la commande' rather than a stale local guess.
-  const shippingCost = 0;
+  const totalHt = serverOrder ? Number(serverOrder.subtotalHt) : cartSummary?.totalHt ?? 0;
+  const cartSubtotal = cartSummary?.subtotalHt ?? items.reduce((sum, item) => sum + item.lineTotalHt, 0);
+  const discountRatio = cartSubtotal > 0 ? (cartSummary?.totalHt ?? cartSubtotal) / cartSubtotal : 1;
+  const estimatedTax = items.reduce((sum, item) => sum + item.lineTotalHt * (item.tvaRate ?? 20) / 100, 0) * discountRatio;
+  const shippingCost = serverOrder ? Number(serverOrder.shippingCost ?? 0) : deliveryMode === "PICKUP_1H" || totalHt >= 100 ? 0 : 6.9;
+  const totalTtc = serverAmount ?? (serverOrder ? Number(serverOrder.totalTtc) : Math.round((totalHt + estimatedTax + shippingCost) * 100) / 100);
 
   const stripePromise = useMemo(
     () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
@@ -286,6 +312,72 @@ export default function CheckoutPage() {
 
   // Determine which checkout step is active
   const currentStep = successOrderId ? 3 : pendingStripeCheckout ? 2 : 1;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const secret = params.get("payment_intent_client_secret");
+    const orderId = params.get("commande");
+    if (!secret || !orderId || !stripePromise) return;
+    let active = true;
+    void stripePromise.then(async (stripe) => {
+      if (!stripe) return;
+      const result = await stripe.retrievePaymentIntent(secret);
+      if (!active) return;
+      if (result.paymentIntent?.status === "succeeded" || result.paymentIntent?.status === "processing") {
+        finishOrder(orderId, result.paymentIntent.status === "succeeded");
+        window.history.replaceState(null, "", "/checkout");
+      } else {
+        setError("Paiement non confirme. Reprenez le paiement de votre commande.");
+      }
+    }).catch((err) => {
+      reportCheckoutError(err, "retrieve-payment", orderId);
+      if (active) setError("Impossible de verifier le paiement. Reessayez.");
+    });
+    return () => { active = false; };
+  }, [stripePromise]);
+
+  function finishOrder(orderId: string, paid: boolean) {
+    setPaymentConfirmed(paid);
+    setSuccessOrderId(orderId);
+    setItems([]);
+    if (paid) {
+      sessionStorage.removeItem("trottistore-pending-order");
+      setResumeOrderId("");
+    }
+  }
+
+  async function resumePayment() {
+    if (!sessionReady || !resumeOrderId || !stripeAvailable || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError("");
+    try {
+      if (!isGuest) {
+        const order = await ordersApi.getById(resumeOrderId);
+        setServerOrder(order.data);
+        setServerAmount(Number(order.data.totalTtc));
+        if (order.data.paymentStatus === "PAID") {
+          finishOrder(resumeOrderId, true);
+          return;
+        }
+        if (order.data.status !== "PENDING") {
+          sessionStorage.removeItem("trottistore-pending-order");
+          setResumeOrderId("");
+          setError("Cette commande ne peut plus etre payee.");
+          return;
+        }
+      }
+      const response = await checkoutApi.createPaymentIntent({ orderId: resumeOrderId, paymentMethod: "CARD" });
+      setServerAmount(response.data.amountCents / 100);
+      setPendingStripeCheckout({ orderId: resumeOrderId, clientSecret: response.data.clientSecret });
+    } catch (err) {
+      reportCheckoutError(err, "payment-intent", resumeOrderId);
+      setError("Impossible de reprendre le paiement. Votre commande reste enregistree.");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }
 
   function normalizeCountryCode(rawCountry: string): string {
     const value = rawCountry.trim().toUpperCase();
@@ -351,6 +443,8 @@ export default function CheckoutPage() {
     if (submittingRef.current) return;
     submittingRef.current = true;
     try {
+    if (resumeOrderId) { setError("Reprenez le paiement de la commande deja enregistree."); return; }
+    if (!sessionReady || (isStripeFlow && !stripeAvailable)) { setError("Le paiement Stripe est indisponible. Choisissez le virement bancaire."); return; }
     if (!acceptedCgv) {
       setError("Veuillez accepter les conditions generales de vente.");
       return;
@@ -363,6 +457,8 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setError("");
     let selectedShippingAddressId = shippingAddressId;
+    let createdOrderId = "";
+    let step = "order";
 
     try {
       const normalizedNotes = [
@@ -411,12 +507,12 @@ export default function CheckoutPage() {
           }),
         }).then(async (r) => {
           const data = await r.json();
-          if (!r.ok) throw new Error(data.error?.message || "Erreur lors de la commande");
+          if (!r.ok) throw new ApiError(r.status, r.statusText, data);
           return data;
         });
       } else {
         // Authenticated checkout
-        if (!selectedShippingAddressId && showInlineAddressForm) {
+        if (showInlineAddressForm) {
           const createdAddressId = await createInlineAddress();
           if (!createdAddressId) {
             return;
@@ -431,7 +527,7 @@ export default function CheckoutPage() {
 
         orderRes = await ordersApi.create({
           shippingAddressId: selectedShippingAddressId,
-          billingAddressId: billingAddressId || undefined,
+          billingAddressId: showInlineAddressForm ? selectedShippingAddressId : billingAddressId || undefined,
           paymentMethod,
           notes: normalizedNotes || undefined,
           shippingMethod,
@@ -439,23 +535,35 @@ export default function CheckoutPage() {
         });
       }
 
-      if (isStripeFlow && stripeAvailable) {
+      createdOrderId = orderRes.data.id;
+      setServerOrder(orderRes.data);
+      setServerAmount(Number(orderRes.data.totalTtc));
+      if (isStripeFlow) {
+        // Persist before requesting Stripe: order creation already emptied the cart.
+        setResumeOrderId(createdOrderId);
+        sessionStorage.setItem("trottistore-pending-order", JSON.stringify({
+          orderId: createdOrderId,
+          sessionId: localStorage.getItem("trottistore-session-id"),
+          totalTtc: Number(orderRes.data.totalTtc),
+        }));
+        step = "payment-intent";
         const paymentIntentRes = await checkoutApi.createPaymentIntent({
           orderId: orderRes.data.id,
           paymentMethod,
           shippingMethod,
         });
 
+        setServerAmount(paymentIntentRes.data.amountCents / 100);
         setPendingStripeCheckout({
-          orderId: orderRes.data.id,
+          orderId: createdOrderId,
           clientSecret: paymentIntentRes.data.clientSecret,
         });
         return;
       }
 
-      setSuccessOrderId(orderRes.data.id);
-      setItems([]);
+      finishOrder(orderRes.data.id, orderRes.data.paymentStatus === "PAID");
     } catch (err) {
+      reportCheckoutError(err, step, createdOrderId);
       if (err instanceof ApiError) {
         const payload = err.data as { error?: { message?: string } } | null;
         setError(payload?.error?.message || "La commande a echoue.");
@@ -505,7 +613,7 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <p className="spec-label mb-3 animate-slide-up stagger-1">COMMANDE CONFIRMEE</p>
+          <p className="spec-label mb-3 animate-slide-up stagger-1">{paymentConfirmed ? "PAIEMENT CONFIRME" : "COMMANDE ENREGISTREE / PAIEMENT EN ATTENTE"}</p>
           <h1 className="heading-lg mb-4 animate-slide-up stagger-2">Merci pour votre commande !</h1>
           <div className="inline-block bg-surface border border-neon/30 px-6 py-3 mb-4 animate-slide-up stagger-3">
             <p className="font-mono text-xs text-text-dim mb-1">Reference</p>
@@ -555,7 +663,8 @@ export default function CheckoutPage() {
       <StepIndicator currentStep={currentStep} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-6">
+        <div className="space-y-5">
+        <form id="order-form" onSubmit={handleSubmit} className="lg:col-span-2 space-y-6">
           {/* Step 1: Address */}
           <div className="bg-surface border border-border p-6 space-y-5">
             <div className="flex items-center gap-2 mb-1">
@@ -583,13 +692,14 @@ export default function CheckoutPage() {
             )}
 
             <div>
+              <label htmlFor="shipping-address" className="sr-only">Adresse de livraison enregistree</label>
               <select
                 id="shipping-address"
                 value={shippingAddressId}
                 onChange={(e) => setShippingAddressId(e.target.value)}
                 className="input-dark w-full cursor-pointer"
-                required
-                disabled={!hasAddresses}
+                required={!showInlineAddressForm}
+                disabled={!hasAddresses || showInlineAddressForm}
               >
                 <option value="">Selectionner une adresse</option>
                 {user?.addresses?.map((address) => (
@@ -605,15 +715,16 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   className="font-mono text-xs text-neon underline disabled:opacity-50 cursor-pointer hover:text-neon-muted transition-colors duration-200"
+                  disabled={isGuest || !hasAddresses || Boolean(resumeOrderId)}
                   onClick={() => {
                     setShowInlineAddressForm((prev) => !prev);
                     setAddressError("");
                   }}
                 >
-                  {showInlineAddressForm ? "Fermer le formulaire" : "Ajouter une adresse"}
+                  {showInlineAddressForm ? "Utiliser une adresse enregistree" : "Ajouter une adresse"}
                 </button>
               </div>
-              {showInlineAddressForm ? (
+              {showInlineAddressForm || isGuest ? (
                 <div className="mt-3 border border-border p-4 space-y-3">
                   <p className="spec-label">Nouvelle adresse</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -648,25 +759,32 @@ export default function CheckoutPage() {
                       onChange={(e) => setInlineAddress((prev) => ({ ...prev, street: e.target.value }))}
                     />
                   </div>
-                  <input
+                  <label htmlFor="addr-street2" className="sr-only">Complement d'adresse</label>
+                  <input id="addr-street2"
                     className="input-dark w-full"
                     placeholder="Complement d'adresse"
                     value={inlineAddress.street2}
                     onChange={(e) => setInlineAddress((prev) => ({ ...prev, street2: e.target.value }))}
                   />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <input
+                    <div>
+                    <label htmlFor="addr-postalCode" className="sr-only">Code postal</label>
+                  <input id="addr-postalCode"
                       className="input-dark w-full"
                       placeholder="Code postal*"
                       value={inlineAddress.postalCode}
                       onChange={(e) => setInlineAddress((prev) => ({ ...prev, postalCode: e.target.value }))}
                     />
-                    <input
+                    </div>
+                    <div>
+                    <label htmlFor="addr-city" className="sr-only">Ville</label>
+                  <input id="addr-city"
                       className="input-dark w-full"
                       placeholder="Ville*"
                       value={inlineAddress.city}
                       onChange={(e) => setInlineAddress((prev) => ({ ...prev, city: e.target.value }))}
                     />
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -684,26 +802,30 @@ export default function CheckoutPage() {
                         ))}
                       </select>
                     </div>
-                    <input
+                    <div>
+                    <label htmlFor="addr-phone" className="sr-only">Telephone</label>
+                  <input id="addr-phone"
                       className="input-dark w-full"
                       placeholder="Telephone"
                       value={inlineAddress.phone}
                       onChange={(e) => setInlineAddress((prev) => ({ ...prev, phone: e.target.value }))}
                     />
+                    </div>
                   </div>
-                  <input
+                  <label htmlFor="addr-label" className="sr-only">Libelle</label>
+                  <input id="addr-label"
                     className="input-dark w-full"
                     placeholder="Libelle (ex: domicile)"
                     value={inlineAddress.label}
                     onChange={(e) => setInlineAddress((prev) => ({ ...prev, label: e.target.value }))}
                   />
                   {addressError ? <p className="font-mono text-xs text-danger">{addressError}</p> : null}
-                  <button
+                  {!isGuest && <button
                     type="button"
                     onClick={async () => {
                       await createInlineAddress();
                     }}
-                    disabled={creatingAddress}
+                    disabled={creatingAddress || isGuest}
                     className="btn-outline w-full disabled:opacity-50 cursor-pointer"
                   >
                     {creatingAddress ? (
@@ -714,14 +836,14 @@ export default function CheckoutPage() {
                     ) : (
                       "ENREGISTRER CETTE ADRESSE"
                     )}
-                  </button>
+                  </button>}
                 </div>
               ) : null}
             </div>
 
             <div>
-              <p className="spec-label mb-2">Adresse de facturation</p>
-              <select value={billingAddressId} onChange={(e) => setBillingAddressId(e.target.value)} className="input-dark w-full cursor-pointer">
+              <label htmlFor="billing-address" className="spec-label mb-2 block">Adresse de facturation</label>
+              <select id="billing-address" value={billingAddressId} onChange={(e) => setBillingAddressId(e.target.value)} className="input-dark w-full cursor-pointer">
                 <option value="">Identique a la livraison</option>
                 {user?.addresses?.map((address) => (
                   <option key={address.id} value={address.id}>
@@ -732,8 +854,9 @@ export default function CheckoutPage() {
             </div>
 
             <div>
-              <p className="spec-label mb-2">Mode de retrait</p>
+              <label htmlFor="delivery-mode" className="spec-label mb-2 block">Mode de retrait</label>
               <select
+                id="delivery-mode"
                 value={deliveryMode}
                 onChange={(e) => setDeliveryMode(e.target.value as (typeof DELIVERY_MODES)[number]["value"])}
                 className="input-dark w-full cursor-pointer"
@@ -771,7 +894,8 @@ export default function CheckoutPage() {
                       setPaymentMethod(method.value);
                       setPendingStripeCheckout(null);
                     }}
-                    disabled={Boolean(pendingStripeCheckout)}
+                    disabled={Boolean(resumeOrderId) || (isStripePaymentMethod(method.value) && !stripeAvailable)}
+                    aria-pressed={isSelected}
                     className={cn(
                       "flex flex-col items-center gap-2 p-4 border transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
                       isSelected
@@ -798,16 +922,16 @@ export default function CheckoutPage() {
                 {isStripeFlow
                   ? stripeAvailable
                     ? "Paiement chiffre et securise via Stripe — vos donnees bancaires ne transitent pas par nos serveurs."
-                    : "Service de paiement temporairement indisponible, fallback sur flux standard."
-                  : "Cette methode finalise la commande immediatement."}
+                    : "Paiement Stripe temporairement indisponible."
+                  : "Votre commande sera enregistree, le paiement par virement restera en attente."}
               </p>
             </div>
           </div>
 
           {/* Notes */}
           <div className="bg-surface border border-border p-6">
-            <p className="spec-label mb-3">Notes (optionnel)</p>
-            <textarea
+            <label htmlFor="order-notes" className="spec-label mb-3 block">Notes (optionnel)</label>
+            <textarea id="order-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="input-dark w-full min-h-24"
@@ -815,32 +939,6 @@ export default function CheckoutPage() {
               disabled={Boolean(pendingStripeCheckout)}
             />
           </div>
-
-          {pendingStripeCheckout && stripePromise && stripeElementsOptions ? (
-            <div className="bg-surface border border-neon/30 p-6 space-y-4">
-              <div className="flex items-center gap-2 mb-1">
-                <ShieldCheck className="w-4 h-4 text-neon" />
-                <p className="spec-label text-neon">Paiement securise Stripe</p>
-              </div>
-              <Elements stripe={stripePromise} options={stripeElementsOptions}>
-                <StripeConfirmationForm
-                  orderId={pendingStripeCheckout.orderId}
-                  onSuccess={() => {
-                    setSuccessOrderId(pendingStripeCheckout.orderId);
-                    setItems([]);
-                  }}
-                  onError={(message) => setError(message)}
-                />
-              </Elements>
-              <button
-                type="button"
-                className="font-mono text-xs text-text-muted underline cursor-pointer hover:text-text transition-colors duration-200"
-                onClick={() => setPendingStripeCheckout(null)}
-              >
-                Changer de mode de paiement
-              </button>
-            </div>
-          ) : null}
 
           {!pendingStripeCheckout ? (
             <label className="flex items-start gap-2 font-mono text-xs text-text-muted cursor-pointer">
@@ -861,6 +959,9 @@ export default function CheckoutPage() {
             </label>
           ) : null}
 
+          {stripeConfigError && <p role="alert" className="text-danger font-mono text-sm">{stripeConfigError}</p>}
+          {resumeOrderId && !pendingStripeCheckout && <button type="button" className="btn-neon w-full" disabled={submitting || !stripeAvailable || !sessionReady} onClick={() => void resumePayment()}>Reprendre le paiement</button>}
+
           {error && (
             <div className="border border-danger/40 bg-danger/10 px-4 py-3 font-mono text-sm text-danger flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 flex-shrink-0" />
@@ -870,7 +971,7 @@ export default function CheckoutPage() {
 
           {!pendingStripeCheckout ? (
             <>
-              <button type="submit" disabled={submitting || items.length === 0} className="btn-neon w-full disabled:opacity-50 cursor-pointer">
+              <button type="submit" disabled={submitting || items.length === 0 || Boolean(resumeOrderId) || !sessionReady || (isStripeFlow && !stripeAvailable)} className="btn-neon w-full disabled:opacity-50 cursor-pointer">
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -896,6 +997,30 @@ export default function CheckoutPage() {
             </>
           ) : null}
         </form>
+          {pendingStripeCheckout && stripePromise && stripeElementsOptions ? (
+            <div className="bg-surface border border-neon/30 p-6 space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck className="w-4 h-4 text-neon" />
+                <p className="spec-label text-neon">Paiement securise Stripe</p>
+              </div>
+              <Elements stripe={stripePromise} options={stripeElementsOptions}>
+                <StripeConfirmationForm
+                  orderId={pendingStripeCheckout.orderId}
+                  onSuccess={(paid) => finishOrder(pendingStripeCheckout.orderId, paid)}
+                  onError={(message) => setError(message)}
+                />
+              </Elements>
+              <button
+                type="button"
+                className="font-mono text-xs text-text-muted underline cursor-pointer hover:text-text transition-colors duration-200"
+                onClick={() => setPendingStripeCheckout(null)}
+              >
+                Revenir a la commande enregistree
+              </button>
+            </div>
+          ) : null}
+
+        </div>
 
         {/* Order summary sidebar */}
         <aside className="bg-surface border border-border h-fit sticky top-24">
@@ -927,7 +1052,7 @@ export default function CheckoutPage() {
                     )}
                     <p className="font-mono text-[11px] text-text-dim">Qte: {item.quantity}</p>
                   </div>
-                  <p className="font-mono text-xs text-text font-bold flex-shrink-0">{formatPrice(item.lineTotalHt * 1.2)}</p>
+                  <p className="font-mono text-xs text-text font-bold flex-shrink-0">{formatPrice(item.lineTotalHt * (1 + (item.tvaRate ?? 20) / 100))}</p>
                 </div>
               ))}
             </div>
@@ -939,16 +1064,16 @@ export default function CheckoutPage() {
               <span>{formatPrice(totalHt)}</span>
             </div>
             <div className="flex justify-between font-mono text-xs text-text-muted">
-              <span>TVA (20%)</span>
-              <span>{formatPrice(totalTtc - totalHt - shippingCost)}</span>
+              <span>TVA{!serverOrder && " estimee"}</span>
+              <span>{formatPrice(serverOrder ? Number(serverOrder.tvaAmount) : estimatedTax)}</span>
             </div>
             <div className="flex justify-between font-mono text-xs text-text-muted">
               <span>Livraison</span>
-              <span className="text-text-dim">Calculee a la commande</span>
+              <span className="text-text-dim">{formatPrice(shippingCost)}</span>
             </div>
             <div className="divider my-3" />
             <div className="flex justify-between items-center">
-              <span className="font-mono text-sm text-text-muted">Total TTC</span>
+              <span className="font-mono text-sm text-text-muted">Total TTC{serverAmount === null && !serverOrder ? " estime" : ""}</span>
               <span className="price-main" style={{ fontSize: "1.4rem" }}>
                 {formatPrice(totalTtc)}
               </span>

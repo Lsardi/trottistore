@@ -25,7 +25,7 @@ const REPAIR_SLUGS = [
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = `https://${brand.domain}`;
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || `https://${brand.domain}`).replace(/\/$/, "");
   const now = new Date();
 
   // Static public routes (excluding private: /checkout, /panier, /mon-compte)
@@ -70,19 +70,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic product URLs from API
   let productEntries: MetadataRoute.Sitemap = [];
   try {
-    const res = await fetch(
-      `${process.env.API_URL || "http://localhost:3001"}/api/v1/products?limit=500&status=ACTIVE`,
-      { next: { revalidate: 3600 } },
-    );
-    if (res.ok) {
+    for (let page = 1; ; page++) {
+      const res = await fetch(
+        `${process.env.API_URL || "http://localhost:3001"}/api/v1/products?limit=100&page=${page}&status=ACTIVE`,
+        { next: { revalidate: 3600 } },
+      );
+      if (!res.ok) throw new Error(`Products API returned ${res.status} on page ${page}`);
       const data = await res.json();
-      const products = data?.data ?? [];
-      productEntries = products.map((p: { slug: string; updatedAt?: string }) => ({
+      const products: { slug: string; updatedAt?: string }[] = data?.data ?? [];
+      productEntries.push(...products.map((p) => ({
         url: `${baseUrl}/produits/${p.slug}`,
         lastModified: p.updatedAt ? new Date(p.updatedAt) : now,
         changeFrequency: "weekly" as const,
         priority: 0.9,
-      }));
+      })));
+      if (data.pagination?.totalPages ? page >= data.pagination.totalPages : products.length < 100) break;
     }
   } catch (err) {
     console.error("[sitemap] Failed to fetch products from API — sitemap will miss product URLs:", err);

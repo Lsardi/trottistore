@@ -109,6 +109,9 @@ test.describe("Critical Flows", () => {
       await route.fallback();
     });
 
+    await page.route("**/api/v1/checkout/config", (route) => route.fulfill({
+      status: 503, contentType: "application/json", body: JSON.stringify({ success: false }),
+    }));
     await page.goto("/checkout");
     await expect(page.getByRole("heading", { name: /checkout/i })).toBeVisible();
 
@@ -117,13 +120,16 @@ test.describe("Critical Flows", () => {
     await expect(page.getByText(/120,00/).first()).toBeVisible();
 
     // Select "Virement bancaire" to avoid Stripe SDK dependency in E2E
-    const paymentSelect = page.locator("select").filter({ hasText: /carte bancaire|virement/i });
-    await paymentSelect.selectOption("BANK_TRANSFER");
+    await page.getByRole("button", { name: "Virement bancaire" }).click();
 
     // The submit button should now show "PASSER LA COMMANDE" (non-Stripe flow)
     const submitBtn = page.getByRole("button", { name: /passer la commande/i });
     await submitBtn.scrollIntoViewIfNeeded();
     await expect(submitBtn).toBeVisible({ timeout: 10000 });
+    await page.getByLabel(/conditions generales/i).check();
+    await submitBtn.click();
+    await expect(page.getByText(/merci pour votre commande/i)).toBeVisible();
+    await expect(page.getByText(/commande enregistree \/ paiement en attente/i)).toBeVisible();
   });
 
   test("account dashboard renders for authenticated user", async ({ page }) => {
@@ -223,6 +229,7 @@ test.describe("Critical Flows", () => {
     await page.goto("/mon-compte");
     await expect(page.getByText(/espace client/i)).toBeVisible();
     await expect(page.getByText(/scooter pro/i)).toBeVisible();
-    await expect(page.getByText(/silver/i)).toBeVisible();
+    // The tier appears in several places (badge, progress copy); any match is enough.
+    await expect(page.getByText(/silver/i).first()).toBeVisible();
   });
 });

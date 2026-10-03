@@ -87,6 +87,8 @@ export default function ProductGallery({
           {images.map((img, i) => (
             <button
               key={img.id || `${img.url}-${i}`}
+              aria-label={`Afficher la photo ${i + 1} de ${productName}`}
+              aria-pressed={i === selectedImage}
               onClick={() => {
                 setSelectedImage(i);
                 setIsZoomed(false);
