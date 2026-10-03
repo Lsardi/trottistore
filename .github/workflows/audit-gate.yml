@@ -15,8 +15,7 @@ name: Audit Gate — required checks before merge
 # CODEOWNERS review + required labels, not by this workflow.
 
 on:
-  pull_request:
-    branches: [main]
+  pull_request: # any base — stacked agent PRs get the gate too
   push:
     branches: [main]
 

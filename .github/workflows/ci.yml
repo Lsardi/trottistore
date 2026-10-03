@@ -3,8 +3,10 @@ name: CI — TrottiStore Platform
 on:
   push:
     branches: [main, develop]
+  # Any PR, whatever its base: stacked PRs (agent branches targeting another
+  # agent branch) must get the same checks as PRs to main.
   pull_request:
-    branches: [main, develop, techlead/fond-comble-audit]
+  workflow_dispatch:
 
 env:
   NODE_VERSION: '22'
