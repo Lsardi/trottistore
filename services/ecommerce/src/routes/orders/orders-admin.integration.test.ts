@@ -38,16 +38,19 @@ function buildApp(): FastifyInstance {
         id: ORDER_ID,
         orderNumber: 1042,
         status: "CONFIRMED",
+        paymentStatus: "PAID",
         totalTtc: new Decimal(478.8),
         paymentMethod: "CARD",
         customerId: CUSTOMER_ID,
-        payments: [{ providerRef: "pi_test_1", status: "CONFIRMED", provider: "stripe" }],
+        payments: [{ providerRef: "pi_test_1", status: "CONFIRMED", provider: "stripe", method: "CARD", amount: new Decimal(478.8) }],
         items: [{ variantId: VARIANT_ID, quantity: 1 }],
       }),
       findMany: vi.fn().mockResolvedValue([]),
       count: vi.fn().mockResolvedValue(0),
       create: vi.fn().mockResolvedValue({ id: ORDER_ID, orderNumber: 1043, items: [] }),
       update: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue({ id: ORDER_ID, status: "CONFIRMED", paymentMethod: "CARD" }),
     },
     orderStatusHistory: {
       create: vi.fn().mockResolvedValue({ id: "note-1" }),
@@ -85,7 +88,9 @@ function buildApp(): FastifyInstance {
     payment: {
       findFirst: vi.fn().mockResolvedValue(null), // No existing refund
       findMany: vi.fn().mockResolvedValue([]), // No previous refund payments (F3 cumulative check)
-      create: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: "refund-intent" }),
+      update: vi.fn().mockResolvedValue({ id: "refund-intent" }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     paymentInstallment: {
       create: vi.fn().mockResolvedValue(null),
@@ -94,7 +99,7 @@ function buildApp(): FastifyInstance {
     financialLedger: {
       create: vi.fn().mockResolvedValue({ id: "ledger-1" }),
     },
-    $transaction: vi.fn(async (arg: any) => {
+    $transaction: vi.fn(async (arg: ((tx: typeof app.prisma) => Promise<unknown>) | Promise<unknown>[]) => {
       if (typeof arg === "function") return arg(app.prisma);
       return Promise.all(arg);
     }),
@@ -139,6 +144,7 @@ describe("Admin order actions", () => {
   describe("POST /admin/orders/:id/refund", () => {
     it("processes a full refund", async () => {
       const token = await signToken(app);
+      vi.mocked(app.prisma.payment.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([{ amount: new Decimal(478.8), method: "CARD", status: "CONFIRMED" }] as never);
       const res = await app.inject({
         method: "POST",
         url: `/api/v1/admin/orders/${ORDER_ID}/refund`,

@@ -79,14 +79,57 @@ async function getCart(app: FastifyInstance, key: string): Promise<Cart> {
   }
 }
 
-async function saveCart(
-  app: FastifyInstance,
-  key: string,
-  cart: Cart
-): Promise<void> {
-  cart.updatedAt = new Date().toISOString();
-  // TTL 7 days
-  await app.redis.set(key, JSON.stringify(cart), "EX", 60 * 60 * 24 * 7);
+// Each script reads and mutates the latest cart in Redis, preserving unrelated fields.
+export const CART_MUTATION_SCRIPT = `
+local raw = redis.call('GET', KEYS[1])
+local cart = raw and cjson.decode(raw) or {items = {}}
+local op = ARGV[1]
+local data = cjson.decode(ARGV[2])
+local found = false
+if op == 'add' then
+  for _, item in ipairs(cart.items) do
+    if item.productId == data.productId and item.variantId == data.variantId then
+      if item.quantity + data.quantity > data.available then return 'INSUFFICIENT_STOCK' end
+      item.quantity = item.quantity + data.quantity
+      found = true
+      break
+    end
+  end
+  if not found then table.insert(cart.items, {productId=data.productId, variantId=data.variantId, quantity=data.quantity}) end
+elseif op == 'quantity' or op == 'remove' then
+  for i = #cart.items, 1, -1 do
+    local item = cart.items[i]
+    if item.productId == data.productId then
+      found = true
+      if op == 'remove' or data.quantity == 0 then table.remove(cart.items, i)
+      else
+        if item.variantId ~= data.variantId then return 'CART_CHANGED' end
+        item.quantity = data.quantity
+        break
+      end
+    end
+  end
+  if not found then return 'ITEM_NOT_FOUND' end
+elseif op == 'discount' then
+  cart.discountCode = data.code
+elseif op == 'clearDiscount' then
+  if data.code == cjson.null or cart.discountCode == data.code then cart.discountCode = nil end
+end
+cart.updatedAt = ARGV[3]
+-- Lua's empty table is an object; force the cart item collection back to an array.
+local encoded = cjson.encode(cart)
+encoded = string.gsub(encoded, '"items":{}', '"items":[]')
+redis.call('SET', KEYS[1], encoded, 'EX', 604800)
+return encoded
+`;
+
+async function mutateCart(app: FastifyInstance, key: string, operation: string, data: Record<string, unknown>): Promise<Cart> {
+  const result = await app.redis.eval(CART_MUTATION_SCRIPT, 1, key, operation, JSON.stringify(data), new Date().toISOString());
+  if (typeof result !== "string") throw new Error("Invalid Redis cart result");
+  if (["INSUFFICIENT_STOCK", "ITEM_NOT_FOUND", "CART_CHANGED"].includes(result)) {
+    throw Object.assign(new Error(result), { statusCode: result === "ITEM_NOT_FOUND" ? 404 : 409, code: result });
+  }
+  return JSON.parse(result) as Cart;
 }
 
 // Look up a discount code, validate its window and min cart, and return
@@ -245,8 +288,7 @@ export async function cartRoutes(app: FastifyInstance) {
     // cart now below min), silently drop it from Redis so the client sees
     // consistent state.
     if (cart.discountCode && !discount) {
-      cart.discountCode = undefined;
-      await saveCart(app, key, cart);
+      await mutateCart(app, key, "clearDiscount", { code: cart.discountCode });
     }
     const totalAfterDiscount = discount
       ? Math.max(0, enriched.totalHt - discount.amount)
@@ -284,7 +326,7 @@ export async function cartRoutes(app: FastifyInstance) {
     // Validate product exists and is active
     const product = await app.prisma.product.findUnique({
       where: { id: productId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, _count: { select: { variants: true } } },
     });
 
     if (!product || product.status !== "ACTIVE") {
@@ -294,6 +336,11 @@ export async function cartRoutes(app: FastifyInstance) {
       });
     }
 
+    if (!variantId && product._count?.variants > 0) {
+      return reply.status(400).send({ success: false, error: { code: "VARIANT_REQUIRED", message: "Choisissez une variante" } });
+    }
+    // Product has no stock column; inventory is tracked only for variants.
+    let availableStock = 99;
     // Validate variant exists and check stock
     if (variantId) {
       const variant = await app.prisma.productVariant.findUnique({
@@ -315,6 +362,7 @@ export async function cartRoutes(app: FastifyInstance) {
       }
 
       const available = variant.stockQuantity - variant.stockReserved;
+      availableStock = Math.min(99, available);
       if (available < quantity) {
         return reply.status(409).send({
           success: false,
@@ -328,26 +376,7 @@ export async function cartRoutes(app: FastifyInstance) {
     }
 
     const key = getCartKey(request);
-    const cart = await getCart(app, key);
-
-    // Add or update item
-    const existingIdx = cart.items.findIndex(
-      (i) =>
-        i.productId === productId &&
-        (i.variantId ?? null) === (variantId ?? null)
-    );
-
-    if (existingIdx >= 0) {
-      cart.items[existingIdx].quantity += quantity;
-    } else {
-      cart.items.push({
-        productId,
-        variantId: variantId ?? null,
-        quantity,
-      });
-    }
-
-    await saveCart(app, key, cart);
+    const cart = await mutateCart(app, key, "add", { productId, variantId: variantId ?? null, quantity, available: availableStock });
     const enriched = await enrichCartItems(app, cart);
 
     const user = getRequestUser(request);
@@ -381,7 +410,8 @@ export async function cartRoutes(app: FastifyInstance) {
 
     const { quantity } = parsed.data;
     const key = getCartKey(request);
-    const cart = await getCart(app, key);
+    let cart = await getCart(app, key);
+    const expectedVariantId = cart.items.find((item) => item.productId === productId)?.variantId ?? null;
 
     if (quantity === 0) {
       // Remove item
@@ -422,7 +452,7 @@ export async function cartRoutes(app: FastifyInstance) {
       cart.items[existingIdx].quantity = quantity;
     }
 
-    await saveCart(app, key, cart);
+    cart = await mutateCart(app, key, "quantity", { productId, variantId: expectedVariantId, quantity });
     const enriched = await enrichCartItems(app, cart);
 
     const user = getRequestUser(request);
@@ -443,19 +473,7 @@ export async function cartRoutes(app: FastifyInstance) {
   app.delete("/cart/items/:productId", async (request, reply) => {
     const productId = parseProductIdParam(request.params);
     const key = getCartKey(request);
-    const cart = await getCart(app, key);
-
-    const before = cart.items.length;
-    cart.items = cart.items.filter((i) => i.productId !== productId);
-
-    if (cart.items.length === before) {
-      return reply.status(404).send({
-        success: false,
-        error: { code: "ITEM_NOT_FOUND", message: "Item not in cart" },
-      });
-    }
-
-    await saveCart(app, key, cart);
+    const cart = await mutateCart(app, key, "remove", { productId });
     const enriched = await enrichCartItems(app, cart);
 
     const user = getRequestUser(request);
@@ -526,8 +544,7 @@ export async function cartRoutes(app: FastifyInstance) {
         },
       });
     }
-    cart.discountCode = discount.code;
-    await saveCart(app, key, cart);
+    await mutateCart(app, key, "discount", { code: discount.code });
     const user = getRequestUser(request);
     app.log.info({ discountCode: discount.code, userId: user?.userId ?? null }, "Discount code applied to cart");
     return {
@@ -547,8 +564,7 @@ export async function cartRoutes(app: FastifyInstance) {
     if (cart.discountCode) {
       const user = getRequestUser(request);
       app.log.info({ discountCode: cart.discountCode, userId: user?.userId ?? null }, "Discount code removed from cart");
-      cart.discountCode = undefined;
-      await saveCart(app, key, cart);
+      await mutateCart(app, key, "clearDiscount", { code: cart.discountCode });
     }
     const enriched = await enrichCartItems(app, cart);
     return {

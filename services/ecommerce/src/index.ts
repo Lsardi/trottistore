@@ -42,6 +42,7 @@ import {
   registerRequestCorrelation,
   getRequestCorrelation,
 } from "@trottistore/shared";
+import { releaseExpiredPendingOrders } from "./jobs/release-expired-pending-orders.js";
 import { runFinancialReconciliation } from "./lib/finance-reconciliation.js";
 
 // Fail-fast if required env vars are missing
@@ -262,6 +263,14 @@ async function start() {
       },
     },
   }));
+
+  if (process.env.ORDER_EXPIRY_ENABLED !== "false") {
+    const timer = setInterval(() => {
+      void releaseExpiredPendingOrders(app).catch((err: unknown) => app.log.error({ err }, "Order expiry failed"));
+    }, 60_000);
+    timer.unref();
+    app.addHook("onClose", async () => clearInterval(timer));
+  }
 
   // Démarrage
   try {

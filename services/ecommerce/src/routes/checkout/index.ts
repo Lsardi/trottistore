@@ -28,8 +28,6 @@ const createPaymentIntentSchema = z.object({
 // --- Types ---
 
 type RequestUser = { userId: string; role: string };
-type CartItem = { productId: string; variantId?: string | null; quantity: number };
-type CartPayload = { items?: CartItem[] };
 type StoredWebhookDlqEntry = {
   eventId: string;
   eventType: string;
@@ -52,15 +50,6 @@ function getSessionId(request: FastifyRequest): string | undefined {
   if (typeof sessionHeader === "string") return sessionHeader;
   if (Array.isArray(sessionHeader) && typeof sessionHeader[0] === "string") return sessionHeader[0];
   return request.cookies?.sessionId;
-}
-
-function getCartKey(request: FastifyRequest, user?: RequestUser): string {
-  if (user?.userId) return `cart:${user.userId}`;
-  const sessionId = getSessionId(request);
-  if (!sessionId) {
-    throw new Error("MISSING_SESSION_ID");
-  }
-  return `cart:session:${sessionId}`;
 }
 
 function isBackofficeRole(role?: string): boolean {
@@ -147,15 +136,18 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
     const body = createPaymentIntentSchema.parse(request.body);
 
+    if (!body.orderId) {
+      return reply.status(400).send({ success: false, error: { code: "ORDER_REQUIRED", message: "Une commande est obligatoire" } });
+    }
     let totalTtc: Decimal;
     let amountCents: number;
     let paymentOwnerId = user?.userId ?? "guest";
 
-    if (body.orderId) {
+    {
       // Order-first flow: read amount from existing order
       const order = await app.prisma.order.findUnique({
         where: { id: body.orderId },
-        select: { totalTtc: true, customerId: true, status: true },
+        select: { totalTtc: true, customerId: true, status: true, paymentStatus: true },
       });
 
       if (!order) {
@@ -167,7 +159,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
       // F2: Block payment intent creation for non-payable orders
       const PAYABLE_STATUSES = new Set(["PENDING"]);
-      if (!PAYABLE_STATUSES.has(order.status)) {
+      if (!PAYABLE_STATUSES.has(order.status) || order.paymentStatus === "PAID") {
         return reply.status(400).send({
           success: false,
           error: { code: "ORDER_NOT_PAYABLE", message: `Commande en statut ${order.status}, paiement impossible` },
@@ -202,74 +194,6 @@ export async function checkoutRoutes(app: FastifyInstance) {
       paymentOwnerId = order.customerId;
       totalTtc = new Decimal(order.totalTtc);
       amountCents = totalTtc.mul(100).round().toNumber();
-    } else {
-      // Cart-first flow: calculate from Redis cart
-      let cartKey: string;
-      try {
-        cartKey = getCartKey(request, user);
-      } catch {
-        return reply.status(400).send({
-          success: false,
-          error: { code: "MISSING_SESSION_ID", message: "Missing x-session-id header" },
-        });
-      }
-      const cartData = await app.redis.get(cartKey);
-      if (!cartData) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: "EMPTY_CART", message: "Le panier est vide" },
-        });
-      }
-
-      const cart = JSON.parse(cartData) as CartPayload;
-      if (!cart.items || cart.items.length === 0) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: "EMPTY_CART", message: "Le panier est vide" },
-        });
-      }
-
-      const productIds = [...new Set(cart.items.map((i) => i.productId))];
-      const variantIds = cart.items
-        .map((i) => i.variantId)
-        .filter((id): id is string => typeof id === "string");
-      const [products, variants] = await Promise.all([
-        app.prisma.product.findMany({
-          where: { id: { in: productIds }, status: "ACTIVE" },
-          select: { id: true, priceHt: true, tvaRate: true },
-        }),
-        variantIds.length > 0
-          ? app.prisma.productVariant.findMany({
-              where: { id: { in: variantIds }, isActive: true },
-              select: { id: true, productId: true, priceOverride: true },
-            })
-          : Promise.resolve([]),
-      ]);
-
-      const productMap = new Map(products.map((p) => [p.id, p]));
-      const variantMap = new Map(variants.map((v) => [v.id, v]));
-      // T-01: Calculate TVA per item using product.tvaRate (not hardcoded 20%)
-      let totalHt = new Decimal(0);
-      let tvaAmount = new Decimal(0);
-      for (const item of cart.items) {
-        const product = productMap.get(item.productId);
-        if (!product) continue;
-        const variant = item.variantId ? variantMap.get(item.variantId) : undefined;
-        const unitPriceHt = new Decimal(
-          variant && variant.productId === item.productId && variant.priceOverride != null
-            ? variant.priceOverride
-            : product.priceHt,
-        );
-        const itemTotalHt = unitPriceHt.mul(item.quantity || 1);
-        totalHt = totalHt.add(itemTotalHt);
-        tvaAmount = tvaAmount.add(itemTotalHt.mul(product.tvaRate).div(100));
-      }
-      // Store pickup = free shipping
-      const shippingCost = body.shippingMethod === "STORE_PICKUP"
-        ? new Decimal(0)
-        : (totalHt.gte(100) ? new Decimal(0) : new Decimal(6.9));
-      totalTtc = totalHt.add(tvaAmount).add(shippingCost);
-      amountCents = totalTtc.mul(100).round().toNumber();
     }
 
     if (amountCents < 50) {
@@ -282,10 +206,10 @@ export async function checkoutRoutes(app: FastifyInstance) {
     // Create or reuse PaymentIntent
     let paymentIntent: Stripe.PaymentIntent;
 
-    if (body.orderId) {
+    {
       // Check for existing PaymentIntent on this order
       const existingPayment = await app.prisma.payment.findFirst({
-        where: { orderId: body.orderId, provider: "stripe", status: "PENDING" },
+        where: { orderId: body.orderId, provider: "stripe", method: { not: "REFUND" }, status: { in: ["PENDING", "FAILED"] } },
       });
 
       if (existingPayment?.providerRef) {
@@ -298,9 +222,13 @@ export async function checkoutRoutes(app: FastifyInstance) {
         }
       } else {
         paymentIntent = await createPaymentIntent(stripe, amountCents, paymentOwnerId, body.orderId);
+        await app.prisma.payment.upsert({
+          where: { providerRef: paymentIntent.id },
+          create: { orderId: body.orderId, provider: "stripe", providerRef: paymentIntent.id,
+            amount: totalTtc, method: body.paymentMethod, status: "PENDING" },
+          update: {},
+        });
       }
-    } else {
-      paymentIntent = await createPaymentIntent(stripe, amountCents, paymentOwnerId);
     }
 
     return {
@@ -487,7 +415,7 @@ async function createPaymentIntent(
   stripe: Stripe,
   amountCents: number,
   userId: string,
-  orderId?: string,
+  orderId: string,
 ): Promise<Stripe.PaymentIntent> {
   return stripe.paymentIntents.create({
     amount: amountCents,
@@ -495,9 +423,9 @@ async function createPaymentIntent(
     payment_method_types: ["card", "link"],
     metadata: {
       userId,
-      ...(orderId ? { orderId } : {}),
+      orderId,
     },
-  });
+  }, { idempotencyKey: `order:${orderId}:intent` });
 }
 
 async function processWebhookEvent(
@@ -650,7 +578,14 @@ async function handlePaymentSuccess(
     return;
   }
 
-  await app.prisma.$transaction(async (tx) => {
+  const processed = await app.prisma.$transaction(async (tx) => {
+    const currentOrder = await tx.order.findUnique({ where: { id: orderId }, select: { status: true, paymentStatus: true } });
+    if (!currentOrder || WEBHOOK_TERMINAL_STATUSES.has(currentOrder.status) || currentOrder.paymentStatus === "PAID") return false;
+    const claimed = await tx.order.updateMany({
+      where: { id: orderId, status: currentOrder.status, paymentStatus: currentOrder.paymentStatus },
+      data: { ...(WEBHOOK_CONFIRMABLE_STATUSES.has(currentOrder.status) ? { status: "CONFIRMED" } : {}), paymentStatus: "PAID" },
+    });
+    if (claimed.count !== 1) return false;
     // Update or create payment record
     await tx.payment.upsert({
       where: { providerRef: pi.id },
@@ -697,38 +632,6 @@ async function handlePaymentSuccess(
       }
     }
 
-    // Item 5 — Only overwrite order status if still PENDING.
-    // If admin has already advanced the order (e.g. PREPARING), don't regress it.
-    const currentOrder = await tx.order.findUnique({
-      where: { id: orderId },
-      select: { status: true, paymentStatus: true },
-    });
-
-    if (currentOrder?.status && WEBHOOK_CONFIRMABLE_STATUSES.has(currentOrder.status)) {
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          status: "CONFIRMED",
-          paymentStatus: "PAID",
-        },
-      });
-    } else if (currentOrder?.status && WEBHOOK_TERMINAL_STATUSES.has(currentOrder.status)) {
-      app.log.warn(
-        { ...correlation, currentStatus: currentOrder.status },
-        "Webhook payment success received for terminal order status; skipping status transition",
-      );
-    } else {
-      // Order already advanced past PENDING — just confirm payment status
-      await tx.order.update({
-        where: { id: orderId },
-        data: { paymentStatus: "PAID" },
-      });
-      app.log.info(
-        { ...correlation, currentStatus: currentOrder?.status },
-        "Webhook: order already past PENDING, only updating paymentStatus",
-      );
-    }
-
     // Stock was already decremented (or reserved, for installments) at order creation
     // in routes/orders/index.ts. Decrementing here would cause a double-decrement
     // on every Stripe payment. Webhook only confirms payment + order status.
@@ -748,7 +651,9 @@ async function handlePaymentSuccess(
 
     // Award loyalty points (1 point per EUR spent)
     await awardLoyaltyPoints(tx, orderId, pi.amount / 100, app);
+    return true;
   });
+  if (!processed) return;
 
   app.log.info({ ...correlation, amount: pi.amount / 100 }, "Payment confirmed, order updated");
 
@@ -847,20 +752,18 @@ async function awardLoyaltyPoints(
     });
 
     // Update profile totals
-    const newPoints = profile.loyaltyPoints + points;
-    const newTier = newPoints >= 2000 ? "GOLD" : newPoints >= 500 ? "SILVER" : "BRONZE";
-
-    await tx.customerProfile.update({
+    const incremented = await tx.customerProfile.update({
       where: { id: profile.id },
       data: {
-        loyaltyPoints: newPoints,
+        loyaltyPoints: { increment: points },
         totalOrders: { increment: 1 },
         totalSpent: { increment: amountEur },
         lastOrderAt: new Date(),
-        loyaltyTier: newTier,
       },
     });
 
+    const newTier = incremented.loyaltyPoints >= 2000 ? "GOLD" : incremented.loyaltyPoints >= 500 ? "SILVER" : "BRONZE";
+    await tx.customerProfile.update({ where: { id: profile.id }, data: { loyaltyTier: newTier } });
     app.log.info({ userId: order.customerId, points, newTier }, "Loyalty points awarded");
   } catch (err) {
     // Non-blocking: loyalty errors should not fail the payment
@@ -877,7 +780,7 @@ async function handlePaymentFailure(
   if (!orderId) return;
 
   await app.prisma.payment.updateMany({
-    where: { providerRef: pi.id },
+    where: { providerRef: pi.id, status: "PENDING" },
     data: { status: "FAILED" },
   });
 

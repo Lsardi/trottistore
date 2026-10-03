@@ -984,6 +984,8 @@ model Technician {
 }
 
 model RepairAppointment {
+  // Unassigned appointments share the store resource, so they also cannot overlap.
+  technicianId     String   @default("00000000-0000-0000-0000-000000000000") @map("technician_id") @db.Uuid
   id               String   @id @default(uuid()) @db.Uuid
   ticketId         String?  @map("ticket_id") @db.Uuid
   customerId       String?  @map("customer_id") @db.Uuid

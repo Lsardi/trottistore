@@ -318,3 +318,75 @@ describe("orders stock race protection", () => {
     expect(adminStock.quantity).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("order pricing and inventory regressions", () => {
+  const apps: FastifyInstance[] = [];
+  async function fixture(role: UserRole = "CLIENT") {
+    const app = buildRaceApp(role, { quantity: 20 });
+    apps.push(app);
+    await app.register(orderRoutes, { prefix: "/api/v1" });
+    await app.ready();
+    return app;
+  }
+  afterAll(async () => { await Promise.all(apps.map((app) => app.close())); });
+  const connectedPayload = { shippingAddressId: SHIPPING_ADDRESS_ID, paymentMethod: "CARD", acceptedCgv: true };
+  const guestPayload = { email: "guest@test.fr", shippingAddress: { firstName: "Ada", lastName: "Test", street: "1 rue Test", postalCode: "75001", city: "Paris" }, paymentMethod: "CARD", acceptedCgv: true };
+
+  it.each([false, true])("requires a variant in checkout (guest=%s)", async (guest) => {
+    const app = await fixture();
+    vi.mocked(app.redis.get).mockResolvedValue(JSON.stringify({ items: [{ productId: PRODUCT_ID, variantId: null, quantity: 1 }] }));
+    vi.mocked(app.prisma.product.findMany).mockResolvedValue([{ id: PRODUCT_ID, status: "ACTIVE", _count: { variants: 1 } }] as never);
+    const res = await app.inject({ method: "POST", url: guest ? "/api/v1/orders/guest" : "/api/v1/orders", headers: { "x-session-id": "guest" }, payload: guest ? guestPayload : connectedPayload });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VARIANT_REQUIRED");
+    expect(app.prisma.order.create).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("charges no shipping for pickup (guest=%s)", async (guest) => {
+    const app = await fixture();
+    const res = await app.inject({ method: "POST", url: guest ? "/api/v1/orders/guest" : "/api/v1/orders", headers: { "x-session-id": "guest" }, payload: { ...(guest ? guestPayload : connectedPayload), shippingMethod: "STORE_PICKUP" } });
+    expect(res.statusCode).toBe(201);
+    expect(app.prisma.order.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ shippingCost: new Decimal(0) }) }));
+  });
+
+  it("uses integer cents with the remainder on the final installment", async () => {
+    const app = await fixture();
+    const res = await app.inject({ method: "POST", url: "/api/v1/orders", payload: { ...connectedPayload, paymentMethod: "INSTALLMENT_3X", shippingMethod: "STORE_PICKUP" } });
+    expect(res.statusCode).toBe(201);
+    const calls = vi.mocked(app.prisma.paymentInstallment.create).mock.calls;
+    const amounts = calls.map(([args]) => new Decimal(String(args.data.amountDue)).mul(100).toNumber());
+    expect(amounts).toEqual([799, 799, 801]); // 19.99 HT, 20% VAT = 23.99 TTC
+    expect(amounts.reduce((sum, amount) => sum + amount, 0)).toBe(2399);
+  });
+
+  it("guards decrement against reserved stock in the atomic update", async () => {
+    const app = await fixture();
+    vi.mocked(app.prisma.productVariant.findMany).mockResolvedValueOnce([{ id: VARIANT_ID, productId: PRODUCT_ID, stockQuantity: 5, stockReserved: 4, isActive: true }] as never);
+    const res = await app.inject({ method: "POST", url: "/api/v1/orders", payload: connectedPayload });
+    expect(res.statusCode).toBe(201);
+    expect(app.prisma.productVariant.updateMany).toHaveBeenCalledWith({ where: { id: VARIANT_ID, stockQuantity: { gte: 5 }, stockReserved: 4 }, data: { stockQuantity: { decrement: 1 } } });
+  });
+
+  it.each([false, true])("claims a discount atomically and persists the discounted total (guest=%s)", async (guest) => {
+    const app = await fixture();
+    app.prisma.discountCode = {
+      findUnique: vi.fn().mockResolvedValue({ id: "discount", code: "TEN", kind: "PERCENT", value: new Decimal(10), isActive: true, maxUses: 1, usedCount: 0, minCartHt: null, startsAt: null, expiresAt: null }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    } as never;
+    vi.mocked(app.redis.get).mockResolvedValue(JSON.stringify({ items: [{ productId: PRODUCT_ID, variantId: VARIANT_ID, quantity: 1 }], discountCode: "TEN" }));
+    const res = await app.inject({ method: "POST", url: guest ? "/api/v1/orders/guest" : "/api/v1/orders", headers: { "x-session-id": "guest" }, payload: { ...(guest ? guestPayload : connectedPayload), shippingMethod: "STORE_PICKUP" } });
+    expect(res.statusCode).toBe(201);
+    expect(app.prisma.discountCode.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ usedCount: { lt: 1 } }), data: { usedCount: { increment: 1 } } }));
+    expect(app.prisma.order.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ subtotalHt: new Decimal("17.99"), tvaAmount: new Decimal("3.60"), totalTtc: new Decimal("21.59") }) }));
+  });
+
+  it("refuses an exhausted discount before creating an order", async () => {
+    const app = await fixture();
+    app.prisma.discountCode = { findUnique: vi.fn().mockResolvedValue({ id: "discount", isActive: true, kind: "FIXED", value: new Decimal(5), maxUses: 1, minCartHt: null, startsAt: null, expiresAt: null }), updateMany: vi.fn().mockResolvedValue({ count: 0 }) } as never;
+    vi.mocked(app.redis.get).mockResolvedValue(JSON.stringify({ items: [{ productId: PRODUCT_ID, variantId: VARIANT_ID, quantity: 1 }], discountCode: "USED" }));
+    const res = await app.inject({ method: "POST", url: "/api/v1/orders", payload: connectedPayload });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("INVALID_DISCOUNT");
+    expect(app.prisma.order.create).not.toHaveBeenCalled();
+  });
+});
