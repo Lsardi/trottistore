@@ -229,6 +229,7 @@ test.describe("Critical Flows", () => {
     await page.goto("/mon-compte");
     await expect(page.getByText(/espace client/i)).toBeVisible();
     await expect(page.getByText(/scooter pro/i)).toBeVisible();
-    await expect(page.getByText(/silver/i)).toBeVisible();
+    // The tier appears in several places (badge, progress copy); any match is enough.
+    await expect(page.getByText(/silver/i).first()).toBeVisible();
   });
 });
