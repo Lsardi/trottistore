@@ -6,13 +6,13 @@ import type { InputJsonValue } from "@prisma/client/runtime/library";
 import { randomUUID } from "node:crypto";
 import { sendEmail } from "@trottistore/shared/notifications";
 import { orderConfirmationEmail, orderShippedEmail } from "../../emails/templates.js";
+import { claimDiscount, computeShippingCents } from "../../lib/order-pricing.js";
+import { releaseExpiredPendingOrders } from "../../jobs/release-expired-pending-orders.js";
 import { checkoutMetrics } from "../../plugins/metrics.js";
 
 // ─── Constants ───────────────────────────────────────────────
 
 const TVA_RATE = new Decimal(20);
-const FREE_SHIPPING_THRESHOLD = new Decimal(100); // Free shipping above 100 EUR HT
-const DEFAULT_SHIPPING_COST = new Decimal(6.9);
 
 const PAYMENT_METHODS = [
   "CARD",
@@ -32,7 +32,7 @@ const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
   CONFIRMED: ["PREPARING", "CANCELLED"],
   PREPARING: ["SHIPPED", "CANCELLED"],
   SHIPPED: ["DELIVERED"],
-  DELIVERED: ["REFUNDED"],
+  DELIVERED: [],
   CANCELLED: [],
   REFUNDED: [],
 };
@@ -140,29 +140,17 @@ class InsufficientStockError extends Error {
   }
 }
 
-type StockGuardTransactionClient = {
-  productVariant: {
-    updateMany(args: {
-      where: {
-        id: string;
-        stockQuantity: { gte: number };
-      };
-      data: {
-        stockQuantity: { decrement: number };
-      };
-    }): Promise<{ count: number }>;
-  };
-};
-
 async function decrementStockOrThrow(
-  tx: StockGuardTransactionClient,
+  tx: Prisma.TransactionClient,
   variantId: string,
   quantity: number,
+  stockReserved: number,
 ): Promise<void> {
   const result = await tx.productVariant.updateMany({
     where: {
       id: variantId,
-      stockQuantity: { gte: quantity },
+      stockQuantity: { gte: quantity + stockReserved },
+      stockReserved,
     },
     data: {
       stockQuantity: { decrement: quantity },
@@ -184,6 +172,7 @@ interface Cart {
   items: CartItem[];
   updatedAt: string;
   checkoutToken?: string;
+  discountCode?: string;
 }
 
 interface RequestUser {
@@ -300,6 +289,14 @@ function isBackofficeRole(role?: string): boolean {
 // ─── Routes ──────────────────────────────────────────────────
 
 export async function orderRoutes(app: FastifyInstance) {
+  app.post("/admin/orders/release-expired", async (request, reply) => {
+    if (!requireAuth(request, reply)) return;
+    if (!["ADMIN", "SUPERADMIN"].includes(request.user.role)) {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Admin access required" } });
+    }
+    const body = z.object({ olderThanMinutes: z.number().int().min(1).default(60) }).parse(request.body ?? {});
+    return { success: true, data: { released: await releaseExpiredPendingOrders(app, body.olderThanMinutes) } };
+  });
   // All order routes require authentication, except /orders/guest.
   // Fallback to route-level `requireAuth` checks if not present (e.g. isolated tests).
   // TODO(tech-debt): align tests with production auth path by mocking/decorating `authenticate`.
@@ -406,6 +403,7 @@ export async function orderRoutes(app: FastifyInstance) {
     const [products, variants] = await Promise.all([
       app.prisma.product.findMany({
         where: { id: { in: productIds }, status: "ACTIVE" },
+        include: { _count: { select: { variants: true } } },
       }),
       variantIds.length > 0
         ? app.prisma.productVariant.findMany({
@@ -439,6 +437,9 @@ export async function orderRoutes(app: FastifyInstance) {
         });
       }
 
+      if (!item.variantId && product._count?.variants > 0) {
+        return reply.status(400).send({ success: false, error: { code: "VARIANT_REQUIRED", message: "Choisissez une variante" } });
+      }
       if (item.variantId) {
         const variant = variantMap.get(item.variantId);
         if (!variant || variant.productId !== item.productId) {
@@ -489,9 +490,7 @@ export async function orderRoutes(app: FastifyInstance) {
       (sum, item) => sum.add(item.totalHt.mul(item.tvaRate).div(100)),
       new Decimal(0),
     );
-    const shippingCost = subtotalHt.gte(FREE_SHIPPING_THRESHOLD)
-      ? new Decimal(0)
-      : DEFAULT_SHIPPING_COST;
+    const shippingCost = new Decimal(computeShippingCents(shippingMethod, subtotalHt)).div(100);
     const totalTtc = subtotalHt.add(tvaAmount).add(shippingCost);
 
     // 5. Determine initial payment status
@@ -579,6 +578,10 @@ export async function orderRoutes(app: FastifyInstance) {
     try {
       // 8. Create order in a transaction
       order = await app.prisma.$transaction(async (tx) => {
+      const discountHt = await claimDiscount(tx, cart.discountCode, subtotalHt);
+      const discountedSubtotalHt = subtotalHt.sub(discountHt);
+      const discountedTva = subtotalHt.isZero() ? new Decimal(0) : tvaAmount.mul(discountedSubtotalHt).div(subtotalHt).toDecimalPlaces(2);
+      const totalTtc = discountedSubtotalHt.add(discountedTva).add(shippingCost).toDecimalPlaces(2);
       // Create the order
       const newOrder = await tx.order.create({
         data: {
@@ -589,8 +592,8 @@ export async function orderRoutes(app: FastifyInstance) {
           shippingMethod,
           shippingAddress: shippingAddressJson,
           billingAddress: billingAddressJson,
-          subtotalHt,
-          tvaAmount,
+          subtotalHt: discountedSubtotalHt,
+          tvaAmount: discountedTva,
           shippingCost,
           totalTtc,
           notes: notes ?? null,
@@ -628,7 +631,8 @@ export async function orderRoutes(app: FastifyInstance) {
           const reserved = await tx.productVariant.updateMany({
             where: {
               id: item.variantId,
-              stockQuantity: { gte: item.quantity },
+              stockQuantity: { gte: item.quantity + (variantMap.get(item.variantId)?.stockReserved ?? 0) },
+              stockReserved: variantMap.get(item.variantId)?.stockReserved ?? 0,
             },
             data: { stockReserved: { increment: item.quantity } },
           });
@@ -637,14 +641,15 @@ export async function orderRoutes(app: FastifyInstance) {
           }
         } else {
           // Atomic stock guard prevents concurrent oversell.
-          await decrementStockOrThrow(tx, item.variantId, item.quantity);
+          await decrementStockOrThrow(tx, item.variantId, item.quantity, variantMap.get(item.variantId)?.stockReserved ?? 0);
         }
       }
 
       // Create installment records if applicable
       const installmentCount = getInstallmentCount(paymentMethod);
       if (installmentCount) {
-        const installmentAmount = totalTtc.div(installmentCount);
+        const totalCents = totalTtc.mul(100).round().toNumber();
+        const installmentCents = Math.floor(totalCents / installmentCount);
         const now = new Date();
 
         for (let i = 1; i <= installmentCount; i++) {
@@ -656,7 +661,7 @@ export async function orderRoutes(app: FastifyInstance) {
               orderId: newOrder.id,
               installmentNumber: i,
               totalInstallments: installmentCount,
-              amountDue: installmentAmount,
+              amountDue: new Decimal(i === installmentCount ? totalCents - installmentCents * (installmentCount - 1) : installmentCents).div(100),
               dueDate,
               status: i === 1 ? "PENDING" : "PENDING",
             },
@@ -804,7 +809,7 @@ export async function orderRoutes(app: FastifyInstance) {
     const variantIds = cart.items.map((i) => i.variantId).filter((id): id is string => id !== null);
 
     const [products, variants] = await Promise.all([
-      app.prisma.product.findMany({ where: { id: { in: productIds }, status: "ACTIVE" } }),
+      app.prisma.product.findMany({ where: { id: { in: productIds }, status: "ACTIVE" }, include: { _count: { select: { variants: true } } } }),
       variantIds.length > 0
         ? app.prisma.productVariant.findMany({ where: { id: { in: variantIds }, isActive: true } })
         : Promise.resolve([]),
@@ -831,6 +836,9 @@ export async function orderRoutes(app: FastifyInstance) {
         });
       }
 
+      if (!item.variantId && product._count?.variants > 0) {
+        return reply.status(400).send({ success: false, error: { code: "VARIANT_REQUIRED", message: "Choisissez une variante" } });
+      }
       if (item.variantId) {
         const variant = variantMap.get(item.variantId);
         if (!variant || variant.productId !== item.productId) {
@@ -869,7 +877,7 @@ export async function orderRoutes(app: FastifyInstance) {
       (sum, item) => sum.add(item.totalHt.mul(item.tvaRate).div(100)),
       new Decimal(0),
     );
-    const shippingCost = subtotalHt.gte(FREE_SHIPPING_THRESHOLD) ? new Decimal(0) : DEFAULT_SHIPPING_COST;
+    const shippingCost = new Decimal(computeShippingCents(shippingMethod, subtotalHt)).div(100);
     const totalTtc = subtotalHt.add(tvaAmount).add(shippingCost);
 
     const isInstallment = getInstallmentCount(paymentMethod) !== null;
@@ -972,6 +980,10 @@ export async function orderRoutes(app: FastifyInstance) {
           },
         });
 
+        const discountHt = await claimDiscount(tx, cart.discountCode, subtotalHt);
+        const discountedSubtotalHt = subtotalHt.sub(discountHt);
+        const discountedTva = subtotalHt.isZero() ? new Decimal(0) : tvaAmount.mul(discountedSubtotalHt).div(subtotalHt).toDecimalPlaces(2);
+        const totalTtc = discountedSubtotalHt.add(discountedTva).add(shippingCost).toDecimalPlaces(2);
         // Create the order
         const newOrder = await tx.order.create({
           data: {
@@ -982,8 +994,8 @@ export async function orderRoutes(app: FastifyInstance) {
             shippingMethod,
             shippingAddress: shippingAddressJson,
             billingAddress: billingAddressJson,
-            subtotalHt,
-            tvaAmount,
+            subtotalHt: discountedSubtotalHt,
+            tvaAmount: discountedTva,
             shippingCost,
             totalTtc,
             notes: notes ?? null,
@@ -1017,7 +1029,8 @@ export async function orderRoutes(app: FastifyInstance) {
             const reserved = await tx.productVariant.updateMany({
               where: {
                 id: item.variantId,
-                stockQuantity: { gte: item.quantity },
+                stockQuantity: { gte: item.quantity + (variantMap.get(item.variantId)?.stockReserved ?? 0) },
+              stockReserved: variantMap.get(item.variantId)?.stockReserved ?? 0,
               },
               data: { stockReserved: { increment: item.quantity } },
             });
@@ -1025,14 +1038,15 @@ export async function orderRoutes(app: FastifyInstance) {
               throw new InsufficientStockError(item.variantId);
             }
           } else {
-            await decrementStockOrThrow(tx, item.variantId, item.quantity);
+            await decrementStockOrThrow(tx, item.variantId, item.quantity, variantMap.get(item.variantId)?.stockReserved ?? 0);
           }
         }
 
         // Create installment records if applicable
         const installmentCount = getInstallmentCount(paymentMethod);
         if (installmentCount) {
-          const installmentAmount = totalTtc.div(installmentCount);
+          const totalCents = totalTtc.mul(100).round().toNumber();
+        const installmentCents = Math.floor(totalCents / installmentCount);
           const now = new Date();
           for (let i = 1; i <= installmentCount; i++) {
             const dueDate = new Date(now);
@@ -1042,7 +1056,7 @@ export async function orderRoutes(app: FastifyInstance) {
                 orderId: newOrder.id,
                 installmentNumber: i,
                 totalInstallments: installmentCount,
-                amountDue: installmentAmount,
+                amountDue: new Decimal(i === installmentCount ? totalCents - installmentCents * (installmentCount - 1) : installmentCents).div(100),
                 dueDate,
                 status: "PENDING",
               },
@@ -1741,14 +1755,17 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     const updated = await app.prisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: { id },
+      const claimed = await tx.order.updateMany({
+        where: { id, status: order.status },
         data: {
           status: newStatus,
           ...(newStatus === "SHIPPED" ? { shippedAt: new Date() } : {}),
           ...(newStatus === "DELIVERED" ? { deliveredAt: new Date() } : {}),
         },
       });
+
+      if (claimed.count !== 1) return null;
+      const updatedOrder = await tx.order.findUniqueOrThrow({ where: { id } });
 
       await tx.orderStatusHistory.create({
         data: {
@@ -1819,6 +1836,8 @@ export async function orderRoutes(app: FastifyInstance) {
       return updatedOrder;
     });
 
+    if (!updated) return reply.status(409).send({ success: false, error: { code: "CONCURRENT_TRANSITION", message: "Le statut a changé" } });
+
     // Fire-and-forget: send a "shipped" email to the customer when transitioning
     // to SHIPPED. Soft-fail if no transport is configured (mail provider down,
     // missing keys in dev/staging) — the status change must not be blocked by
@@ -1880,7 +1899,7 @@ export async function orderRoutes(app: FastifyInstance) {
       where: { id },
       include: {
         customer: { select: { id: true } },
-        payments: { where: { status: "CONFIRMED", provider: "stripe" } },
+        payments: { where: { status: "CONFIRMED" } },
         items: { select: { variantId: true, quantity: true } },
       },
     });
@@ -1892,6 +1911,10 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
+    const replayRef = `refund:${id}:${body.idempotencyKey ?? (body.amount === undefined ? "full" : `partial:${new Decimal(body.amount).toFixed(2)}`)}`;
+    const replay = await app.prisma.payment.findFirst({ where: { providerRef: replayRef, status: "CONFIRMED" } });
+    if (replay) return { success: true, data: { orderId: id, refundAmount: Number(replay.amount) }, meta: { idempotentReplay: true } };
+
     if (order.status === "REFUNDED") {
       return reply.status(400).send({
         success: false,
@@ -1900,7 +1923,7 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     // T-15: Can't refund an unpaid order
-    if (order.status === "PENDING") {
+    if (order.paymentStatus !== "PAID") {
       return reply.status(400).send({
         success: false,
         error: { code: "NOT_PAID", message: "Impossible de rembourser une commande non payée" },
@@ -1908,8 +1931,7 @@ export async function orderRoutes(app: FastifyInstance) {
     }
 
     // Item 3 — Use Decimal for precision (no Number() conversion on monetary values)
-    const orderTotalTtc = new Decimal(order.totalTtc);
-    const requestedAmount = body.amount ? new Decimal(body.amount) : orderTotalTtc;
+    const requestedAmount = body.amount ? new Decimal(body.amount) : new Decimal("999999999");
 
     // F3: Check cumulative refunds — prevent total refunded > order total
     const existingRefunds = await app.prisma.payment.findMany({
@@ -1919,7 +1941,9 @@ export async function orderRoutes(app: FastifyInstance) {
     const alreadyRefunded = existingRefunds.reduce(
       (sum, r) => sum.add(new Decimal(r.amount)), new Decimal(0),
     );
-    const maxRefundable = orderTotalTtc.sub(alreadyRefunded);
+    const collected = order.payments.filter((payment) => payment.method !== "REFUND")
+      .reduce((sum, payment) => sum.add(payment.amount), new Decimal(0));
+    const maxRefundable = collected.sub(alreadyRefunded);
     if (maxRefundable.lte(0)) {
       return reply.status(400).send({
         success: false,
@@ -1929,11 +1953,11 @@ export async function orderRoutes(app: FastifyInstance) {
 
     // T-16: Clamp refund to remaining refundable amount
     const clampedAmount = requestedAmount.gt(maxRefundable) ? maxRefundable : requestedAmount;
-    const refundDecimal = clampedAmount.gt(orderTotalTtc) ? orderTotalTtc : clampedAmount;
+    const refundDecimal = clampedAmount.toDecimalPlaces(2);
     const isFullRefund = !body.amount || refundDecimal.gte(maxRefundable);
     const refundCents = refundDecimal.mul(100).round().toNumber(); // Safe: Decimal → integer cents
     const refundOperationKey = body.idempotencyKey
-      ?? (isFullRefund ? "full" : `partial:${refundDecimal.toFixed(2)}`);
+      ?? (body.amount === undefined ? "full" : `partial:${new Decimal(body.amount).toFixed(2)}`);
     const refundOperationTag = makeOperationTag("refund", refundOperationKey);
 
     const existingRefundEvent = await app.prisma.orderStatusHistory.findFirst({
@@ -1957,19 +1981,37 @@ export async function orderRoutes(app: FastifyInstance) {
       });
     }
 
-    // Item 4 — Refund idempotence: check for existing refund payment on this order
-    const existingRefund = await app.prisma.payment.findFirst({
-      where: { orderId: id, amount: { lt: 0 }, status: "CONFIRMED" },
-    });
-    if (existingRefund && isFullRefund) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: "REFUND_EXISTS", message: "Un remboursement a déjà été effectué sur cette commande" },
-      });
+    if (order.payments.some((payment) => payment.provider === "stripe" && payment.method !== "REFUND") && !process.env.STRIPE_SECRET_KEY) {
+      return reply.status(503).send({ success: false, error: { code: "STRIPE_NOT_CONFIGURED", message: "Stripe non configuré" } });
     }
 
+    // Lock the order row, then reserve refundable funds before contacting the provider.
+    const internalRef = `refund:${id}:${refundOperationKey}`;
+    const intent = await app.prisma.$transaction(async (tx) => {
+      const lock = await tx.order.updateMany({ where: { id, paymentStatus: "PAID" }, data: { paymentStatus: "PAID" } });
+      if (lock.count !== 1) throw Object.assign(new Error("Commande non payée"), { statusCode: 409, code: "NOT_PAID" });
+      const previous = await tx.payment.findFirst({ where: { providerRef: internalRef } });
+      if (previous?.status === "CONFIRMED") return null;
+      if (previous?.status === "PENDING") {
+        if (!new Decimal(previous.amount).eq(refundDecimal)) throw Object.assign(new Error("Remboursement en cours avec un montant différent"), { statusCode: 409, code: "REFUND_IN_PROGRESS" });
+        return previous; // Retry after a provider/network failure with the same Stripe idempotency key.
+      }
+      const payments = await tx.payment.findMany({ where: { orderId: id, status: { in: ["CONFIRMED", "PENDING"] } } });
+      const remaining = payments.reduce((sum, payment) => {
+        if (payment.method === "REFUND") return sum.sub(payment.amount);
+        return payment.status === "CONFIRMED" ? sum.add(payment.amount) : sum;
+      }, new Decimal(0));
+      if (refundDecimal.gt(remaining)) throw Object.assign(new Error("Montant remboursable modifié"), { statusCode: 409, code: "REFUND_CONFLICT" });
+      if (previous) {
+        return tx.payment.update({ where: { id: previous.id }, data: { status: "PENDING", amount: refundDecimal } });
+      }
+      return tx.payment.create({ data: { orderId: id, provider: "internal", providerRef: internalRef,
+        amount: refundDecimal, method: "REFUND", status: "PENDING" } });
+    });
+    if (!intent) return { success: true, data: { orderId: id }, meta: { idempotentReplay: true } };
+
     // Attempt Stripe refund if a Stripe payment exists
-    const stripePayment = order.payments[0];
+    const stripePayment = order.payments.find((payment) => payment.provider === "stripe" && payment.method !== "REFUND");
     let stripeRefundId: string | null = null;
 
     if (stripePayment?.providerRef && process.env.STRIPE_SECRET_KEY) {
@@ -1985,6 +2027,7 @@ export async function orderRoutes(app: FastifyInstance) {
         });
         stripeRefundId = refund.id;
       } catch (err) {
+        await app.prisma.payment.updateMany({ where: { id: intent.id, status: "PENDING" }, data: { status: "FAILED" } });
         app.log.error({ err, orderId: id }, "Stripe refund failed");
         return reply.status(502).send({
           success: false,
@@ -1998,27 +2041,13 @@ export async function orderRoutes(app: FastifyInstance) {
     const refundAmountNum = refundDecimal.toNumber();
     try {
       await app.prisma.$transaction(async (tx) => {
-      // Update order status
-        await tx.order.update({
-        where: { id },
-        data: {
-          status: isFullRefund ? "REFUNDED" : order.status,
-          paymentStatus: isFullRefund ? "REFUNDED" : "PARTIAL",
-        },
-      });
-
-      // Create payment record for refund
-        await tx.payment.create({
-        data: {
-          orderId: id,
-          provider: stripeRefundId ? "stripe" : "internal",
-          providerRef: stripeRefundId ?? `refund:${id}:${refundOperationKey}`,
-          amount: -refundAmountNum, // Negative = refund
-          method: order.paymentMethod,
-          status: "CONFIRMED",
-          receivedAt: new Date(),
-        },
-      });
+        // Serialize with cancellation and finalize the durable intent exactly once.
+        await tx.order.updateMany({ where: { id }, data: { paymentStatus: isFullRefund ? "REFUNDED" : "PAID" } });
+        const current = await tx.order.findUniqueOrThrow({ where: { id } });
+        const finalized = await tx.payment.updateMany({ where: { id: intent.id, status: "PENDING" },
+          data: { status: "CONFIRMED", receivedAt: new Date() } });
+        if (finalized.count !== 1) return;
+        await tx.order.updateMany({ where: { id, status: current.status }, data: { status: isFullRefund ? "REFUNDED" : current.status } });
 
       // Status history
         await tx.orderStatusHistory.create({
@@ -2035,7 +2064,7 @@ export async function orderRoutes(app: FastifyInstance) {
       });
 
       // F3 fix: don't restock if order was CANCELLED (cancel already restocked)
-        if (body.restockItems && isFullRefund && order.status !== "CANCELLED") {
+        if (body.restockItems && isFullRefund && current.status !== "CANCELLED") {
           for (const item of order.items) {
             if (item.variantId) {
               await tx.productVariant.update({
@@ -2201,7 +2230,7 @@ export async function orderRoutes(app: FastifyInstance) {
     const variantIds = body.items.map((i) => i.variantId).filter((id): id is string => !!id);
 
     const [products, variants] = await Promise.all([
-      app.prisma.product.findMany({ where: { id: { in: productIds }, status: "ACTIVE" } }),
+      app.prisma.product.findMany({ where: { id: { in: productIds }, status: "ACTIVE" }, include: { _count: { select: { variants: true } } } }),
       variantIds.length > 0
         ? app.prisma.productVariant.findMany({ where: { id: { in: variantIds }, isActive: true } })
         : Promise.resolve([]),
@@ -2229,6 +2258,16 @@ export async function orderRoutes(app: FastifyInstance) {
         });
       }
 
+      if (!item.variantId && product._count?.variants > 0) {
+        return reply.status(400).send({ success: false, error: { code: "VARIANT_REQUIRED", message: "Choisissez une variante" } });
+      }
+      if (item.variantId) {
+        const variant = variantMap.get(item.variantId);
+        if (!variant || variant.productId !== product.id || !variant.isActive) {
+          return reply.status(400).send({ success: false, error: { code: "VARIANT_UNAVAILABLE", message: "Variante invalide ou inactive" } });
+        }
+      }
+
       const unitPriceHt = item.variantId && variantMap.get(item.variantId)?.priceOverride
         ? variantMap.get(item.variantId)!.priceOverride!
         : product.priceHt;
@@ -2249,8 +2288,7 @@ export async function orderRoutes(app: FastifyInstance) {
       (sum, i) => sum.add(i.totalHt.mul(i.tvaRate).div(100)),
       new Decimal(0),
     );
-    const shippingCost = body.shippingMethod === "STORE_PICKUP" ? new Decimal(0)
-      : subtotalHt.gte(FREE_SHIPPING_THRESHOLD) ? new Decimal(0) : DEFAULT_SHIPPING_COST;
+    const shippingCost = new Decimal(computeShippingCents(body.shippingMethod, subtotalHt)).div(100);
     const totalTtc = subtotalHt.add(tvaAmount).add(shippingCost);
 
     // Create order in transaction
@@ -2295,9 +2333,15 @@ export async function orderRoutes(app: FastifyInstance) {
       // Decrement stock
       for (const item of body.items) {
         if (item.variantId) {
-          await decrementStockOrThrow(tx, item.variantId, item.quantity);
+          await decrementStockOrThrow(tx, item.variantId, item.quantity, variantMap.get(item.variantId)?.stockReserved ?? 0);
         }
       }
+
+      await tx.payment.create({ data: { orderId: newOrder.id, provider: "internal",
+        amount: totalTtc, method: body.paymentMethod,
+        status: body.paymentMethod === "BANK_TRANSFER" ? "PENDING" : "CONFIRMED",
+        ...(body.paymentMethod === "BANK_TRANSFER" ? { bankRef: generateBankReference() } : { receivedAt: new Date() }),
+      } });
 
       // T-36: Financial ledger entry for manual orders
       await tx.financialLedger.create({

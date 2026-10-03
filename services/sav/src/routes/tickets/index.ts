@@ -94,11 +94,13 @@ const customerQuoteAcceptSchema = z.object({
 });
 
 const slotsQuerySchema = z.object({
+  technicianId: z.string().uuid().default("00000000-0000-0000-0000-000000000000"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   durationMin: z.coerce.number().int().min(15).max(240).default(60),
 });
 
 const createAppointmentSchema = z.object({
+  technicianId: z.string().uuid().default("00000000-0000-0000-0000-000000000000"),
   ticketId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
   customerName: z.string().min(2).max(200),
@@ -439,7 +441,8 @@ export async function repairRoutes(app: FastifyInstance) {
 
     const existing = await app.prisma.repairAppointment.findMany({
       where: {
-        status: { in: ["BOOKED", "CONFIRMED"] },
+        status: { not: "CANCELLED" },
+        technicianId: query.technicianId,
         startsAt: { lt: dayEnd },
         endsAt: { gt: dayStart },
       },
@@ -508,7 +511,8 @@ export async function repairRoutes(app: FastifyInstance) {
     const created = await app.prisma.$transaction(async (tx) => {
       const overlapCount = await tx.repairAppointment.count({
         where: {
-          status: { in: ["BOOKED", "CONFIRMED"] },
+          status: { not: "CANCELLED" },
+          technicianId: body.technicianId,
           startsAt: { lt: endsAt },
           endsAt: { gt: startsAt },
         },
@@ -519,6 +523,7 @@ export async function repairRoutes(app: FastifyInstance) {
 
       return tx.repairAppointment.create({
         data: {
+          technicianId: body.technicianId,
           ticketId: body.ticketId ?? null,
           customerId: body.customerId ?? null,
           customerName: body.customerName,
@@ -533,13 +538,18 @@ export async function repairRoutes(app: FastifyInstance) {
           status: "BOOKED",
         },
       });
+    }).catch((err: unknown) => {
+      const detail = err as { code?: string; message?: string; meta?: unknown } | null;
+      const encoded = `${detail?.code ?? ""} ${detail?.message ?? ""} ${JSON.stringify(detail?.meta)}`;
+      if (encoded.includes("23P01") || encoded.includes("repair_appointments_no_overlap")) return null;
+      throw err;
     });
 
     if (!created) {
       return reply.status(409).send({
         success: false,
         error: {
-          code: "SLOT_UNAVAILABLE",
+          code: "SLOT_TAKEN",
           message: "Ce créneau n'est plus disponible",
         },
       });
@@ -674,10 +684,9 @@ export async function repairRoutes(app: FastifyInstance) {
     }
 
     const updated = await app.prisma.$transaction(async (tx) => {
-      const updatedTicket = await tx.repairTicket.update({
-        where: { id },
-        data: updateData,
-      });
+      const claimed = await tx.repairTicket.updateMany({ where: { id, status: ticket.status }, data: updateData });
+      if (claimed.count !== 1) return null;
+      const updatedTicket = await tx.repairTicket.findUniqueOrThrow({ where: { id } });
 
       await tx.repairStatusLog.create({
         data: {
@@ -705,6 +714,7 @@ export async function repairRoutes(app: FastifyInstance) {
     app.log.info({ ticketId: id, fromStatus: ticket.status, toStatus: body.status, userId: user?.userId ?? null }, "Repair ticket status changed");
 
     // Fire-and-forget notification (don't block the response)
+    if (!updated) return reply.status(409).send({ success: false, error: { code: "CONCURRENT_TRANSITION", message: "Le statut a changé" } });
     notifyStatusChange({
       ticketId: id,
       ticketNumber: ticket.ticketNumber,
@@ -918,10 +928,12 @@ export async function repairRoutes(app: FastifyInstance) {
     }
 
     const updated = await app.prisma.$transaction(async (tx) => {
-      const updatedTicket = await tx.repairTicket.update({
-        where: { id },
-        data: { status: "DEVIS_ACCEPTE" },
+      const claimed = await tx.repairTicket.updateMany({
+        where: { id, status: ticket.status, trackingToken: ticket.trackingToken, quoteAcceptedAt: null },
+        data: { status: "DEVIS_ACCEPTE", quoteAcceptedAt: new Date() },
       });
+      if (claimed.count !== 1) return null;
+      const updatedTicket = await tx.repairTicket.findUniqueOrThrow({ where: { id } });
 
       await tx.repairStatusLog.create({
         data: {
@@ -935,6 +947,7 @@ export async function repairRoutes(app: FastifyInstance) {
       return updatedTicket;
     });
 
+    if (!updated) return reply.status(409).send({ success: false, error: { code: "CONCURRENT_TRANSITION", message: "Le devis a changé" } });
     app.log.info({ ticketId: id, userId: user?.userId ?? null }, "Repair quote accepted (backoffice)");
 
     return { success: true, data: updated };
@@ -989,15 +1002,12 @@ export async function repairRoutes(app: FastifyInstance) {
     }
 
     const updated = await app.prisma.$transaction(async (tx) => {
-      const updatedTicket = await tx.repairTicket.update({
-        where: { id },
-        data: {
-          status: "DEVIS_ACCEPTE",
-          quoteAcceptedAt: new Date(),
-          // CL-05: Rotate tracking token to invalidate the old one after acceptance
-          trackingToken: (await import("node:crypto")).randomUUID(),
-        },
+      const claimed = await tx.repairTicket.updateMany({
+        where: { id, status: ticket.status, trackingToken: ticket.trackingToken, quoteAcceptedAt: null },
+        data: { status: "DEVIS_ACCEPTE", quoteAcceptedAt: new Date() },
       });
+      if (claimed.count !== 1) return null;
+      const updatedTicket = await tx.repairTicket.findUniqueOrThrow({ where: { id } });
 
       await tx.repairStatusLog.create({
         data: {
@@ -1012,6 +1022,7 @@ export async function repairRoutes(app: FastifyInstance) {
       return updatedTicket;
     });
 
+    if (!updated) return reply.status(409).send({ success: false, error: { code: "CONCURRENT_TRANSITION", message: "Le devis a changé" } });
     app.log.info({ ticketId: id, userId: user?.userId ?? null }, "Repair quote accepted (client self-service)");
 
     return { success: true, data: updated };

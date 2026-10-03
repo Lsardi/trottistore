@@ -37,7 +37,10 @@ function buildTestApp(): FastifyInstance {
         createdAt: new Date().toISOString(),
       }),
       update: vi.fn().mockResolvedValue({}),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue({ status: "DEVIS_ACCEPTE" }),
     },
+    repairAppointment: { count: vi.fn().mockResolvedValue(0), create: vi.fn().mockResolvedValue({ id: "appointment-1" }) },
     repairStatusLog: {
       create: vi.fn().mockResolvedValue({}),
     },
@@ -51,7 +54,7 @@ function buildTestApp(): FastifyInstance {
     productVariant: {
       update: vi.fn().mockResolvedValue({}),
     },
-    $transaction: vi.fn().mockImplementation(async (fn: any) => {
+    $transaction: vi.fn().mockImplementation(async (fn: (tx: typeof app.prisma) => Promise<unknown>) => {
       if (typeof fn === "function") {
         return fn(app.prisma);
       }
@@ -389,4 +392,50 @@ describe("SAV Tickets integration tests", () => {
       expect(res.statusCode).toBe(403);
     });
   });
+  describe("concurrent writes", () => {
+    const ticketId = "00000000-0000-0000-0000-000000000123";
+    const trackingToken = "00000000-0000-0000-0000-000000000124";
+    const ticket = { id: ticketId, status: "DEVIS_ENVOYE", trackingToken, quoteAcceptedAt: null, assignedTo: null };
+
+    it("keeps the tracking token when accepting a quote", async () => {
+      vi.mocked(app.prisma.repairTicket.findUnique).mockResolvedValueOnce(ticket as never);
+      const res = await app.inject({ method: "PUT", url: `/api/v1/repairs/${ticketId}/quote/accept-client`, payload: { trackingToken } });
+      expect(res.statusCode).toBe(200);
+      expect(app.prisma.repairTicket.updateMany).toHaveBeenCalledWith({
+        where: { id: ticketId, status: "DEVIS_ENVOYE", trackingToken, quoteAcceptedAt: null },
+        data: { status: "DEVIS_ACCEPTE", quoteAcceptedAt: expect.any(Date) },
+      });
+    });
+
+    it("rejects a concurrent quote acceptance without logging another transition", async () => {
+      vi.mocked(app.prisma.repairTicket.findUnique).mockResolvedValueOnce(ticket as never);
+      vi.mocked(app.prisma.repairTicket.updateMany).mockResolvedValueOnce({ count: 0 });
+      const res = await app.inject({ method: "PUT", url: `/api/v1/repairs/${ticketId}/quote/accept-client`, payload: { trackingToken } });
+      expect(res.statusCode).toBe(409);
+      expect(app.prisma.repairStatusLog.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects a concurrent status change without logging effects", async () => {
+      vi.mocked(app.prisma.repairTicket.findUnique).mockResolvedValueOnce({ ...ticket, status: "RECU" } as never);
+      vi.mocked(app.prisma.repairTicket.updateMany).mockResolvedValueOnce({ count: 0 });
+      const res = await app.inject({ method: "PUT", url: `/api/v1/repairs/${ticketId}/status`,
+        headers: { "x-test-user": JSON.stringify({ userId: "admin", role: "ADMIN" }) }, payload: { status: "DIAGNOSTIC" } });
+      expect(res.statusCode).toBe(409);
+      expect(app.prisma.repairStatusLog.create).not.toHaveBeenCalled();
+      expect(app.prisma.repairActivityLog.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { code: "23P01" },
+      { code: "P2004", meta: { database_error: 'ERROR: conflicting key violates exclusion constraint "repair_appointments_no_overlap"' } },
+    ])("maps PostgreSQL appointment exclusion errors to SLOT_TAKEN: %j", async (error) => {
+      vi.mocked(app.prisma.repairAppointment.create).mockRejectedValueOnce(error);
+      const res = await app.inject({ method: "POST", url: "/api/v1/appointments", payload: {
+        customerName: "Ada Test", customerPhone: "0600000000", startsAt: "2026-12-01T10:00:00.000Z",
+      } });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe("SLOT_TAKEN");
+    });
+  });
+
 });

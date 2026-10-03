@@ -28,13 +28,15 @@ const mockPaymentIntent = {
   payment_method_types: ["card"],
 };
 const mockConstructEvent = vi.fn();
+const mockCreateIntent = vi.fn().mockResolvedValue(mockPaymentIntent);
+const mockRetrieveIntent = vi.fn().mockResolvedValue(mockPaymentIntent);
 
 vi.mock("stripe", () => {
   return {
     default: class StripeMock {
       paymentIntents = {
-        create: vi.fn().mockResolvedValue(mockPaymentIntent),
-        retrieve: vi.fn().mockResolvedValue(mockPaymentIntent),
+        create: mockCreateIntent,
+        retrieve: mockRetrieveIntent,
         update: vi.fn().mockResolvedValue(mockPaymentIntent),
       };
       webhooks = {
@@ -60,6 +62,7 @@ function buildApp(): FastifyInstance {
 
   app.decorate("prisma", {
     order: {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       findUnique: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(null),
     },
@@ -91,7 +94,7 @@ function buildApp(): FastifyInstance {
     financialLedger: {
       create: vi.fn().mockResolvedValue({ id: "ledger-1" }),
     },
-    $transaction: vi.fn(async (fn: any) => fn(app.prisma)),
+    $transaction: vi.fn(async (fn: (tx: typeof app.prisma) => Promise<unknown>) => fn(app.prisma)),
   });
 
   app.decorate("redis", {
@@ -170,6 +173,10 @@ describe("Checkout routes", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(app.prisma.order.findUnique).mockReset().mockResolvedValue(null);
+    vi.mocked(app.prisma.payment.findFirst).mockReset().mockResolvedValue(null);
+    vi.mocked(app.prisma.payment.upsert).mockReset().mockResolvedValue(null);
+    vi.mocked(app.redis.get).mockClear();
   });
 
   // -----------------------------------------------------------------------
@@ -210,7 +217,7 @@ describe("Checkout routes", () => {
         paymentMethod: "CARD",
       });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error.code).toBe("MISSING_SESSION_ID");
+      expect(res.json().error.code).toBe("ORDER_REQUIRED");
     });
 
     it("returns 503 when feature flag is disabled", async () => {
@@ -240,30 +247,15 @@ describe("Checkout routes", () => {
         { authorization: `Bearer ${token}` },
       );
       expect(res.statusCode).toBe(400);
-      expect(res.json().error.code).toBe("EMPTY_CART");
+      expect(res.json().error.code).toBe("ORDER_REQUIRED");
     });
 
-    it("creates PaymentIntent from cart (cart-first flow)", async () => {
+    it("refuses a populated cart without orderId", async () => {
       const token = await getAuthToken(app);
-      const cart = {
-        items: [
-          { productId: "p1", variantId: "v1", quantity: 2, unitPriceHt: 49.95 },
-        ],
-      };
-      (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(JSON.stringify(cart));
-
-      const res = await injectPost(
-        app,
-        "/api/v1/checkout/payment-intent",
-        { paymentMethod: "CARD" },
-        { authorization: `Bearer ${token}` },
-      );
-
-      expect(res.statusCode).toBe(200);
-      const json = res.json();
-      expect(json.success).toBe(true);
-      expect(json.data.clientSecret).toBe("pi_test_123_secret_abc");
-      expect(json.data.currency).toBe("eur");
+      const res = await injectPost(app, "/api/v1/checkout/payment-intent", { paymentMethod: "CARD" }, { authorization: `Bearer ${token}` });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe("ORDER_REQUIRED");
+      expect(app.prisma.payment.upsert).not.toHaveBeenCalled();
     });
 
     it("creates PaymentIntent from existing order (order-first flow)", async () => {
@@ -284,6 +276,28 @@ describe("Checkout routes", () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.json().success).toBe(true);
+    });
+
+    it("creates and persists one intent across concurrent calls with the stable provider key", async () => {
+      const token = await getAuthToken(app);
+      const orderId = "00000000-0000-0000-0000-000000000001";
+      vi.mocked(app.prisma.order.findUnique).mockResolvedValue({ totalTtc: 119.88, customerId: "user-1", status: "PENDING" } as never);
+      const results = await Promise.all([1, 2].map(() => injectPost(app, "/api/v1/checkout/payment-intent", { orderId, paymentMethod: "CARD" }, { authorization: `Bearer ${token}` })));
+      expect(results.map((result) => result.statusCode)).toEqual([200, 200]);
+      expect(results.map((result) => result.json().data.paymentIntentId)).toEqual(["pi_test_123", "pi_test_123"]);
+      for (const [, options] of mockCreateIntent.mock.calls) expect(options).toEqual({ idempotencyKey: `order:${orderId}:intent` });
+      expect(app.prisma.payment.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { providerRef: "pi_test_123" }, create: expect.objectContaining({ orderId, status: "PENDING", method: "CARD" }) }));
+    });
+
+    it("reuses the persisted pending intent", async () => {
+      const token = await getAuthToken(app);
+      vi.mocked(app.prisma.order.findUnique).mockResolvedValueOnce({ totalTtc: 119.88, customerId: "user-1", status: "PENDING" } as never);
+      vi.mocked(app.prisma.payment.findFirst).mockResolvedValueOnce({ providerRef: "pi_existing" } as never);
+      const res = await injectPost(app, "/api/v1/checkout/payment-intent", { orderId: "00000000-0000-0000-0000-000000000001", paymentMethod: "CARD" }, { authorization: `Bearer ${token}` });
+      expect(res.statusCode).toBe(200);
+      expect(mockRetrieveIntent).toHaveBeenCalledWith("pi_existing");
+      expect(mockCreateIntent).not.toHaveBeenCalled();
+      expect(app.prisma.payment.upsert).not.toHaveBeenCalled();
     });
 
     it("returns 403 when order belongs to another user", async () => {
@@ -358,27 +372,15 @@ describe("Checkout routes", () => {
       expect(res.json().success).toBe(true);
     });
 
-    it("applies free shipping for store pickup", async () => {
+    it("uses the persisted order total including pickup and discount", async () => {
       const token = await getAuthToken(app);
-      const cart = {
-        items: [
-          { productId: "p1", variantId: "v1", quantity: 1, unitPriceHt: 50 },
-        ],
-      };
-      (app.redis.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(JSON.stringify(cart));
-      (app.prisma.product.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([{ id: "p1", priceHt: 50, tvaRate: 20 }]);
-
-      const res = await injectPost(
-        app,
-        "/api/v1/checkout/payment-intent",
-        { paymentMethod: "CARD", shippingMethod: "STORE_PICKUP" },
-        { authorization: `Bearer ${token}` },
-      );
-
+      vi.mocked(app.prisma.order.findUnique).mockResolvedValueOnce({ totalTtc: 54, customerId: "user-1", status: "PENDING" } as never);
+      const res = await injectPost(app, "/api/v1/checkout/payment-intent", { paymentMethod: "CARD", orderId: "00000000-0000-0000-0000-000000000001" }, { authorization: `Bearer ${token}` });
       expect(res.statusCode).toBe(200);
-      const json = res.json();
-      // 50 HT + 10 TVA + 0 shipping = 60 TTC
-      expect(json.data.amount).toBe(60);
+      expect(res.json().data.amount).toBe(54);
+      expect(app.prisma.payment.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        create: expect.objectContaining({ status: "PENDING", providerRef: "pi_test_123", amount: expect.anything() }),
+      }));
     });
   });
 
@@ -416,8 +418,7 @@ describe("Checkout routes", () => {
     it("does not regress terminal order status on payment_intent.succeeded", async () => {
       process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
       (app.prisma.order.findUnique as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce({ status: "CANCELLED", paymentStatus: "PENDING" })
-        .mockResolvedValueOnce(null);
+        .mockResolvedValueOnce({ status: "CANCELLED", paymentStatus: "PENDING" });
       mockConstructEvent.mockReturnValueOnce({
         type: "payment_intent.succeeded",
         data: {
@@ -441,11 +442,43 @@ describe("Checkout routes", () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(app.prisma.order.update).toHaveBeenCalledTimes(1);
-      expect(app.prisma.order.update).toHaveBeenCalledWith({
-        where: { id: "00000000-0000-0000-0000-000000000010" },
-        data: { paymentStatus: "PAID" },
-      });
+      expect(app.prisma.order.updateMany).not.toHaveBeenCalled();
+      expect(app.prisma.payment.upsert).not.toHaveBeenCalled();
+      expect(app.prisma.financialLedger.create).not.toHaveBeenCalled();
+      expect(app.prisma.orderStatusHistory.create).not.toHaveBeenCalled();
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+    });
+
+    it("does not reconfirm when cancellation wins after the webhook read", async () => {
+      process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+      vi.mocked(app.prisma.order.findUnique).mockResolvedValueOnce({ status: "PENDING", paymentStatus: "PENDING" } as never);
+      vi.mocked(app.prisma.order.updateMany).mockResolvedValueOnce({ count: 0 });
+      mockConstructEvent.mockReturnValueOnce({ type: "payment_intent.succeeded", data: { object: {
+        id: "pi_race", amount: 1200, metadata: { orderId: "00000000-0000-0000-0000-000000000010" },
+      } } });
+      const res = await app.inject({ method: "POST", url: "/api/v1/checkout/webhook", headers: { "stripe-signature": "test", "content-type": "application/json" }, payload: "{}" });
+      expect(res.statusCode).toBe(200);
+      expect(app.prisma.order.updateMany).toHaveBeenCalledWith({ where: { id: "00000000-0000-0000-0000-000000000010", status: "PENDING", paymentStatus: "PENDING" }, data: { status: "CONFIRMED", paymentStatus: "PAID" } });
+      expect(app.prisma.payment.upsert).not.toHaveBeenCalled();
+      expect(app.prisma.financialLedger.create).not.toHaveBeenCalled();
+      expect(app.prisma.loyaltyPoint.create).not.toHaveBeenCalled();
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+    });
+
+    it("increments loyalty points atomically and computes the tier from the returned total", async () => {
+      process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+      vi.mocked(app.prisma.order.findUnique).mockResolvedValueOnce({ status: "PENDING", paymentStatus: "PENDING" } as never)
+        .mockResolvedValueOnce(null).mockResolvedValueOnce({ customerId: "customer" } as never);
+      vi.mocked(app.prisma.customerProfile.findUnique).mockResolvedValueOnce({ id: "profile", loyaltyPoints: 490 } as never);
+      app.prisma.loyaltyPoint.findFirst = vi.fn().mockResolvedValue(null);
+      vi.mocked(app.prisma.customerProfile.update).mockResolvedValueOnce({ loyaltyPoints: 502 } as never);
+      mockConstructEvent.mockReturnValueOnce({ type: "payment_intent.succeeded", data: { object: {
+        id: "pi_loyalty", amount: 1200, metadata: { orderId: "00000000-0000-0000-0000-000000000010" },
+      } } });
+      const res = await app.inject({ method: "POST", url: "/api/v1/checkout/webhook", headers: { "stripe-signature": "test", "content-type": "application/json" }, payload: "{}" });
+      expect(res.statusCode).toBe(200);
+      expect(app.prisma.customerProfile.update).toHaveBeenNthCalledWith(1, expect.objectContaining({ data: expect.objectContaining({ loyaltyPoints: { increment: 12 } }) }));
+      expect(app.prisma.customerProfile.update).toHaveBeenNthCalledWith(2, { where: { id: "profile" }, data: { loyaltyTier: "SILVER" } });
       delete process.env.STRIPE_WEBHOOK_SECRET;
     });
 
@@ -463,8 +496,11 @@ describe("Checkout routes", () => {
           },
         },
       });
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ status: "PENDING", paymentStatus: "PENDING" });
       (app.prisma.payment.upsert as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("db down"));
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ status: "PENDING", paymentStatus: "PENDING" });
       (app.prisma.payment.upsert as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("db down"));
+      (app.prisma.order.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ status: "PENDING", paymentStatus: "PENDING" });
       (app.prisma.payment.upsert as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("db down"));
 
       const res = await app.inject({
