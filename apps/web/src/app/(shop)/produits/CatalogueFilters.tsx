@@ -74,6 +74,7 @@ export default function CatalogueFilters({
   const pathname = usePathname();
   const router = useRouter();
   const isFirstRender = useRef(true);
+  const generation = useRef(0);
 
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [loading, setLoading] = useState(false);
@@ -94,6 +95,7 @@ export default function CatalogueFilters({
   }, [searchInput]);
 
   const fetchProducts = useCallback(async () => {
+    const current = ++generation.current;
     setLoading(true);
     setError(null);
     try {
@@ -104,10 +106,12 @@ export default function CatalogueFilters({
         search: search || undefined,
         categorySlug: categorySlug || undefined,
       });
+      if (current !== generation.current) return;
       setProducts(res.data);
       setTotal(res.pagination?.total || 0);
       setTotalPages(res.pagination?.totalPages || 1);
     } catch (fetchError) {
+      if (current !== generation.current) return;
       console.error("Erreur chargement produits", fetchError);
       setProducts([]);
       setTotal(0);
@@ -122,13 +126,14 @@ export default function CatalogueFilters({
       }
       setError("Impossible de charger le catalogue pour le moment.");
     } finally {
-      setLoading(false);
+      if (current === generation.current) setLoading(false);
     }
   }, [page, sort, search, categorySlug]);
 
   useEffect(() => {
     if (isFirstRender.current) return;
     fetchProducts();
+    return () => { generation.current++; };
   }, [fetchProducts]);
 
   useEffect(() => {

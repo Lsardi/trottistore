@@ -2,6 +2,7 @@
 
 import { useState, Suspense, useMemo } from "react";
 import { useEffect } from "react";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -123,7 +124,7 @@ function formatPrice(amount: string | number): string {
   const searchParams = useSearchParams();
   // Sanitize redirect to prevent open redirect attacks
   const rawNext = searchParams.get("next") || "/mon-compte";
-  const nextPath = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/mon-compte";
+  const nextPath = safeRedirectPath(rawNext, typeof window === "undefined" ? "https://local.invalid" : window.location.origin);
 
   const [mode, setMode] = useState<"login" | "register">("login");
   const [booting, setBooting] = useState(true);

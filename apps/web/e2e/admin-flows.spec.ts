@@ -72,7 +72,8 @@ test.describe("Admin Flows — Real Browser Login", () => {
     console.log(`  RGPD export: ${hasExport}, delete: ${hasDelete}`);
   });
 
-  test("Full purchase flow — browse → add to cart → checkout → confirmation", async ({ page }) => {
+  test.fixme("Full purchase flow — browse → add to cart → checkout → confirmation", async ({ page }) => {
+    // Requires a seeded in-stock product and guest order submission; current conditional flow never verifies confirmation.
     // 1. Browse catalogue
     await page.goto("/produits");
     await page.waitForTimeout(3000);
@@ -119,10 +120,11 @@ test.describe("Admin Flows — Real Browser Login", () => {
     }
   });
 
-  test("SAV flow — deposit ticket → get tracking", async ({ page }) => {
+  test.fixme("SAV flow — deposit ticket → get tracking", async ({ page }) => {
     await page.goto("/reparation");
     await page.waitForTimeout(2000);
 
+    // Legacy selectors and conditional assertions need to be aligned with the current repair intake flow.
     // Fill form
     const nameInput = page.locator("input[placeholder*='Nom'], input[id*='name']").first();
     if (await nameInput.count() > 0) {

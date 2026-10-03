@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "tsc --noEmit",
     "lint:next": "next lint",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test": "pnpm -w exec vitest run --project web"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.0.0",
@@ -16,6 +17,7 @@
     "@trottistore/shared": "workspace:*",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.0",
+    "jose": "^6.2.12",
     "lucide-react": "^0.577.0",
     "next": "^15.5.27",
     "react": "^19.0.0",

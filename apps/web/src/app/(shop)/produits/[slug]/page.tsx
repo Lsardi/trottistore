@@ -8,6 +8,7 @@ import { formatPriceTTC, priceTTC } from "@/lib/utils";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/api";
 import ProductGallery from "./ProductGallery";
+import VariantSelector from "./VariantSelector";
 import AddToCartSection from "./AddToCartSection";
 import StockAlertForm from "./StockAlertForm";
 import ProductReviews from "./ProductReviews";
@@ -37,28 +38,7 @@ function formatHT(priceHt: string): string {
   }).format(num);
 }
 
-import sanitizeHtml from "sanitize-html";
-
-/**
- * Server-safe HTML sanitizer using sanitize-html (no DOM dependency).
- * Whitelist approach: only allow safe tags and attributes.
- */
-function sanitizeProductHtml(html?: string | null): string {
-  if (!html) return "";
-  return sanitizeHtml(html, {
-    allowedTags: ["p", "br", "strong", "b", "em", "i", "u", "ul", "ol", "li", "h2", "h3", "h4", "span", "div", "table", "thead", "tbody", "tr", "td", "th", "a", "img"],
-    allowedAttributes: {
-      a: ["href", "title", "target", "rel"],
-      img: ["src", "alt", "width", "height"],
-      span: ["class"],
-      div: ["class"],
-      td: ["colspan", "rowspan"],
-      th: ["colspan", "rowspan"],
-    },
-    allowedSchemes: ["http", "https"],
-    disallowedTagsMode: "discard",
-  });
-}
+import { sanitizeProductHtml } from "@/lib/sanitize";
 
 async function fetchProductBySlug(slug: string): Promise<Product | null> {
   try {
@@ -91,8 +71,9 @@ async function fetchRelatedProducts(product: Product): Promise<Product[]> {
   }
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ variant?: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  const { variant: variantId } = await searchParams;
   const product = await fetchProductBySlug(slug);
 
   if (!product) {
@@ -102,10 +83,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
-  const displayPriceHt =
+  const selectedVariant = product.variants?.find((v) => v.id === variantId) ?? product.variants?.[0];
+  const displayPriceHt = selectedVariant?.priceOverride ?? (
     product.salePriceHt && parseFloat(product.salePriceHt) < parseFloat(product.priceHt)
       ? product.salePriceHt
-      : product.priceHt;
+      : product.priceHt);
   const ttc = priceTTC(displayPriceHt, product.tvaRate).toFixed(2);
   const description = (product.shortDescription || product.description || brand.seo.description)
     .replace(/<[^>]+>/g, " ")
@@ -146,8 +128,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ProductPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ variant?: string }> }) {
   const { slug } = await params;
+  const { variant: variantId } = await searchParams;
   const product = await fetchProductBySlug(slug);
 
   if (!product) {
@@ -156,13 +139,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   const relatedProducts = await fetchRelatedProducts(product);
 
-  const variant = product.variants?.[0];
-  const inStock = variant ? variant.stockQuantity > 0 : true;
-  const stockQty = variant?.stockQuantity ?? 0;
+  const variant = product.variants?.find((v) => v.id === variantId) ?? product.variants?.[0];
+  const inStock = variant ? variant.stockQuantity - (variant.stockReserved ?? 0) > 0 : false;
+  const stockQty = Math.max(0, (variant?.stockQuantity ?? 0) - (variant?.stockReserved ?? 0));
   const images = product.images?.length ? product.images : [];
   const hasSalePrice = !!product.salePriceHt && parseFloat(product.salePriceHt) < parseFloat(product.priceHt);
 
-  const displayPriceHt = hasSalePrice ? product.salePriceHt! : product.priceHt;
+  const displayPriceHt = variant?.priceOverride ?? (hasSalePrice ? product.salePriceHt! : product.priceHt);
   const ttcFormatted = formatPriceTTC(displayPriceHt, product.tvaRate);
   const ttcNum = priceTTC(displayPriceHt, product.tvaRate);
 
@@ -188,11 +171,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     name: product.name,
     description: product.shortDescription || product.description || "",
     image: images.map((img) => img.url),
-    sku: product.sku || undefined,
+    sku: variant?.sku || product.sku || undefined,
     brand: product.brand ? { "@type": "Brand", name: product.brand.name } : undefined,
     offers: {
       "@type": "Offer",
-      url: `https://trottistore.fr/produits/${slug}`,
+      url: `https://trottistore.fr/produits/${slug}${variant ? `?variant=${encodeURIComponent(variant.id)}` : ""}`,
       priceCurrency: "EUR",
       price: ttcNum.toFixed(2),
       availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
@@ -263,6 +246,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
             <div className="divider mb-5" />
 
+            {product.variants?.length > 1 && <VariantSelector variants={product.variants} selectedId={variant!.id} />}
+
             {/* Price section -- prominent */}
             <div className="mb-5">
               <div className="flex items-baseline gap-3">
@@ -282,7 +267,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                 >
                   TTC
                 </span>
-                {hasSalePrice && (
+                {hasSalePrice && !variant?.priceOverride && (
                   <span className="font-mono text-sm line-through" style={{ color: "var(--color-text-dim)" }}>
                     {formatPriceTTC(product.priceHt, product.tvaRate)}
                   </span>
@@ -406,7 +391,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <div className="divider mb-5" />
 
             {inStock ? (
-              <AddToCartSection productId={product.id} variantId={variant?.id} maxQuantity={variant?.stockQuantity ?? 99} />
+              <AddToCartSection key={variant?.id} productId={product.id} variantId={variant?.id} maxQuantity={stockQty} />
             ) : (
               <StockAlertForm productId={product.id} variantId={variant?.id} />
             )}
@@ -446,6 +431,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             </div>
           </div>
         </div>
+
+        {product.description && <section className="mt-8 prose prose-invert max-w-none" aria-label="Description du produit" dangerouslySetInnerHTML={{ __html: sanitizeProductHtml(product.description) }} />}
 
         <ProductReviews slug={product.slug} />
 
