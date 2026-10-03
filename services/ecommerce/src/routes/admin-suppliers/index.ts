@@ -5,6 +5,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireRole } from "../../plugins/auth.js";
+import { notifyBackInStock } from "../../lib/back-in-stock.js";
 
 function slugify(input: string): string {
   return input
@@ -42,9 +43,42 @@ const poCreateSchema = z.object({
   totalHt: z.number().nonnegative().optional(),
   currency: z.string().length(3).optional(),
   note: z.string().optional().nullable(),
+  items: z
+    .array(
+      z.object({
+        variantId: z.string().uuid(),
+        quantityOrdered: z.number().int().positive(),
+        unitCostHt: z.number().nonnegative().optional(),
+      }),
+    )
+    .optional(),
 });
 
-const poUpdateSchema = poCreateSchema.partial();
+const poUpdateSchema = poCreateSchema.omit({ items: true }).partial();
+
+const poItemsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        variantId: z.string().uuid(),
+        quantityOrdered: z.number().int().positive(),
+        unitCostHt: z.number().nonnegative().optional(),
+      }),
+    )
+    .min(1),
+});
+
+const poReceiveSchema = z.object({
+  lines: z
+    .array(
+      z.object({
+        variantId: z.string().uuid(),
+        quantityReceived: z.number().int().positive(),
+      }),
+    )
+    .min(1),
+  note: z.string().max(500).optional(),
+});
 
 export async function adminSupplierRoutes(app: FastifyInstance) {
   const adminOnly = {
@@ -197,6 +231,7 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
       take: 100,
       include: {
         supplier: { select: { id: true, name: true, slug: true } },
+        items: { include: { variant: { select: { sku: true, name: true, product: { select: { name: true } } } } } },
       },
     });
     return { success: true, data: pos };
@@ -231,11 +266,19 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
         orderedAt: parsed.data.orderedAt ? new Date(parsed.data.orderedAt) : null,
         expectedAt: parsed.data.expectedAt ? new Date(parsed.data.expectedAt) : null,
         receivedAt: parsed.data.receivedAt ? new Date(parsed.data.receivedAt) : null,
-        totalHt: parsed.data.totalHt ?? 0,
+        totalHt:
+          parsed.data.totalHt ??
+          (parsed.data.items ?? []).reduce((sum, i) => sum + (i.unitCostHt ?? 0) * i.quantityOrdered, 0),
         currency: parsed.data.currency ?? "EUR",
         note: parsed.data.note ?? null,
+        items: parsed.data.items
+          ? { create: parsed.data.items.map((i) => ({ variantId: i.variantId, quantityOrdered: i.quantityOrdered, unitCostHt: i.unitCostHt ?? 0 })) }
+          : undefined,
       },
-      include: { supplier: { select: { id: true, name: true, slug: true } } },
+      include: {
+        supplier: { select: { id: true, name: true, slug: true } },
+        items: { include: { variant: { select: { sku: true, name: true, product: { select: { name: true } } } } } },
+      },
     });
     const userId = (request.user as { userId?: string; id?: string }).userId ?? (request.user as { id?: string }).id;
     app.log.info({ purchaseOrderId: created.id, reference, supplierId: parsed.data.supplierId, userId }, "Purchase order created");
@@ -309,5 +352,125 @@ export async function adminSupplierRoutes(app: FastifyInstance) {
     await app.prisma.purchaseOrder.delete({ where: { id } });
     app.log.info({ purchaseOrderId: id, reference: existing.reference, userId }, "Purchase order deleted");
     return { success: true };
+  });
+
+  // PUT /admin/purchase-orders/:id/items — replace the lines of a DRAFT/SENT order
+  app.put("/admin/purchase-orders/:id/items", adminOnly, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = poItemsSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "Invalid PO items", details: parsed.error.flatten().fieldErrors },
+      });
+    }
+    const po = await app.prisma.purchaseOrder.findUnique({ where: { id }, select: { status: true } });
+    if (!po) return reply.status(404).send({ success: false, error: { code: "NOT_FOUND", message: "Bon de commande introuvable" } });
+    if (!["DRAFT", "SENT"].includes(po.status)) {
+      return reply.status(409).send({
+        success: false,
+        error: { code: "PO_LOCKED", message: "Les lignes ne sont modifiables qu'avant réception" },
+      });
+    }
+    const totalHt = parsed.data.items.reduce((sum, i) => sum + (i.unitCostHt ?? 0) * i.quantityOrdered, 0);
+    const updated = await app.prisma.$transaction(async (tx) => {
+      await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
+      return tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          totalHt,
+          items: { create: parsed.data.items.map((i) => ({ variantId: i.variantId, quantityOrdered: i.quantityOrdered, unitCostHt: i.unitCostHt ?? 0 })) },
+        },
+        include: { items: { include: { variant: { select: { sku: true, name: true, product: { select: { name: true } } } } } } },
+      });
+    });
+    return { success: true, data: updated };
+  });
+
+  // POST /admin/purchase-orders/:id/receive — réception (totale ou partielle)
+  // Each line increments the variant stock and writes an IN_PURCHASE movement;
+  // the PO becomes PARTIAL or RECEIVED from the sum of its lines.
+  app.post("/admin/purchase-orders/:id/receive", adminOnly, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = poReceiveSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "Invalid receipt", details: parsed.error.flatten().fieldErrors },
+      });
+    }
+    const user = request.user as { userId?: string; id?: string };
+    const performedBy = user.userId ?? user.id ?? null;
+
+    try {
+      const result = await app.prisma.$transaction(async (tx) => {
+        const po = await tx.purchaseOrder.findUnique({ where: { id }, include: { items: true } });
+        if (!po) throw Object.assign(new Error("Bon de commande introuvable"), { statusCode: 404, code: "NOT_FOUND" });
+        if (po.status === "CANCELLED" || po.status === "RECEIVED") {
+          throw Object.assign(new Error(`Bon de commande ${po.status}`), { statusCode: 409, code: "PO_CLOSED" });
+        }
+        const byVariant = new Map(po.items.map((i) => [i.variantId, i]));
+        const received: Array<{ variantId: string; quantity: number; stockAfter: number; overReceived: boolean }> = [];
+
+        for (const line of parsed.data.lines) {
+          const item = byVariant.get(line.variantId);
+          if (!item) {
+            throw Object.assign(new Error(`Variante ${line.variantId} absente du bon de commande`), {
+              statusCode: 400,
+              code: "LINE_NOT_ON_PO",
+            });
+          }
+          const variant = await tx.productVariant.update({
+            where: { id: line.variantId },
+            data: { stockQuantity: { increment: line.quantityReceived } },
+            select: { stockQuantity: true },
+          });
+          await tx.purchaseOrderItem.update({
+            where: { id: item.id },
+            data: { quantityReceived: { increment: line.quantityReceived } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              variantId: line.variantId,
+              type: "IN_PURCHASE",
+              quantity: line.quantityReceived,
+              reason: parsed.data.note ?? `Réception ${po.reference}`,
+              referenceId: po.id,
+              referenceType: "PURCHASE_ORDER",
+              performedBy,
+              stockBefore: variant.stockQuantity - line.quantityReceived,
+              stockAfter: variant.stockQuantity,
+            },
+          });
+          received.push({
+            variantId: line.variantId,
+            quantity: line.quantityReceived,
+            stockAfter: variant.stockQuantity,
+            overReceived: item.quantityReceived + line.quantityReceived > item.quantityOrdered,
+          });
+        }
+
+        const items = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId: id } });
+        const complete = items.every((i) => i.quantityReceived >= i.quantityOrdered);
+        const updated = await tx.purchaseOrder.update({
+          where: { id },
+          data: { status: complete ? "RECEIVED" : "PARTIAL", receivedAt: complete ? new Date() : po.receivedAt },
+          include: { items: { include: { variant: { select: { sku: true, name: true, product: { select: { name: true } } } } } } },
+        });
+        return { purchaseOrder: updated, received };
+      });
+      app.log.info({ purchaseOrderId: id, lines: result.received.length, performedBy }, "Purchase order received");
+      // Customers waiting for these products (back-in-stock alerts) — outside the transaction.
+      for (const line of result.received) {
+        if (line.stockAfter > 0 && line.stockAfter - line.quantity <= 0) notifyBackInStock(app, line.variantId);
+      }
+      return { success: true, data: result };
+    } catch (err) {
+      const e = err as { statusCode?: number; code?: string; message?: string };
+      if (e.statusCode && e.statusCode < 500) {
+        return reply.status(e.statusCode).send({ success: false, error: { code: e.code ?? "ERROR", message: e.message ?? "" } });
+      }
+      throw err;
+    }
   });
 }

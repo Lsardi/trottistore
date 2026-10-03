@@ -266,10 +266,56 @@ model PurchaseOrder {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
   supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  items    PurchaseOrderItem[]
 
   @@index([supplierId])
   @@index([status])
   @@map("purchase_orders")
+  @@schema("ecommerce")
+}
+
+// One line per variant on a purchase order. Receiving a delivery increments
+// quantityReceived and creates IN_PURCHASE stock movements; the PO becomes
+// PARTIAL or RECEIVED from the sum of its lines.
+model PurchaseOrderItem {
+  id               String   @id @default(uuid()) @db.Uuid
+  purchaseOrderId  String   @map("purchase_order_id") @db.Uuid
+  variantId        String   @map("variant_id") @db.Uuid
+  quantityOrdered  Int      @map("quantity_ordered")
+  quantityReceived Int      @default(0) @map("quantity_received")
+  unitCostHt       Decimal  @default(0) @map("unit_cost_ht") @db.Decimal(10, 2)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  purchaseOrder PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  variant       ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@unique([purchaseOrderId, variantId])
+  @@index([variantId])
+  @@map("purchase_order_items")
+  @@schema("ecommerce")
+}
+
+// Cash register session (fond de caisse → clôture). Counter sales are Orders
+// with channel = STORE attached to the open session; closing compares the
+// counted cash with the expected one (opening + cash sales − cash refunds).
+model PosSession {
+  id                String    @id @default(uuid()) @db.Uuid
+  status            String    @default("OPEN") @db.VarChar(10) // OPEN, CLOSED
+  openedBy          String    @map("opened_by") @db.Uuid
+  openedAt          DateTime  @default(now()) @map("opened_at") @db.Timestamptz()
+  openingCashCents  Int       @map("opening_cash_cents")
+  closedBy          String?   @map("closed_by") @db.Uuid
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz()
+  closingCashCents  Int?      @map("closing_cash_cents") // counted by the cashier
+  expectedCashCents Int?      @map("expected_cash_cents") // computed at close
+  note              String?   @db.Text
+
+  sales Order[]
+
+  @@index([status])
+  @@index([openedAt(sort: Desc)])
+  @@map("pos_sessions")
   @@schema("ecommerce")
 }
 
@@ -393,6 +439,7 @@ model ProductVariant {
   id             String  @id @default(uuid()) @db.Uuid
   productId      String  @map("product_id") @db.Uuid
   sku            String  @unique @db.VarChar(100)
+  barcode        String? @unique @db.VarChar(64) // EAN-13 / UPC / supplier code, scanned at the counter and on receipt
   name           String  @db.VarChar(300)
   priceOverride  Decimal? @map("price_override_ht") @db.Decimal(10, 2)
   stockQuantity  Int     @default(0) @map("stock_quantity") // DB CHECK: stock_quantity >= 0
@@ -408,6 +455,7 @@ model ProductVariant {
   repairParts RepairPartUsed[]
   stockAlerts StockAlert[]
   stockMovements StockMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
 
   @@index([productId])
   @@index([sku])
@@ -498,6 +546,8 @@ model Order {
   totalTtc        Decimal  @map("total_ttc") @db.Decimal(10, 2)
   shippingMethod    String   @default("DELIVERY") @map("shipping_method") @db.VarChar(20) // DELIVERY, STORE_PICKUP
   notes             String?  @db.Text
+  channel           String   @default("WEB") @db.VarChar(10) // WEB (site), STORE (vente comptoir)
+  posSessionId      String?  @map("pos_session_id") @db.Uuid
   trackingNumber    String?  @map("tracking_number") @db.VarChar(100)
   pickupReadyAt     DateTime? @map("pickup_ready_at") @db.Timestamptz()
   pickupCollectedAt DateTime? @map("pickup_collected_at") @db.Timestamptz()
@@ -507,6 +557,7 @@ model Order {
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
   customer     User              @relation(fields: [customerId], references: [id])
+  posSession   PosSession?       @relation(fields: [posSessionId], references: [id], onDelete: SetNull)
   items        OrderItem[]
   payments     Payment[]
   installments PaymentInstallment[]
@@ -515,6 +566,8 @@ model Order {
   @@index([customerId])
   @@index([customerId, createdAt(sort: Desc)])
   @@index([status])
+  @@index([channel, createdAt(sort: Desc)])
+  @@index([posSessionId])
   @@index([status, createdAt(sort: Desc)])
   @@index([paymentStatus])
   @@index([paymentStatus, createdAt(sort: Desc)])

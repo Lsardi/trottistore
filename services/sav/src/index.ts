@@ -14,6 +14,7 @@ import { healthRoutes } from "./routes/health.js";
 import { repairRoutes } from "./routes/tickets/index.js";
 import { technicianRoutes } from "./routes/technicians/index.js";
 import { statsRoutes } from "./routes/stats/index.js";
+import { todayRoutes } from "./routes/today/index.js";
 import { scooterModelsRoutes } from "./routes/scooter-models/index.js";
 import { quoteRoutes } from "./routes/repair-quotes/index.js";
 import { metricsPlugin } from "./plugins/metrics.js";
@@ -192,6 +193,7 @@ async function start() {
   await app.register(quoteRoutes, { prefix: "/api/v1" });
   await app.register(technicianRoutes, { prefix: "/api/v1" });
   await app.register(statsRoutes, { prefix: "/api/v1" });
+  await app.register(todayRoutes, { prefix: "/api/v1" });
   await app.register(scooterModelsRoutes, { prefix: "/api/v1" });
 
   // Demarrage

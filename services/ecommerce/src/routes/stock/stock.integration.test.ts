@@ -28,6 +28,7 @@ function buildApp(): FastifyInstance {
         product: { name: "Xiaomi Pro 2" },
       }),
       update: vi.fn().mockResolvedValue({ id: VARIANT_ID, stockQuantity: 25 }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     stockMovement: {
       create: vi.fn().mockResolvedValue({ id: "mv-1" }),
@@ -144,5 +145,63 @@ describe("Stock routes", () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(200);
+  });
+
+  describe("POST /stock/inventory", () => {
+    it("aligns stock on the counted value and records one adjustment per discrepancy", async () => {
+      const token = await signToken(app, "STAFF");
+      const findUnique = app.prisma.productVariant.findUnique as ReturnType<typeof vi.fn>;
+      findUnique
+        .mockResolvedValueOnce({ id: VARIANT_ID, sku: "A", stockQuantity: 20, stockReserved: 0 })
+        .mockResolvedValueOnce({ id: "00000000-0000-0000-0000-000000000031", sku: "B", stockQuantity: 4, stockReserved: 0 });
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/stock/inventory",
+        headers: { authorization: `Bearer ${token}` },
+        payload: { counts: [{ variantId: VARIANT_ID, counted: 17 }, { variantId: "00000000-0000-0000-0000-000000000031", counted: 4 }] },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json().data;
+      expect(body.counted).toBe(2);
+      expect(body.adjusted).toBe(1); // B was already right → no movement
+      expect(body.adjustments[0]).toMatchObject({ sku: "A", before: 20, counted: 17, delta: -3 });
+      expect(app.prisma.productVariant.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: VARIANT_ID, stockQuantity: 20 }, data: { stockQuantity: 17 } }),
+      );
+      expect(app.prisma.stockMovement.create).toHaveBeenCalledTimes(1);
+      expect(app.prisma.stockMovement.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ type: "OUT_ADJUSTMENT", quantity: -3, referenceType: "INVENTORY", stockBefore: 20, stockAfter: 17 }) }),
+      );
+    });
+
+    it("refuses to overwrite a stock that moved during the count (409 STOCK_CHANGED)", async () => {
+      const token = await signToken(app, "MANAGER");
+      (app.prisma.productVariant.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ id: VARIANT_ID, sku: "A", stockQuantity: 20, stockReserved: 0 });
+      (app.prisma.productVariant.updateMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ count: 0 });
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/stock/inventory",
+        headers: { authorization: `Bearer ${token}` },
+        payload: { counts: [{ variantId: VARIANT_ID, counted: 10 }] },
+      });
+
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe("STOCK_CHANGED");
+      expect(app.prisma.stockMovement.create).not.toHaveBeenCalled();
+    });
+
+    it("is staff-only", async () => {
+      const token = await signToken(app, "CLIENT");
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/stock/inventory",
+        headers: { authorization: `Bearer ${token}` },
+        payload: { counts: [{ variantId: VARIANT_ID, counted: 10 }] },
+      });
+      expect(res.statusCode).toBe(403);
+    });
   });
 });
