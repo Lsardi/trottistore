@@ -93,7 +93,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: javascript-typescript
-          queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: CodeQL — analyze
         uses: github/codeql-action/analyze@v3

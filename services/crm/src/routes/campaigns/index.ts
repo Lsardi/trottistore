@@ -360,12 +360,10 @@ export async function campaignRoutes(app: FastifyInstance) {
       // row is the lock. Two workers racing on the same campaign can't both
       // email the same person, and a crash between send and bookkeeping leaves
       // a visible PENDING row instead of a silent double send on recovery.
-      let claimed = false;
       try {
         await app.prisma.campaignSend.create({
           data: { campaignId: id, customerId: profile.userId, email: profile.user.email, status: "PENDING" },
         });
-        claimed = true;
       } catch (err) {
         if ((err as { code?: string }).code !== "P2002") throw err;
         // Row exists: SENT → already done; FAILED → retry by re-claiming; PENDING → another worker owns it.
@@ -373,9 +371,7 @@ export async function campaignRoutes(app: FastifyInstance) {
           where: { campaignId: id, customerId: profile.userId, status: "FAILED" },
           data: { status: "PENDING", errorMessage: null },
         });
-        if (retry.count === 1) {
-          claimed = true;
-        } else {
+        if (retry.count !== 1) {
           const existing = await app.prisma.campaignSend.findUnique({
             where: { campaignId_customerId: { campaignId: id, customerId: profile.userId } },
             select: { status: true },
@@ -384,7 +380,6 @@ export async function campaignRoutes(app: FastifyInstance) {
           continue;
         }
       }
-      if (!claimed) continue;
 
       const success = await sendEmail(
         profile.user.email,
