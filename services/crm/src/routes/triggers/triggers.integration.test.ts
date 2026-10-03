@@ -43,6 +43,7 @@ function buildApp(role: string = "ADMIN", cronSecret: string | undefined = TEST_
     notificationLog: {
       findFirst: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   });
 
@@ -249,6 +250,7 @@ function buildFullApp(cronSecret: string | undefined = TEST_CRON_SECRET): Fastif
     notificationLog: {
       findFirst: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   });
 

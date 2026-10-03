@@ -783,7 +783,7 @@ model CampaignSend {
   campaignId  String    @map("campaign_id") @db.Uuid
   customerId  String    @map("customer_id") @db.Uuid
   email       String    @db.VarChar(255)
-  status      String    @default("SENT") @db.VarChar(20) // SENT, DELIVERED, FAILED, BOUNCED
+  status      String    @default("SENT") @db.VarChar(20) // PENDING (claimed, sending), SENT, DELIVERED, FAILED, BOUNCED
   sentAt      DateTime  @default(now()) @map("sent_at") @db.Timestamptz()
   errorMessage String?  @map("error_message") @db.Text
 

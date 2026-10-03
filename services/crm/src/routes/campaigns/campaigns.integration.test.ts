@@ -8,11 +8,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { campaignRoutes } from "./index.js";
+import { sendEmail } from "@trottistore/shared/notifications";
 
 // Mock email sending
 vi.mock("@trottistore/shared/notifications", () => ({
   sendEmail: vi.fn().mockResolvedValue(true),
 }));
+const sendEmailMock = vi.mocked(sendEmail);
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -64,6 +66,7 @@ function buildApp(role = "ADMIN"): FastifyInstance {
     campaignSend: {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue(null),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       groupBy: vi.fn().mockResolvedValue([]),
     },
     newsletterSubscriber: {
@@ -206,6 +209,30 @@ describe("Campaign routes", () => {
       // SENDING is now atomic via updateMany, only SENT uses update
       expect(app.prisma.emailCampaign.updateMany).toHaveBeenCalledTimes(1); // DRAFT → SENDING
       expect(app.prisma.emailCampaign.update).toHaveBeenCalledTimes(1); // → SENT
+    });
+
+    it("never emails a recipient another worker already claimed, and retries FAILED ones", async () => {
+      (app.prisma.emailCampaign.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ...CAMPAIGN_DRAFT,
+        status: "SENDING", // recovery path
+      });
+      const create = app.prisma.campaignSend.create as ReturnType<typeof vi.fn>;
+      const updateMany = app.prisma.campaignSend.updateMany as ReturnType<typeof vi.fn>;
+      const findUnique = app.prisma.campaignSend.findUnique as ReturnType<typeof vi.fn>;
+      // alice: row exists (P2002) and is SENT → skip; bob: row exists and is FAILED → re-claim and send.
+      create.mockRejectedValueOnce({ code: "P2002" }).mockRejectedValueOnce({ code: "P2002" });
+      updateMany
+        .mockResolvedValueOnce({ count: 0 }) // alice: not FAILED
+        .mockResolvedValueOnce({ count: 1 }) // bob: FAILED → PENDING
+        .mockResolvedValueOnce({ count: 1 }); // bob: PENDING → SENT
+      findUnique.mockResolvedValueOnce({ status: "SENT" }); // alice
+
+      const res = await app.inject({ method: "POST", url: "/api/v1/campaigns/camp-1/send" });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.sent).toBe(2); // alice counted from the SENT row, bob actually sent
+      expect(sendEmailMock).toHaveBeenCalledTimes(1);
+      expect(sendEmailMock).toHaveBeenCalledWith("bob@test.com", expect.anything(), expect.anything(), expect.anything());
     });
 
     it("rejects send on non-DRAFT campaign", async () => {

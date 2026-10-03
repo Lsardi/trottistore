@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseIdParam } from "@trottistore/shared";
 import { isInternalCronCall } from "../../lib/cron-auth.js";
+import { sendSms } from "@trottistore/shared/notifications";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -224,8 +225,9 @@ async function executeTrigger(
         for (const ticket of tickets) {
           processed++;
           // Idempotence: check if already sent for this ticket + trigger
+          // Idempotence: a SENT log blocks; a FAILED one is retried on the next run.
           const existing = await app.prisma.notificationLog.findFirst({
-            where: { triggerId: trigger.id, ticketId: ticket.id },
+            where: { triggerId: trigger.id, ticketId: ticket.id, status: "SENT" },
           });
           if (existing) continue;
 
@@ -253,8 +255,9 @@ async function executeTrigger(
 
         for (const ticket of tickets) {
           processed++;
+          // Idempotence: a SENT log blocks; a FAILED one is retried on the next run.
           const existing = await app.prisma.notificationLog.findFirst({
-            where: { triggerId: trigger.id, ticketId: ticket.id },
+            where: { triggerId: trigger.id, ticketId: ticket.id, status: "SENT" },
           });
           if (existing) continue;
 
@@ -281,8 +284,9 @@ async function executeTrigger(
 
         for (const ticket of tickets) {
           processed++;
+          // Idempotence: a SENT log blocks; a FAILED one is retried on the next run.
           const existing = await app.prisma.notificationLog.findFirst({
-            where: { triggerId: trigger.id, ticketId: ticket.id },
+            where: { triggerId: trigger.id, ticketId: ticket.id, status: "SENT" },
           });
           if (existing) continue;
 
@@ -380,14 +384,13 @@ async function sendTriggerNotification(
     }
   }
 
-  // Send SMS (log in dev)
+  // Send SMS through the shared Brevo transport (dev-logs and returns false
+  // when BREVO_API_KEY is unset — never report a send that did not happen).
   if ((trigger.channel === "SMS" || trigger.channel === "BOTH") && ticket.customerPhone) {
-    if (process.env.BREVO_API_KEY) {
-      // Would call Brevo SMS API here — same as notification engine
-      app.log.info({ ticketId: ticket.id, channel: "sms" }, "SMS sent via Brevo");
-      smsSent = true;
-    } else {
-      app.log.info({ ticketId: ticket.id, channel: "sms" }, "BREVO_API_KEY not configured, SMS skipped");
+    try {
+      smsSent = await sendSms(ticket.customerPhone, textContent);
+    } catch (err) {
+      app.log.error({ err, ticketId: ticket.id, channel: "sms" }, "SMS send failed");
       smsSent = false;
     }
   }
@@ -409,7 +412,15 @@ async function sendTriggerNotification(
   } catch (err: unknown) {
     const prismaErr = err as { code?: string };
     if (prismaErr.code === "P2002") {
-      app.log.info({ triggerId: trigger.id, ticketId: ticket.id }, "duplicate notification skipped");
+      // Row already exists: either a concurrent run won, or this is a retry of a
+      // FAILED attempt — record the new outcome on that row.
+      await app.prisma.notificationLog.updateMany({
+        where: { triggerId: trigger.id, ticketId: ticket.id, status: "FAILED" },
+        data: {
+          status: (emailSent || smsSent) ? "SENT" : "FAILED",
+          channel: emailSent && smsSent ? "BOTH" : emailSent ? "EMAIL" : smsSent ? "SMS" : "NONE",
+        },
+      });
       return emailSent || smsSent;
     }
     throw err;
