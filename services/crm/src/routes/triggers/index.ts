@@ -1,7 +1,9 @@
+import { requireRole } from "../../plugins/auth.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseIdParam } from "@trottistore/shared";
 import { isInternalCronCall } from "../../lib/cron-auth.js";
+import { sendSms } from "@trottistore/shared/notifications";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -45,7 +47,7 @@ function getRequestUser(request: { user?: unknown }): RequestUser | undefined {
 
 export async function triggerRoutes(app: FastifyInstance) {
   // GET /triggers — List all automated triggers (MANAGER+ only)
-  app.get("/triggers", async (request, reply) => {
+  app.get("/triggers", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const user = getRequestUser(request);
     if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({
@@ -64,7 +66,7 @@ export async function triggerRoutes(app: FastifyInstance) {
   });
 
   // POST /triggers — Create a new trigger config
-  app.post("/triggers", async (request, reply) => {
+  app.post("/triggers", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const user = getRequestUser(request);
     if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({
@@ -90,7 +92,13 @@ export async function triggerRoutes(app: FastifyInstance) {
   });
 
   // POST /triggers/run — Execute all active triggers (called by cron or MANAGER+ manually)
-  app.post("/triggers/run", async (request, reply) => {
+  app.post("/triggers/run", {
+    preHandler: [async (request, reply) => {
+      if (!isInternalCronCall(request.headers["x-internal-cron"], app.cronSecret)) {
+        await requireRole("SUPERADMIN", "ADMIN")(request, reply);
+      }
+    }],
+  }, async (request, reply) => {
     // Allow in-process cron calls authenticated by app.cronSecret. The header
     // value is compared constant-time against the per-process random nonce
     // generated at boot in services/crm/src/index.ts. Clients cannot spoof it.
@@ -129,7 +137,7 @@ export async function triggerRoutes(app: FastifyInstance) {
   });
 
   // PUT /triggers/:id/toggle — Enable/disable a trigger (MANAGER+ only)
-  app.put("/triggers/:id/toggle", async (request, reply) => {
+  app.put("/triggers/:id/toggle", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const user = getRequestUser(request);
     if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({
@@ -157,7 +165,7 @@ export async function triggerRoutes(app: FastifyInstance) {
   });
 
   // GET /triggers/:id/logs — Notification logs for a trigger (MANAGER+ only)
-  app.get("/triggers/:id/logs", async (request, reply) => {
+  app.get("/triggers/:id/logs", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const user = getRequestUser(request);
     if (!user || user.role === "CLIENT" || user.role === "TECHNICIAN" || user.role === "STAFF") {
       return reply.status(403).send({
@@ -217,8 +225,9 @@ async function executeTrigger(
         for (const ticket of tickets) {
           processed++;
           // Idempotence: check if already sent for this ticket + trigger
+          // Idempotence: a SENT log blocks; a FAILED one is retried on the next run.
           const existing = await app.prisma.notificationLog.findFirst({
-            where: { triggerId: trigger.id, ticketId: ticket.id },
+            where: { triggerId: trigger.id, ticketId: ticket.id, status: "SENT" },
           });
           if (existing) continue;
 
@@ -246,8 +255,9 @@ async function executeTrigger(
 
         for (const ticket of tickets) {
           processed++;
+          // Idempotence: a SENT log blocks; a FAILED one is retried on the next run.
           const existing = await app.prisma.notificationLog.findFirst({
-            where: { triggerId: trigger.id, ticketId: ticket.id },
+            where: { triggerId: trigger.id, ticketId: ticket.id, status: "SENT" },
           });
           if (existing) continue;
 
@@ -274,8 +284,9 @@ async function executeTrigger(
 
         for (const ticket of tickets) {
           processed++;
+          // Idempotence: a SENT log blocks; a FAILED one is retried on the next run.
           const existing = await app.prisma.notificationLog.findFirst({
-            where: { triggerId: trigger.id, ticketId: ticket.id },
+            where: { triggerId: trigger.id, ticketId: ticket.id, status: "SENT" },
           });
           if (existing) continue;
 
@@ -373,14 +384,13 @@ async function sendTriggerNotification(
     }
   }
 
-  // Send SMS (log in dev)
+  // Send SMS through the shared Brevo transport (dev-logs and returns false
+  // when BREVO_API_KEY is unset — never report a send that did not happen).
   if ((trigger.channel === "SMS" || trigger.channel === "BOTH") && ticket.customerPhone) {
-    if (process.env.BREVO_API_KEY) {
-      // Would call Brevo SMS API here — same as notification engine
-      app.log.info({ ticketId: ticket.id, channel: "sms" }, "SMS sent via Brevo");
-      smsSent = true;
-    } else {
-      app.log.info({ ticketId: ticket.id, channel: "sms" }, "BREVO_API_KEY not configured, SMS skipped");
+    try {
+      smsSent = await sendSms(ticket.customerPhone, textContent);
+    } catch (err) {
+      app.log.error({ err, ticketId: ticket.id, channel: "sms" }, "SMS send failed");
       smsSent = false;
     }
   }
@@ -402,7 +412,15 @@ async function sendTriggerNotification(
   } catch (err: unknown) {
     const prismaErr = err as { code?: string };
     if (prismaErr.code === "P2002") {
-      app.log.info({ triggerId: trigger.id, ticketId: ticket.id }, "duplicate notification skipped");
+      // Row already exists: either a concurrent run won, or this is a retry of a
+      // FAILED attempt — record the new outcome on that row.
+      await app.prisma.notificationLog.updateMany({
+        where: { triggerId: trigger.id, ticketId: ticket.id, status: "FAILED" },
+        data: {
+          status: (emailSent || smsSent) ? "SENT" : "FAILED",
+          channel: emailSent && smsSent ? "BOTH" : emailSent ? "EMAIL" : smsSent ? "SMS" : "NONE",
+        },
+      });
       return emailSent || smsSent;
     }
     throw err;

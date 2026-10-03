@@ -36,6 +36,10 @@ const publicBatchEventsSchema = z.object({
 });
 
 const REDIS_EVENTS_KEY = "analytics:events";
+// No consumer drains this list yet (ClickHouse ingestion is future work), and the
+// public endpoint is reachable by anyone: bound it so Redis cannot grow forever.
+const REDIS_EVENTS_MAX = 50_000; // keep the newest N events
+const REDIS_EVENTS_TTL_SECONDS = 7 * 24 * 3600; // drop the whole buffer if nothing writes for a week
 
 export async function eventsRoutes(app: FastifyInstance) {
   // POST /analytics/events — batch event ingestion
@@ -52,6 +56,8 @@ export async function eventsRoutes(app: FastifyInstance) {
       };
       pipeline.rpush(REDIS_EVENTS_KEY, JSON.stringify(normalized));
     }
+    pipeline.ltrim(REDIS_EVENTS_KEY, -REDIS_EVENTS_MAX, -1);
+    pipeline.expire(REDIS_EVENTS_KEY, REDIS_EVENTS_TTL_SECONDS);
     await pipeline.exec();
 
     app.log.info(`Ingested ${events.length} analytics event(s) into Redis`);
@@ -87,6 +93,8 @@ export async function eventsRoutes(app: FastifyInstance) {
       };
       pipeline.rpush(REDIS_EVENTS_KEY, JSON.stringify(normalized));
     }
+    pipeline.ltrim(REDIS_EVENTS_KEY, -REDIS_EVENTS_MAX, -1);
+    pipeline.expire(REDIS_EVENTS_KEY, REDIS_EVENTS_TTL_SECONDS);
     await pipeline.exec();
 
     return reply.status(202).send({

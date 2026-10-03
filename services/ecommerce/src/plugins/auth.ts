@@ -1,3 +1,4 @@
+import { validateAccessUser } from "@trottistore/shared";
 import fp from "fastify-plugin";
 import fjwt from "@fastify/jwt";
 import cookie from "@fastify/cookie";
@@ -67,6 +68,13 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
               code: "UNAUTHORIZED",
               message: "Role invalide dans le token",
             },
+          });
+        }
+        const currentUser = await validateAccessUser(app, payload);
+        if (!currentUser) {
+          return reply.status(401).send({
+            success: false,
+            error: { code: "TOKEN_REVOKED", message: "Session révoquée — reconnectez-vous" },
           });
         }
         request.user = {

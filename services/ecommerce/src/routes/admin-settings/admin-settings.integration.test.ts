@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests for site settings routes.
  *
@@ -47,7 +48,7 @@ function buildApp(): FastifyInstance {
 }
 
 async function signToken(app: FastifyInstance, role = "ADMIN"): Promise<string> {
-  return app.jwt.sign({ sub: "admin-1", email: "admin@test.com", role });
+  return app.jwt.sign({ tokenVersion: 0, sub: "admin-1", email: "admin@test.com", role });
 }
 
 describe("Site settings routes", () => {
@@ -55,6 +56,7 @@ describe("Site settings routes", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(settingsRoutes, { prefix: "/api/v1" });
     await app.ready();

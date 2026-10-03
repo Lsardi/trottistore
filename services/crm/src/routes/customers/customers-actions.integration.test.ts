@@ -65,7 +65,7 @@ function buildApp(): FastifyInstance {
 
   // Simulate ADMIN user for RBAC (T-03/T-04)
   app.addHook("onRequest", async (request) => {
-    request.user = { userId: "admin-1", role: "ADMIN" };
+    request.user = { id: "test-user", email: "test@example.fr", userId: "admin-1", role: "ADMIN" };
   });
 
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {

@@ -1,3 +1,4 @@
+import { requireRole } from "../../plugins/auth.js";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
@@ -172,7 +173,7 @@ export async function newsletterRoutes(app: FastifyInstance) {
   });
 
   // GET /api/v1/newsletter/admin/subscribers — paginated list, filterable
-  app.get("/newsletter/admin/subscribers", async (request, reply) => {
+  app.get("/newsletter/admin/subscribers", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const parsed = listQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -230,7 +231,7 @@ export async function newsletterRoutes(app: FastifyInstance) {
   });
 
   // GET /api/v1/newsletter/admin/export.csv — ADMIN+ only (T-13)
-  app.get("/newsletter/admin/export.csv", async (request, reply) => {
+  app.get("/newsletter/admin/export.csv", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const u = request.user as { role?: string } | undefined;
     if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });

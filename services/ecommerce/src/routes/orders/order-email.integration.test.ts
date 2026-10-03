@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration test: order creation → confirmation email sent.
  *
@@ -180,7 +181,7 @@ function buildApp(): FastifyInstance {
 }
 
 async function getAuthToken(app: FastifyInstance): Promise<string> {
-  return app.jwt.sign({ sub: USER_ID, email: "alice@trottistore.fr", role: "CLIENT" });
+  return app.jwt.sign({ tokenVersion: 0, sub: USER_ID, email: "alice@trottistore.fr", role: "CLIENT" });
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +193,7 @@ describe("Order creation → confirmation email", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(orderRoutes, { prefix: "/api/v1" });
     await app.ready();

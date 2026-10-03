@@ -323,9 +323,12 @@ async function main() {
     const total = Math.round(subtotal * 1.2 * 100) / 100;
     const isPaid = ["PAID", "REFUNDED"].includes(o.payStatus);
 
+    // Stripe payments must carry a provider_ref (CHECK constraint, migration
+    // 20260412170000) — fake a deterministic PaymentIntent id for the demo.
     await prisma.payment.create({
       data: {
         orderId: orderIds[i], provider: "stripe", amount: total,
+        providerRef: `pi_demo_${String(i + 1).padStart(3, "0")}`,
         method: o.method, status: isPaid ? "CONFIRMED" : o.payStatus === "PARTIAL" ? "CONFIRMED" : "PENDING",
         receivedAt: isPaid ? o.created : null,
       },

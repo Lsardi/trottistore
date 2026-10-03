@@ -1,3 +1,4 @@
+import { invalidateAccessUser } from "@trottistore/shared";
 /**
  * Admin user/staff management routes.
  *
@@ -275,6 +276,8 @@ export async function adminUserRoutes(app: FastifyInstance) {
     if (parsed.data.phone !== undefined) updateData.phone = parsed.data.phone;
     if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
 
+    if (parsed.data.role !== undefined || parsed.data.status !== undefined) updateData.tokenVersion = { increment: 1 };
+
     const user = await app.prisma.user.update({
       where: { id },
       data: updateData,
@@ -289,6 +292,7 @@ export async function adminUserRoutes(app: FastifyInstance) {
       },
     });
 
+    if (parsed.data.role !== undefined || parsed.data.status !== undefined) await invalidateAccessUser(app, id);
     return { success: true, data: user };
   });
 

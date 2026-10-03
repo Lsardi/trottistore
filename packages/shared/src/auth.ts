@@ -14,6 +14,7 @@ export const ROLES = [
 export type Role = (typeof ROLES)[number];
 
 export interface JwtAccessPayload {
+  tokenVersion: number;
   sub: string; // user ID (UUID)
   email: string;
   role: Role;
@@ -95,8 +96,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "orders:read", "orders:write",
     "payments:read",
     "customers:read", "customers:write",
-    "campaigns:read",
-    "segments:read",
+    "campaigns:read", "campaigns:write",
+    "segments:read", "segments:write",
     "tickets:read", "tickets:write", "tickets:assign",
     "technicians:read",
     "analytics:read",

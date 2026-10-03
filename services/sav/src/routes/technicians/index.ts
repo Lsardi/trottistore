@@ -130,7 +130,7 @@ export async function technicianRoutes(app: FastifyInstance) {
 
   // PUT /technicians/:id/availability — Update availability (ADMIN/MANAGER only)
   app.put("/technicians/:id/availability", async (request, reply) => {
-    const user = request.user as { role?: string } | undefined;
+    const user = request.user as { role?: string; userId?: string } | undefined;
     if (!user || !["SUPERADMIN", "ADMIN", "MANAGER", "TECHNICIAN"].includes(user.role ?? "")) {
       return reply.status(403).send({
         success: false,
@@ -146,6 +146,14 @@ export async function technicianRoutes(app: FastifyInstance) {
       return reply.status(404).send({
         success: false,
         error: { code: "NOT_FOUND", message: `Technicien ${id} introuvable` },
+      });
+    }
+
+    // A technician may only toggle their own availability; managers handle the rest.
+    if (user.role === "TECHNICIAN" && technician.userId !== user.userId) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Un technicien ne peut modifier que sa propre disponibilité" },
       });
     }
 

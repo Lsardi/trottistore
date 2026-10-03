@@ -15,8 +15,7 @@ name: Audit Gate — required checks before merge
 # CODEOWNERS review + required labels, not by this workflow.
 
 on:
-  pull_request:
-    branches: [main]
+  pull_request: # any base — stacked agent PRs get the gate too
   push:
     branches: [main]
 
@@ -40,9 +39,7 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @trottistore/database db:generate
-      - name: TypeScript strict type check
-        run: pnpm -r exec tsc --noEmit || pnpm tsc --noEmit || true
-      - name: Lint (zero warning)
+      - name: TypeScript strict type check (tsc --noEmit on every package, blocking)
         run: pnpm lint
       - name: Detect `as any` in route handlers
         run: |
@@ -95,7 +92,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: javascript-typescript
-          queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: CodeQL — analyze
         uses: github/codeql-action/analyze@v3
@@ -165,15 +162,15 @@ jobs:
       - name: Prisma generate + push
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/trottistore_test
-        run: pnpm --filter @trottistore/database db:push || true
+        run: pnpm --filter @trottistore/database db:push
       - name: Playwright install
         run: pnpm --filter @trottistore/web exec playwright install --with-deps chromium
-      - name: E2E — Playwright
+      - name: E2E — Playwright (NON-BLOCKING until the suite is green — see AUDIT_2026-10-03.md §7)
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/trottistore_test
           REDIS_URL: redis://localhost:6379
-        run: pnpm --filter @trottistore/web test:e2e || true
-        continue-on-error: true # incremental rollout
+        run: pnpm --filter @trottistore/web test:e2e
+        continue-on-error: true # step shows red on failure instead of being masked by `|| true`
 
   # ──────────────────────────────────────────────────────────────
   # Layer 5 — Property + fuzz
@@ -210,6 +207,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Require security-spec reference for sensitive paths
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -e
           sensitive_paths=$(cat <<'EOF'
@@ -227,8 +229,8 @@ jobs:
           packages/shared/src/
           EOF
           )
-          base=${{ github.event.pull_request.base.sha }}
-          head=${{ github.event.pull_request.head.sha }}
+          base="$PR_BASE_SHA"
+          head="$PR_HEAD_SHA"
           changed=$(git diff --name-only "$base" "$head")
           touches_sensitive=false
           while IFS= read -r path; do
@@ -239,7 +241,7 @@ jobs:
             fi
           done <<< "$sensitive_paths"
           if [ "$touches_sensitive" = "true" ]; then
-            body="${{ github.event.pull_request.body }}"
+            body="$PR_BODY"
             if ! echo "$body" | grep -qE "Refs:\s*#|AUDIT_.*\.md#"; then
               echo "::error::Sensitive path change requires a Refs: line in the PR body"
               echo "::error::Point to a security-spec issue or AUDIT_*.md section"
@@ -248,12 +250,17 @@ jobs:
           fi
 
       - name: Require red test commit for fix(...) PR on sensitive paths
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -e
-          title="${{ github.event.pull_request.title }}"
+          title="$PR_TITLE"
           if echo "$title" | grep -qE "^fix\("; then
-            base=${{ github.event.pull_request.base.sha }}
-            head=${{ github.event.pull_request.head.sha }}
+            base="$PR_BASE_SHA"
+            head="$PR_HEAD_SHA"
             if ! git log --format="%s" "$base".."$head" | grep -qE "^test\(.*\):.*red"; then
               echo "::warning::fix(...) PR without a visible 'test(...): red' commit."
               echo "::warning::Governance requires a red test committed before the fix."

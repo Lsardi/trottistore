@@ -1,3 +1,4 @@
+import { requirePermission } from "../../plugins/auth.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { parseIdParam } from "@trottistore/shared";
@@ -62,7 +63,7 @@ export async function segmentRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // GET /segments — List all segments with count
   // ───────────────────────────────────────────────────────────
-  app.get("/segments", async (_request, _reply) => {
+  app.get("/segments", { preHandler: [requirePermission("segments:read")] }, async (_request, _reply) => {
     const segments = await app.prisma.customerSegment.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -73,7 +74,7 @@ export async function segmentRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // POST /segments — Create a new segment (ADMIN+ only, T-12)
   // ───────────────────────────────────────────────────────────
-  app.post("/segments", async (request, reply) => {
+  app.post("/segments", { preHandler: [requirePermission("segments:write")] }, async (request, reply) => {
     const u = request.user as { role?: string } | undefined;
     if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });
@@ -102,7 +103,7 @@ export async function segmentRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // POST /segments/:id/evaluate — Re-evaluate segment count (ADMIN+ only, T-12)
   // ───────────────────────────────────────────────────────────
-  app.post("/segments/:id/evaluate", async (request, reply) => {
+  app.post("/segments/:id/evaluate", { preHandler: [requirePermission("segments:write")] }, async (request, reply) => {
     const u = request.user as { role?: string } | undefined;
     if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });

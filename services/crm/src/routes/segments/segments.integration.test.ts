@@ -43,7 +43,7 @@ function buildApp(role = "ADMIN"): FastifyInstance {
   });
 
   app.addHook("onRequest", async (request) => {
-    request.user = { userId: `${role.toLowerCase()}-1`, role };
+    request.user = { id: "test-user", email: "test@example.fr", userId: `${role.toLowerCase()}-1`, role };
   });
 
   return app;

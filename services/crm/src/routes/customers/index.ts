@@ -1,6 +1,20 @@
+import { requirePermission, requireRole } from "../../plugins/auth.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { parseIdParam } from "@trottistore/shared";
+import { parseIdParam, invalidateAccessUser } from "@trottistore/shared";
+
+const customerSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  role: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  emailVerified: true,
+} as const;
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -62,7 +76,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // GET /customers — Paginated list with filters
   // ───────────────────────────────────────────────────────────
-  app.get("/customers", async (request, reply) => {
+  app.get("/customers", { preHandler: [requirePermission("customers:read")] }, async (request, reply) => {
     const query = listQuerySchema.parse(request.query);
     const { page, limit, search, loyaltyTier, tags, minSpent, maxSpent, source, sort } = query;
     const skip = (page - 1) * limit;
@@ -195,12 +209,13 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // GET /customers/:id — Full 360-degree profile
   // ───────────────────────────────────────────────────────────
-  app.get("/customers/:id", async (request, reply) => {
+  app.get("/customers/:id", { preHandler: [requirePermission("customers:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
 
     const customer = await app.prisma.user.findUnique({
       where: { id },
-      include: {
+      select: {
+        ...customerSelect,
         customerProfile: {
           include: {
             loyaltyLog: {
@@ -274,13 +289,13 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // PUT /customers/:id — Update customer profile (admin CRM)
   // ───────────────────────────────────────────────────────────
-  app.put("/customers/:id", async (request, reply) => {
+  app.put("/customers/:id", { preHandler: [requirePermission("customers:write")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const body = updateCustomerSchema.parse(request.body);
 
     const existing = await app.prisma.user.findUnique({
       where: { id },
-      include: { customerProfile: true },
+      select: { id: true, role: true, customerProfile: true },
     });
 
     if (!existing) {
@@ -347,7 +362,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // GET /customers/:id/timeline — Paginated interaction history
   // ───────────────────────────────────────────────────────────
-  app.get("/customers/:id/timeline", async (request, reply) => {
+  app.get("/customers/:id/timeline", { preHandler: [requirePermission("customers:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const query = timelineQuerySchema.parse(request.query);
     const { page, limit, type } = query;
@@ -401,7 +416,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // POST /customers/:id/loyalty/add — Add loyalty points
   // ───────────────────────────────────────────────────────────
-  app.post("/customers/:id/loyalty/add", async (request, reply) => {
+  app.post("/customers/:id/loyalty/add", { preHandler: [requirePermission("customers:write")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const body = addPointsSchema.parse(request.body);
 
@@ -462,7 +477,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // POST /customers/:id/interactions — Create interaction
   // ───────────────────────────────────────────────────────────
-  app.post("/customers/:id/interactions", async (request, reply) => {
+  app.post("/customers/:id/interactions", { preHandler: [requirePermission("customers:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const body = createInteractionSchema.parse(request.body);
 
@@ -496,7 +511,7 @@ export async function customerRoutes(app: FastifyInstance) {
   });
 
   // GET /customers/:id/garage — Full repair + purchase history (timeline)
-  app.get("/customers/:id/garage", async (request, reply) => {
+  app.get("/customers/:id/garage", { preHandler: [requirePermission("customers:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
 
     // Get customer profile
@@ -609,7 +624,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // PUT /customers/:id/status — Activate, suspend, or ban a customer (ADMIN+ only)
   // ───────────────────────────────────────────────────────────
-  app.put("/customers/:id/status", async (request, reply) => {
+  app.put("/customers/:id/status", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     // T-04: RBAC — only SUPERADMIN/ADMIN can change account status
     const reqUserStatus = request.user as { role?: string } | undefined;
     if (!reqUserStatus || !["SUPERADMIN", "ADMIN"].includes(reqUserStatus.role ?? "")) {
@@ -636,11 +651,16 @@ export async function customerRoutes(app: FastifyInstance) {
       });
     }
 
+    if (existing.role !== "CLIENT") {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Seuls les comptes clients peuvent changer de statut ici" } });
+    }
     const user = await app.prisma.user.update({
       where: { id },
-      data: { status: body.status },
+      data: { status: body.status, tokenVersion: { increment: 1 } },
       select: { id: true, email: true, firstName: true, lastName: true, status: true },
     });
+
+    await invalidateAccessUser(app, id);
 
     // Log the interaction
     await app.prisma.customerInteraction.create({
@@ -664,11 +684,13 @@ export async function customerRoutes(app: FastifyInstance) {
   // Aggregates everything the CRM can read about a customer into a
   // single JSON document. Returned as a downloadable file so the
   // admin can forward it to the customer on request.
-  app.get("/customers/:id/rgpd-export", async (request, reply) => {
+  app.get("/customers/:id/rgpd-export", { preHandler: [requirePermission("customers:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const customer = await app.prisma.user.findUnique({
       where: { id },
-      include: {
+      select: {
+        ...customerSelect,
+        lastLoginAt: true, loginCount: true,
         customerProfile: { include: { loyaltyLog: true } },
         addresses: true,
         orders: {
@@ -738,7 +760,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // Replaces PII with anonymous placeholders but keeps the user row
   // + order history because the orders have legal value for tax
   // DELETE /customers/:id — Hard delete a customer (SUPERADMIN/ADMIN only)
-  app.delete("/customers/:id", async (request, reply) => {
+  app.delete("/customers/:id", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const reqUser = request.user as { role?: string } | undefined;
     if (!reqUser || !["SUPERADMIN", "ADMIN"].includes(reqUser.role ?? "")) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Seuls SUPERADMIN et ADMIN peuvent supprimer un compte" } });
@@ -771,7 +793,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // purposes (min 10 years retention). The customer is banned to
   // prevent new logins, the email is rewritten to a non-routable
   // sentinel, and the customerProfile is wiped of identifying tags.
-  app.post("/customers/:id/anonymize", async (request, reply) => {
+  app.post("/customers/:id/anonymize", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     const reqUser = request.user as { role?: string } | undefined;
     if (!reqUser || !["SUPERADMIN", "ADMIN"].includes(reqUser.role ?? "")) {
       return reply.status(403).send({
@@ -816,6 +838,7 @@ export async function customerRoutes(app: FastifyInstance) {
           phone: null,
           passwordHash: null,
           status: "BANNED",
+          tokenVersion: { increment: 1 },
           metadata: {},
         },
       });
@@ -874,6 +897,7 @@ export async function customerRoutes(app: FastifyInstance) {
       });
     });
 
+    await invalidateAccessUser(app, id);
     app.log.info({ customerId: id, userId: (reqUser as { userId?: string })?.userId }, "Customer anonymized (RGPD art. 17)");
 
     return { success: true };
@@ -882,7 +906,7 @@ export async function customerRoutes(app: FastifyInstance) {
   // ───────────────────────────────────────────────────────────
   // POST /customers/merge — Merge two customer accounts into one
   // ───────────────────────────────────────────────────────────
-  app.post("/customers/merge", async (request, reply) => {
+  app.post("/customers/merge", { preHandler: [requireRole("SUPERADMIN", "ADMIN")] }, async (request, reply) => {
     // T-03: RBAC — only SUPERADMIN/ADMIN can merge accounts
     const reqUser = request.user as { role?: string } | undefined;
     if (!reqUser || !["SUPERADMIN", "ADMIN"].includes(reqUser.role ?? "")) {
@@ -1002,6 +1026,7 @@ export async function customerRoutes(app: FastifyInstance) {
         where: { id: body.mergeId },
         data: {
           status: "INACTIVE",
+          tokenVersion: { increment: 1 },
           email: `merged_${body.mergeId}@deleted.local`,
         },
       });
@@ -1018,6 +1043,7 @@ export async function customerRoutes(app: FastifyInstance) {
       });
     });
 
+    await invalidateAccessUser(app, body.mergeId);
     app.log.info({ keepId: body.keepId, mergeId: body.mergeId, userId: (reqUser as { userId?: string })?.userId }, "Customer accounts merged");
 
     return {

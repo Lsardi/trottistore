@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests verifying that emails are ACTUALLY sent (sendEmail called
  * with correct arguments) for: registration, forgot-password.
@@ -91,6 +92,7 @@ describe("Email sending verification", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(authRoutes, { prefix: "/api/v1" });
     await app.ready();

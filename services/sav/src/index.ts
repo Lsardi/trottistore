@@ -106,20 +106,14 @@ async function start() {
       request.method === "GET" &&
       (path === "/api/v1/repairs/scooter-models" || path === "/repairs/scooter-models");
 
-    if (
-      isHealth ||
-      isPublicTracking ||
-      isPublicSlots ||
-      isPublicAppointmentBooking ||
-      isPublicQuoteAccept ||
-      isPublicScooterModels
-    ) {
+    if (isHealth || isPublicTracking || isPublicSlots || isPublicScooterModels) {
       return;
     }
 
-    // Intake stays public for guests, but if a token is provided we authenticate
-    // so the ticket can be linked to the connected customer account.
-    if (isPublicSavIntake) {
+    // Intake, booking and quote acceptance stay public for guests, but if a
+    // token is provided we authenticate so the action can be tied to the
+    // connected customer (ticket linkage, ownership checks instead of tracking token).
+    if (isPublicSavIntake || isPublicAppointmentBooking || isPublicQuoteAccept) {
       if (hasAuthorizationHeader) {
         await app.authenticate(request, reply);
       }

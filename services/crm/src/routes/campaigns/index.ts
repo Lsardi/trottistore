@@ -1,3 +1,4 @@
+import { requirePermission } from "../../plugins/auth.js";
 /**
  * Campaign routes — email marketing campaigns with segment targeting.
  *
@@ -70,7 +71,7 @@ function buildProfileWhere(criteria: SegmentCriteria) {
 export async function campaignRoutes(app: FastifyInstance) {
 
   // GET /campaigns — List all campaigns
-  app.get("/campaigns", async () => {
+  app.get("/campaigns", { preHandler: [requirePermission("campaigns:read")] }, async () => {
     const campaigns = await app.prisma.emailCampaign.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -78,7 +79,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // GET /campaigns/:id — Single campaign detail
-  app.get("/campaigns/:id", async (request, reply) => {
+  app.get("/campaigns/:id", { preHandler: [requirePermission("campaigns:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const campaign = await app.prisma.emailCampaign.findUnique({ where: { id } });
     if (!campaign) {
@@ -91,7 +92,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // POST /campaigns — Create draft campaign
-  app.post("/campaigns", async (request, reply) => {
+  app.post("/campaigns", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const body = createCampaignSchema.parse(request.body);
 
     if (body.segmentId) {
@@ -125,7 +126,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // PUT /campaigns/:id — Update a DRAFT campaign
-  app.put("/campaigns/:id", async (request, reply) => {
+  app.put("/campaigns/:id", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const body = updateCampaignSchema.parse(request.body);
 
@@ -159,7 +160,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // DELETE /campaigns/:id — Delete a campaign
-  app.delete("/campaigns/:id", async (request, reply) => {
+  app.delete("/campaigns/:id", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
 
     const existing = await app.prisma.emailCampaign.findUnique({ where: { id } });
@@ -185,7 +186,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // GET /campaigns/:id/stats — Campaign statistics
-  app.get("/campaigns/:id/stats", async (request, reply) => {
+  app.get("/campaigns/:id/stats", { preHandler: [requirePermission("campaigns:read")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const campaign = await app.prisma.emailCampaign.findUnique({
       where: { id },
@@ -230,7 +231,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // POST /campaigns/:id/preview — Send a test email to the requester
-  app.post("/campaigns/:id/preview", async (request, reply) => {
+  app.post("/campaigns/:id/preview", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const id = parseIdParam(request.params);
     const { email } = (request.body as { email?: string }) || {};
 
@@ -268,7 +269,7 @@ export async function campaignRoutes(app: FastifyInstance) {
   });
 
   // POST /campaigns/:id/send — Execute campaign (ADMIN+ only, T-11)
-  app.post("/campaigns/:id/send", async (request, reply) => {
+  app.post("/campaigns/:id/send", { preHandler: [requirePermission("campaigns:write")] }, async (request, reply) => {
     const u = request.user as { role?: string } | undefined;
     if (!u || !["SUPERADMIN", "ADMIN"].includes(u.role ?? "")) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Réservé aux administrateurs" } });
@@ -355,13 +356,29 @@ export async function campaignRoutes(app: FastifyInstance) {
     let failed = 0;
 
     for (const profile of eligibleProfiles) {
-      // Idempotence: skip if already sent
-      const existing = await app.prisma.campaignSend.findUnique({
-        where: { campaignId_customerId: { campaignId: id, customerId: profile.userId } },
-      });
-      if (existing) {
-        sent++;
-        continue;
+      // Claim the recipient BEFORE sending: the unique (campaignId, customerId)
+      // row is the lock. Two workers racing on the same campaign can't both
+      // email the same person, and a crash between send and bookkeeping leaves
+      // a visible PENDING row instead of a silent double send on recovery.
+      try {
+        await app.prisma.campaignSend.create({
+          data: { campaignId: id, customerId: profile.userId, email: profile.user.email, status: "PENDING" },
+        });
+      } catch (err) {
+        if ((err as { code?: string }).code !== "P2002") throw err;
+        // Row exists: SENT → already done; FAILED → retry by re-claiming; PENDING → another worker owns it.
+        const retry = await app.prisma.campaignSend.updateMany({
+          where: { campaignId: id, customerId: profile.userId, status: "FAILED" },
+          data: { status: "PENDING", errorMessage: null },
+        });
+        if (retry.count !== 1) {
+          const existing = await app.prisma.campaignSend.findUnique({
+            where: { campaignId_customerId: { campaignId: id, customerId: profile.userId } },
+            select: { status: true },
+          });
+          if (existing?.status === "SENT") sent++;
+          continue;
+        }
       }
 
       const success = await sendEmail(
@@ -371,11 +388,9 @@ export async function campaignRoutes(app: FastifyInstance) {
         { senderName: "TrottiStore", senderEmail: "marketing@trottistore.fr" },
       );
 
-      await app.prisma.campaignSend.create({
+      await app.prisma.campaignSend.updateMany({
+        where: { campaignId: id, customerId: profile.userId },
         data: {
-          campaignId: id,
-          customerId: profile.userId,
-          email: profile.user.email,
           status: success ? "SENT" : "FAILED",
           errorMessage: success ? null : "Email delivery failed",
         },

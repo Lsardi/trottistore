@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests for admin routes.
  *
@@ -109,7 +110,7 @@ async function signToken(
   role: string,
   userId = "admin-1",
 ): Promise<string> {
-  return app.jwt.sign({ sub: userId, email: "admin@trottistore.fr", role });
+  return app.jwt.sign({ tokenVersion: 0, sub: userId, email: "admin@trottistore.fr", role });
 }
 
 // ---------------------------------------------------------------------------
@@ -121,6 +122,7 @@ describe("Admin routes", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(adminRoutes, { prefix: "/api/v1" });
     await app.ready();

@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
@@ -107,6 +108,7 @@ describe("E-commerce smoke suite", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(authRoutes, { prefix: "/api/v1" });
     await app.register(productRoutes, { prefix: "/api/v1" });
@@ -126,7 +128,7 @@ describe("E-commerce smoke suite", () => {
   });
 
   it("smoke/auth: rejects token with unknown role", async () => {
-    const token = app.jwt.sign({
+    const token = app.jwt.sign({ tokenVersion: 0,
       sub: "00000000-0000-0000-0000-000000000444",
       email: "badrole@trottistore.test",
       role: "TECHNICIEN",
@@ -143,7 +145,7 @@ describe("E-commerce smoke suite", () => {
   });
 
   it("smoke/auth: POST /api/v1/auth/logout-all revokes refresh tokens for current user", async () => {
-    const token = app.jwt.sign({
+    const token = app.jwt.sign({ tokenVersion: 0,
       sub: "00000000-0000-0000-0000-000000000555",
       email: "logoutall@trottistore.test",
       role: "CLIENT",
@@ -158,6 +160,11 @@ describe("E-commerce smoke suite", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().success).toBe(true);
+    expect(app.prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "00000000-0000-0000-0000-000000000555" },
+      data: { tokenVersion: { increment: 1 } },
+    });
+    expect(app.redis.del).toHaveBeenCalledWith("auth:user:00000000-0000-0000-0000-000000000555");
     expect(app.prisma.refreshToken.updateMany).toHaveBeenCalledWith({
       where: { userId: "00000000-0000-0000-0000-000000000555", revokedAt: null },
       data: { revokedAt: expect.any(Date) },

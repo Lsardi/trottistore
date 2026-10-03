@@ -196,8 +196,8 @@ describe("Newsletter routes", () => {
         method: "GET",
         url: "/api/v1/newsletter/admin/export.csv",
       });
-      expect(res.statusCode).toBe(403);
-      expect(res.json().error.code).toBe("FORBIDDEN");
+      expect(res.statusCode).toBe(401);
+      expect(res.json().error.code).toBe("UNAUTHORIZED");
     });
   });
 });

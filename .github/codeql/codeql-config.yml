@@ -1,0 +1,12 @@
+name: TrottiStore CodeQL
+queries:
+  - uses: security-and-quality
+# Test code and fixtures: mock auth hooks, seeded credentials, fake routes.
+# They never ship and trip rules such as "missing rate limiting".
+paths-ignore:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "tests/**"
+  - "apps/web/e2e/**"
+  - "scripts/**"
+  - "**/node_modules/**"

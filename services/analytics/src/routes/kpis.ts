@@ -123,9 +123,10 @@ export async function kpisRoutes(app: FastifyInstance) {
 
     const avgOrderValue = ordersCount > 0 ? totalRevenue / ordersCount : 0;
 
-    // Conversion rate placeholder: orders / estimated visits (orders * 25 as mock visitors)
-    const estimatedVisitors = ordersCount * 25 || 1;
-    const conversionRate = (ordersCount / estimatedVisitors) * 100;
+    // No visitor tracking is wired yet (funnel events are buffered, not aggregated).
+    // Report the metric as unavailable rather than a fabricated 4% (orders × 25 "visitors").
+    const estimatedVisitors: number | null = null;
+    const conversionRate: number | null = null;
 
     const result = {
       period,
@@ -135,8 +136,9 @@ export async function kpisRoutes(app: FastifyInstance) {
       averageOrderValue: Math.round(avgOrderValue * 100) / 100,
       newCustomers: newCustomersCount,
       returningCustomers,
-      conversionRate: Math.round(conversionRate * 100) / 100,
+      conversionRate,
       estimatedVisitors,
+      conversionRateAvailable: false,
       currency: "EUR",
       periodStart: periodStart.toISOString(),
       updatedAt: new Date().toISOString(),

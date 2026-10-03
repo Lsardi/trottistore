@@ -1,3 +1,4 @@
+import { mockActiveAuthUsers } from "../../../../../tests/helpers/auth-users.js";
 /**
  * Integration tests for password reset flow.
  *
@@ -88,6 +89,7 @@ describe("Password reset flow", () => {
 
   beforeAll(async () => {
     app = buildApp();
+    mockActiveAuthUsers(app);
     await app.register(authPlugin);
     await app.register(authRoutes, { prefix: "/api/v1" });
     await app.ready();
@@ -205,6 +207,11 @@ describe("Password reset flow", () => {
         }),
       );
       expect(app.prisma.user.update).toHaveBeenCalledOnce();
+      expect(app.prisma.user.update).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        data: { passwordHash: expect.any(String), tokenVersion: { increment: 1 } },
+      });
+      expect(app.redis.del).toHaveBeenCalledWith("auth:user:user-1");
       expect(app.prisma.refreshToken.updateMany).toHaveBeenCalledOnce();
     });
 
