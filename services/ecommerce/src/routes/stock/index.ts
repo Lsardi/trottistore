@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { notifyBackInStock } from "../../lib/back-in-stock.js";
 
 // --- Zod Schemas ---
 
@@ -27,6 +28,19 @@ const listMovementsSchema = z.object({
   type: movementTypeEnum.optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const inventoryCountSchema = z.object({
+  counts: z
+    .array(
+      z.object({
+        variantId: z.string().uuid(),
+        counted: z.number().int().min(0),
+      }),
+    )
+    .min(1)
+    .max(500),
+  reason: z.string().max(500).optional(),
 });
 
 const alertsQuerySchema = z.object({
@@ -135,54 +149,9 @@ export async function stockRoutes(app: FastifyInstance) {
 
     if (!result || "statusCode" in result) return result;
 
-    // T-37: Notify users who signed up for stock alerts when product is back in stock
+    // T-37: notify customers waiting for this product when it comes back in stock.
     if (result.stockAfter > 0 && result.movement.quantity > 0) {
-      // Fire and forget — don't block the stock movement response
-      void (async () => {
-        try {
-          const variant = await app.prisma.productVariant.findUnique({
-            where: { id: body.variantId },
-            select: { productId: true, name: true, product: { select: { name: true, slug: true } } },
-          });
-          if (!variant) return;
-
-          const alerts = await app.prisma.stockAlert.findMany({
-            where: {
-              productId: variant.productId,
-              status: "ACTIVE",
-              notifiedAt: null,
-            },
-            take: 100,
-          });
-          if (alerts.length === 0) return;
-
-          const { sendEmail } = await import("@trottistore/shared/notifications");
-          const baseUrl = process.env.BASE_URL || "http://localhost:3000";
-          const productName = variant.product?.name || "Produit";
-          const productUrl = `${baseUrl}/produits/${variant.product?.slug || ""}`;
-
-          for (const alert of alerts) {
-            try {
-              await sendEmail(
-                alert.email,
-                `${productName} est de retour en stock !`,
-                `<p>Bonjour,</p>
-                 <p>Le produit <strong>${productName}</strong>${variant.name ? ` (${variant.name})` : ""} que vous attendiez est de retour en stock !</p>
-                 <p><a href="${productUrl}">Voir le produit</a></p>
-                 <p>L'équipe TrottiStore</p>`,
-              );
-              await app.prisma.stockAlert.update({
-                where: { id: alert.id },
-                data: { notifiedAt: new Date(), status: "NOTIFIED" },
-              });
-            } catch (err) {
-              app.log.error({ err, alertId: alert.id }, "Failed to send stock alert notification");
-            }
-          }
-        } catch (err) {
-          app.log.error({ err }, "Stock alert notification batch failed");
-        }
-      })();
+      notifyBackInStock(app, body.variantId);
     }
 
     return reply.status(201).send({
@@ -352,5 +321,92 @@ export async function stockRoutes(app: FastifyInstance) {
         currentStock: s.stock_quantity,
       })),
     };
+  });
+
+  // POST /stock/inventory — comptage physique: aligne le stock sur le compté,
+  // trace chaque écart comme IN_/OUT_ADJUSTMENT (référence INVENTORY).
+  // Idempotent par nature : recompter la même valeur ne produit aucun mouvement.
+  app.post("/stock/inventory", async (request, reply) => {
+    const user = getRequestUser(request);
+    if (!user || !["SUPERADMIN", "ADMIN", "MANAGER", "STAFF"].includes(user.role)) {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Accès réservé au personnel" } });
+    }
+    const parsed = inventoryCountSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: "VALIDATION_ERROR", message: "Invalid inventory payload", details: parsed.error.flatten().fieldErrors },
+      });
+    }
+    const inventoryRef = `INV-${new Date().toISOString().slice(0, 10)}-${Date.now().toString(36)}`;
+
+    const adjustments = await app.prisma.$transaction(async (tx) => {
+      const out: Array<{ variantId: string; sku: string; before: number; counted: number; delta: number; belowReserved: boolean }> = [];
+      for (const line of parsed.data.counts) {
+        const variant = await tx.productVariant.findUnique({
+          where: { id: line.variantId },
+          select: { id: true, sku: true, stockQuantity: true, stockReserved: true },
+        });
+        if (!variant) {
+          throw Object.assign(new Error(`Variante ${line.variantId} introuvable`), { statusCode: 404, code: "VARIANT_NOT_FOUND" });
+        }
+        const delta = line.counted - variant.stockQuantity;
+        if (delta === 0) continue;
+        // Conditional on the value we read: a concurrent sale between read and
+        // write must not be silently overwritten by the count.
+        const applied = await tx.productVariant.updateMany({
+          where: { id: variant.id, stockQuantity: variant.stockQuantity },
+          data: { stockQuantity: line.counted },
+        });
+        if (applied.count !== 1) {
+          throw Object.assign(new Error(`Stock de ${variant.sku} modifié pendant le comptage, recomptez`), {
+            statusCode: 409,
+            code: "STOCK_CHANGED",
+          });
+        }
+        await tx.stockMovement.create({
+          data: {
+            variantId: variant.id,
+            type: delta > 0 ? "IN_ADJUSTMENT" : "OUT_ADJUSTMENT",
+            quantity: delta,
+            reason: parsed.data.reason ?? "Inventaire",
+            referenceId: inventoryRef,
+            referenceType: "INVENTORY",
+            performedBy: user.userId,
+            stockBefore: variant.stockQuantity,
+            stockAfter: line.counted,
+          },
+        });
+        out.push({
+          variantId: variant.id,
+          sku: variant.sku,
+          before: variant.stockQuantity,
+          counted: line.counted,
+          delta,
+          belowReserved: line.counted < variant.stockReserved,
+        });
+      }
+      return out;
+    }).catch((err: { statusCode?: number; code?: string; message?: string }) => {
+      if (err.statusCode && err.statusCode < 500) {
+        return reply.status(err.statusCode).send({ success: false, error: { code: err.code ?? "ERROR", message: err.message ?? "" } });
+      }
+      throw err;
+    });
+    if (!adjustments || !Array.isArray(adjustments)) return adjustments;
+
+    app.log.info({ inventoryRef, counted: parsed.data.counts.length, adjusted: adjustments.length, userId: user.userId }, "Inventory count applied");
+    for (const a of adjustments) if (a.before <= 0 && a.counted > 0) notifyBackInStock(app, a.variantId);
+
+    return reply.status(201).send({
+      success: true,
+      data: {
+        inventoryRef,
+        counted: parsed.data.counts.length,
+        adjusted: adjustments.length,
+        adjustments,
+        warnings: adjustments.filter((a) => a.belowReserved).map((a) => `${a.sku}: compté ${a.counted} < réservé`),
+      },
+    });
   });
 }

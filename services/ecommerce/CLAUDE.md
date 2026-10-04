@@ -21,7 +21,10 @@ pnpm vitest run --project ecommerce -- src/routes/orders  # Subset
 | /checkout | required | Stripe PaymentIntent flow |
 | /addresses | required | User address CRUD |
 | /admin | ADMIN+ | Admin panel endpoints |
-| /stock | ADMIN+ | Stock movements |
+| /admin/pos | STAFF+ | Caisse: register session open/close, barcode lookup, counter sales (Order channel=STORE) |
+| /admin/today | STAFF+ | "Aujourd'hui" action list: orders to prepare/pickup/ship, awaiting payment, low stock, register |
+| /admin/purchase-orders/:id/receive | MANAGER+ | Supplier receipt → stock + IN_PURCHASE movements, PO PARTIAL/RECEIVED |
+| /stock | STAFF+ | Stock movements; POST /stock/inventory = physical count → adjustments |
 | /merchant | public | Google Merchant feed |
 | /leads | public | Pro lead capture |
 
@@ -40,7 +43,9 @@ cors, helmet, rate-limit (100/min), prisma, redis, auth (JWT + cookie)
 - Cart stored in Redis (key: `cart:{userId}` or `cart:anon:{sessionId}`)
 - Checkout: validate cart → create order in `$transaction` → create payment → clear cart
 - Stripe webhook at POST /checkout/webhook (verify signature with STRIPE_WEBHOOK_SECRET)
-- Stock decremented atomically in transaction on order creation
+- Stock decremented atomically in transaction on order creation (same guard for POS sales: `stockQuantity - stockReserved >= qty`)
+- Counter sales: `routes/pos` — walk-in customer = technical user `comptoir@trottistore.local`; one OPEN PosSession at a time (partial unique index)
+- Back-in-stock customer alerts: `lib/back-in-stock.ts`, called after any stock increase (movement, receipt, inventory)
 
 ## Env vars
 

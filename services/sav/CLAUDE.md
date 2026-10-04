@@ -19,6 +19,7 @@ Hybrid auth: some endpoints are public (guest repair intake), others require JWT
 | GET /appointments/slots | public | Available appointment slots |
 | POST /appointments | public | Book appointment |
 | PUT /**/quote/accept-client | public | Accept quote |
+| GET /today | staff | Opening checklist: today's appointments, tickets to diagnose / in progress / ready, quotes unanswered > 48h, waiting parts (TECHNICIAN: own tickets only) |
 | Everything else | required | List/update tickets, technicians, stats |
 
 ## Repair status machine
